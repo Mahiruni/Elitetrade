@@ -259,14 +259,15 @@ function legalPage(path) {
 }
 function authPage(path) {
   const mfa = state.requiresMfa && path === '/login';
-  const title = mfa ? 'Verify your sign-in' : ({ '/login':'Welcome back.', '/signup':'Create your account.', '/forgot-password':'Reset your password.', '/reset-password':'Choose a new password.' })[path];
+  const title = mfa ? 'Verify your sign-in' : ({ '/login':'Welcome back.', '/signup':'Create your account.', '/resend-confirmation':'Resend confirmation.', '/forgot-password':'Reset your password.', '/reset-password':'Choose a new password.' })[path];
   let contents;
   if (mfa) contents = form('mfa-login', field('Authenticator code','code','','text','required inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code" maxlength="6"'), 'Verify and sign in') + `<div class="auth-bottom">${btn('Use a different account','logout','','class="ghost"')}</div>`;
   else if (path === '/login') contents = form('login', field('Email address','email','','email','required autocomplete="email"') + password('Password','password') + '<div class="auth-links"><a href="/forgot-password">Forgot password?</a><a href="/support">Need help?</a></div>', 'Sign in') + '<div class="auth-bottom">New to Elite Bot? <a href="/signup">Create an account</a></div>' + (state.config.demoMode ? '<div class="auth-bottom"><button type="button" class="ghost" data-action="demo">Continue as Demo</button></div>' : '');
-  else if (path === '/signup') contents = form('signup', field('Full name','name','','text','required minlength="2" maxlength="64" autocomplete="name"') + field('Email address','email','','email','required autocomplete="email"') + password('Password','password','new-password') + '<small>Use at least 12 characters.</small>' + field('Referral code · optional','referral',new URLSearchParams(location.search).get('ref') || '', 'text','maxlength="30"') + '<label class="check legal-consent"><input type="checkbox" name="terms" required> <span>I agree to the <a href="/terms">Terms</a>, <a href="/privacy">Privacy Policy</a>, and <a href="/risk-disclosure">Risk Disclosure</a>.</span></label>', 'Create account') + '<div class="auth-bottom">Already registered? <a href="/login">Sign in</a></div>';
+  else if (path === '/signup') contents = form('signup', field('Full name','name','','text','required minlength="2" maxlength="64" autocomplete="name"') + field('Email address','email','','email','required autocomplete="email"') + password('Password','password','new-password') + '<small>Use at least 12 characters.</small>' + field('Referral code · optional','referral',new URLSearchParams(location.search).get('ref') || '', 'text','maxlength="30"') + '<label class="check legal-consent"><input type="checkbox" name="terms" required> <span>I agree to the <a href="/terms">Terms</a>, <a href="/privacy">Privacy Policy</a>, and <a href="/risk-disclosure">Risk Disclosure</a>.</span></label>', 'Create account') + '<div class="auth-bottom">Already registered? <a href="/login">Sign in</a> · <a href="/resend-confirmation">Resend confirmation</a></div>';
+  else if (path === '/resend-confirmation') contents = form('resend-confirmation-form', field('Email address','email',new URLSearchParams(location.search).get('email') || '','email','required autocomplete="email"'), 'Resend confirmation email') + '<div class="auth-bottom"><a href="/login">Back to sign in</a></div>';
   else if (path === '/forgot-password') contents = form('forgot', field('Email address','email','','email','required autocomplete="email"'), 'Send recovery link') + '<div class="auth-bottom"><a href="/login">Back to sign in</a></div>';
   else contents = form('reset', password('New password','password','new-password') + password('Confirm password','confirm','new-password'), 'Reset password') + '<div class="auth-bottom"><a href="/login">Back to sign in</a></div>';
-  root.innerHTML = `<main id="main" class="auth-wrap"><section class="auth-story">${brand}<div class="eyebrow">Built for your next move</div><h2 class="auth-title">Your trading.<br><em>In focus.</em></h2><p>A clear view of your accounts, trading bots, and everything that keeps you connected.</p><div class="auth-features"><div class="auth-feature">${icon('terminal')}<div><strong>One connected workspace</strong><p>Keep your MT5 accounts and bot controls together.</p></div></div><div class="auth-feature">${icon('shield')}<div><strong>Stay in control</strong><p>Manage risk settings, account access, and security.</p></div></div></div><footer><small>Trading involves risk. Performance is not guaranteed.</small></footer></section><section class="auth-form-side"><div class="auth-theme">${themeButton()}</div><div class="auth-form"><div class="eyebrow">ELITE BOT / ACCOUNT</div><h1>${title}</h1><p>${mfa ? 'Enter the six-digit code from your authenticator app.' : path === '/signup' ? 'Your trading workspace starts here.' : path === '/login' ? 'Sign in to continue to your workspace.' : 'Secure access to your trading workspace.'}</p>${contents}</div></section></main>`;
+  root.innerHTML = `<main id="main" class="auth-wrap"><section class="auth-story">${brand}<div class="eyebrow">Built for your next move</div><h2 class="auth-title">Your trading.<br><em>In focus.</em></h2><p>A clear view of your accounts, trading bots, and everything that keeps you connected.</p><div class="auth-features"><div class="auth-feature">${icon('terminal')}<div><strong>One connected workspace</strong><p>Keep your MT5 accounts and bot controls together.</p></div></div><div class="auth-feature">${icon('shield')}<div><strong>Stay in control</strong><p>Manage risk settings, account access, and security.</p></div></div></div><footer><small>Trading involves risk. Performance is not guaranteed.</small></footer></section><section class="auth-form-side"><div class="auth-theme">${themeButton()}</div><div class="auth-form"><div class="eyebrow">ELITE BOT / ACCOUNT</div><h1>${title}</h1><p>${mfa ? 'Enter the six-digit code from your authenticator app.' : path === '/signup' ? 'Your trading workspace starts here.' : path === '/resend-confirmation' ? 'Request a fresh verification link for an unconfirmed account.' : path === '/login' ? 'Sign in to continue to your workspace.' : 'Secure access to your trading workspace.'}</p>${contents}</div></section></main>`;
 }
 const activation = () => state.user.active || state.user.role === 'admin' ? '' : '<div class="notice">Activate your subscription to connect an MT5 account and start trading bots. <a href="/subscription">View subscription</a></div>';
 async function terminalPage() {
@@ -336,7 +337,7 @@ async function render({ quiet = false } = {}) {
   document.body.classList.remove('menu-open');
   if (path === '/dashboard') { path = state.user ? '/mt5' : '/login'; history.replaceState(null,'',path); }
   if (path === '/logout') { await logout(); return; }
-  const auth = ['/login','/signup','/forgot-password','/reset-password'].includes(path);
+  const auth = ['/login','/signup','/resend-confirmation','/forgot-password','/reset-password'].includes(path);
   const publicRoutes = ['/','/support','/terms','/privacy','/risk-disclosure','/refund-policy','/cookies'];
   if (!state.user && !auth && !publicRoutes.includes(path)) { history.replaceState(null,'','/login'); authPage('/login'); return; }
   if (auth) { if (state.user && ['/login','/signup'].includes(path)) { navigate('/mt5',true); return; } authPage(path); return; }
@@ -457,6 +458,11 @@ document.addEventListener('submit',async event => {
       navigate('/subscription',true);
       return;
     }
+    if (action === 'resend-confirmation-form') {
+      await supabaseAuth(`resend?redirect_to=${encodeURIComponent(AUTH_REDIRECT_ORIGIN + '/login')}`,'POST',{ type:'signup', email:data.email });
+      el.innerHTML = '<div class="notice">If this address belongs to an unconfirmed account, a fresh confirmation email has been requested. Check your inbox and spam folder.</div><div class="auth-bottom"><a href="/login">Back to sign in</a></div>';
+      return;
+    }
     if (action === 'mfa-login') {
       if (!state.pendingMfa) throw new Error('Start a new sign-in attempt.');
       const verified = await supabaseAuth(
@@ -541,6 +547,22 @@ document.addEventListener('keydown',event => { if (event.key === 'Escape') { doc
 try { document.body.classList.toggle('light',localStorage.getItem('elite-theme') === 'light'); } catch {}
 try {
   state.config = await api('/config');
+  if (location.pathname === '/login' && location.hash) {
+    const callback = new URLSearchParams(location.hash.slice(1));
+    const accessToken = callback.get('access_token') || '';
+    if (accessToken) {
+      saveAuth({
+        access_token:accessToken,
+        refresh_token:callback.get('refresh_token') || '',
+        expires_in:Number(callback.get('expires_in') || 3600)
+      });
+      history.replaceState(null,'','/subscription');
+    } else if (callback.get('error_description')) {
+      const message = callback.get('error_description') || 'Email confirmation failed.';
+      history.replaceState(null,'','/login');
+      setTimeout(() => toast(message), 0);
+    }
+  }
   await identity();
   await render();
 } catch (error) {
