@@ -1,6 +1,10 @@
 import { createApplication } from './app.mjs';
 
-if (!process.env.APP_ORIGIN && process.env.VERCEL_URL) {
+if (process.env.VERCEL_ENV === 'production') {
+  // VERCEL_URL is a deployment hostname, not necessarily the public custom domain.
+  // Use the canonical production origin so same-origin POST/CSRF checks accept elitebot.live.
+  process.env.APP_ORIGIN = 'https://elitebot.live';
+} else if (!process.env.APP_ORIGIN && process.env.VERCEL_URL) {
   process.env.APP_ORIGIN = `https://${process.env.VERCEL_URL}`;
 }
 process.env.SQLITE_PATH ||= process.env.VERCEL ? '/tmp/elitetrade.sqlite' : './data/elitetrade.sqlite';
