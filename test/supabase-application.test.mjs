@@ -74,3 +74,30 @@ test('public canonical uses the Vercel site URL and auth callback uses the curre
   assert.match(robots, /https:\/\/elitetradee\.vercel\.app\/sitemap\.xml/);
   assert.match(security, /https:\/\/elitetradee\.vercel\.app\/\.well-known\/security\.txt/);
 });
+
+
+test('production entrypoints use the canonical EliteTrade origin', () => {
+  for (const path of ['../server.ts','../src/server.mjs']) {
+    const source = readFileSync(new URL(path, import.meta.url), 'utf8');
+    assert.match(source, /process\.env\.APP_ORIGIN = 'https:\/\/elitetradee\.vercel\.app'/);
+    assert.doesNotMatch(source, /https:\/\/elitebot\.live/);
+  }
+});
+
+test('MT5 writes accept the production origin and reject other origins', async t => {
+  const base = await fixture(t, { APP_ORIGIN:'https://elitetradee.vercel.app' });
+  const request = headers => fetch(base + '/api/accounts', {
+    method:'POST', headers:{'Content-Type':'application/json',...headers}, body:'{}'
+  });
+  // No token: a same-origin write reaches authentication, without contacting Supabase.
+  const accepted = await request({Origin:'https://elitetradee.vercel.app','Sec-Fetch-Site':'same-origin'});
+  assert.equal(accepted.status,401);
+  assert.doesNotMatch((await accepted.json()).error,/request origin/);
+  for (const origin of ['https://elitebot.live','http://localhost:3000','https://untrusted.example']) {
+    const rejected = await request({Origin:origin});
+    assert.equal(rejected.status,403);
+    assert.match((await rejected.json()).error,/request origin/);
+  }
+  const crossSite = await request({Origin:'https://elitetradee.vercel.app','Sec-Fetch-Site':'cross-site'});
+  assert.equal(crossSite.status,403);
+});

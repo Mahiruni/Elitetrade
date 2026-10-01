@@ -1,7 +1,7 @@
 import { createSupabaseApplication } from './src/supabase-app.mjs';
 
 if (process.env.VERCEL_ENV === 'production') {
-  process.env.APP_ORIGIN = 'https://elitebot.live';
+  process.env.APP_ORIGIN = 'https://elitetradee.vercel.app';
 } else {
   process.env.APP_ORIGIN ||= process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
 }
