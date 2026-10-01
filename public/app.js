@@ -1,7 +1,7 @@
 const root = document.querySelector('#app');
 const modal = document.querySelector('#modal');
 const AUTH_KEY = 'elite-supabase-session';
-const AUTH_REDIRECT_ORIGIN = 'https://elitetradee.vercel.app';
+const AUTH_REDIRECT_ORIGIN = window.location.origin;
 const readStoredAuth = () => {
   try { return JSON.parse(localStorage.getItem(AUTH_KEY) || 'null'); }
   catch { return null; }
