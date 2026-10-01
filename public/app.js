@@ -374,6 +374,10 @@ function methodModal(id) { const m = state.data.admin.methods.find(m => m.id ===
 function localDate(value) { const d = new Date(value); return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,16); }
 function roundModal(id) { const r = state.data.admin.rounds.find(r => r.id === id) || { status:'open',starts_at:Date.now(),ends_at:Date.now()+7*86400000,goal_cents:100000,profit_cents:0 }; openModal(id ? 'Edit pool round' : 'Create pool round',form('round',field('Round name','name',r.name,'text','required minlength="2" maxlength="100"') + `<div class="form-grid">${field('Target · USD','goal',r.goal_cents/100,'number','required min="1" max="10000000" step="0.01"')}${field('Reported profit / loss · USD','profit',r.profit_cents/100,'number','required min="-10000000" max="10000000" step="0.01"')}${field('Starts','startsAt',localDate(r.starts_at),'datetime-local','required')}${field('Ends','endsAt',localDate(r.ends_at),'datetime-local','required')}</div>` + select('Status','status',r.status,[['open','Open for contributions'],['trading','Trading'],['closed','Closed']]),'Save pool round',id)); }
 const actions = {
+  'resend-confirmation': async email => {
+    await supabaseAuth(`resend?redirect_to=${encodeURIComponent(AUTH_REDIRECT_ORIGIN + '/login')}`,'POST',{ type:'signup', email });
+    toast('If this address is awaiting confirmation, a new confirmation email has been requested. Check your inbox and spam folder.');
+  },
   demo: async () => { const d = await api('/auth/demo','POST'); state.user = d.user; state.requiresMfa = false; navigate('/mt5',true); },
   theme: () => { document.body.classList.toggle('light'); try { localStorage.setItem('elite-theme',document.body.classList.contains('light') ? 'light' : 'dark'); } catch {} },
   menu: () => { const open = document.body.classList.toggle('menu-open'); document.querySelector('[data-action="menu"][aria-expanded]')?.setAttribute('aria-expanded',String(open)); },
@@ -443,23 +447,14 @@ document.addEventListener('submit',async event => {
     if (action === 'signup') {
       const auth = await supabaseAuth(`signup?redirect_to=${encodeURIComponent(AUTH_REDIRECT_ORIGIN + '/login')}`,'POST',{ email:data.email, password:data.password, data:{ full_name:data.name, referral_code:data.referral || '' } });
       if (!auth.access_token) {
-        el.innerHTML = `<div class="notice">If this address is new and needs verification, a confirmation email has been sent. If you already have an account, sign in or reset your password.</div>
-          <form data-form="resend-confirmation">
-            <input type="hidden" name="email" value="${esc(data.email)}">
-            <p class="error" role="alert"></p>
-            <div class="actions"><button class="secondary" type="submit">Resend confirmation</button></div>
-          </form>
+        el.innerHTML = `<div class="notice">If this is a new account that requires verification, check <strong>${esc(data.email)}</strong> for your confirmation email. If you already registered, sign in or reset your password.</div>
+          <div class="actions"><button type="button" class="secondary" data-action="resend-confirmation" data-id="${esc(data.email)}">Resend confirmation</button></div>
           <div class="auth-bottom"><a href="/login">Go to sign in</a> · <a href="/forgot-password">Reset password</a></div>`;
         return;
       }
       saveAuth(auth);
       await identity();
       navigate('/subscription',true);
-      return;
-    }
-    if (action === 'resend-confirmation') {
-      await supabaseAuth(`resend?redirect_to=${encodeURIComponent(AUTH_REDIRECT_ORIGIN + '/login')}`,'POST',{ type:'signup', email:data.email });
-      el.innerHTML = '<div class="notice">If this address has a pending signup confirmation, a new confirmation email has been sent. Check your inbox and spam folder.</div><div class="auth-bottom"><a href="/login">Go to sign in</a></div>';
       return;
     }
     if (action === 'mfa-login') {
@@ -531,7 +526,14 @@ document.addEventListener('submit',async event => {
       await api(endpoint[0],endpoint[1],data);
     }
     if (modal.open) modal.close(); await identity(); state.config = await api('/config'); toast(action === 'payment' ? 'Payment submitted for review.' : 'Changes saved.'); await render({quiet:true});
-  } catch (error) { errorBox.textContent = error.message; errorBox.scrollIntoView({block:'nearest'}); }
+  } catch (error) {
+    if (action === 'login' && /email not confirmed/i.test(error.message || '')) {
+      errorBox.innerHTML = `${esc(error.message)} <button type="button" class="ghost" data-action="resend-confirmation" data-id="${esc(data.email)}">Resend confirmation</button>`;
+    } else {
+      errorBox.textContent = error.message;
+    }
+    errorBox.scrollIntoView({block:'nearest'});
+  }
   finally { button.disabled = false; button.textContent = label; }
 });
 window.addEventListener('popstate',() => render());
