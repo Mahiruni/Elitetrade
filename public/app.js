@@ -5,7 +5,7 @@ const readStoredAuth = () => {
   try { return JSON.parse(localStorage.getItem(AUTH_KEY) || 'null'); }
   catch { return null; }
 };
-const state = { user: null, csrf: null, config: {}, data: {}, chat: null, adminTab: 'payments', version: 0, stream: null, auth: readStoredAuth(), pendingMfa: null, captchaToken: '', captchaWidget: null };
+const state = { user: null, csrf: null, config: {}, data: {}, chat: null, adminTab: 'payments', version: 0, stream: null, auth: readStoredAuth(), pendingMfa: null };
 function saveAuth(session) {
   if (!session?.access_token) return;
   const expiresAt = Number(session.expires_at || (Date.now() / 1000 + Number(session.expires_in || 3600)));
@@ -22,68 +22,6 @@ function decodeJwt(jwt) {
     const raw = jwt.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
     return JSON.parse(atob(raw));
   } catch { return {}; }
-}
-function captchaMarkup() {
-  if (!state.config.captchaSiteKey) return '<div class="captcha-status"><strong>Security verification unavailable</strong><span>The CAPTCHA site key has not been configured for this deployment. Contact support before creating or accessing an account.</span></div>';
-  return '<div class="captcha-wrap"><div id="captcha-box" aria-label="Security verification"></div><small>Protected against automated abuse.</small></div>';
-}
-async function loadCaptchaProvider() {
-  const provider = state.config.captchaProvider;
-  if (!provider || !state.config.captchaSiteKey) return;
-  const id = provider === 'hcaptcha' ? 'elite-hcaptcha-script' : 'elite-turnstile-script';
-  const ready = provider === 'hcaptcha' ? () => !!window.hcaptcha : () => !!window.turnstile;
-  if (ready()) return;
-  let script = document.getElementById(id);
-  if (!script) {
-    script = document.createElement('script');
-    script.id = id;
-    script.async = true;
-    script.defer = true;
-    script.src = provider === 'hcaptcha'
-      ? 'https://js.hcaptcha.com/1/api.js?render=explicit'
-      : 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
-    document.head.appendChild(script);
-  }
-  await new Promise((resolve,reject) => {
-    if (ready()) return resolve();
-    const timeout = setTimeout(() => reject(new Error('Security verification could not load. Check your connection and try again.')),12000);
-    script.addEventListener('load',()=>{ clearTimeout(timeout); resolve(); },{once:true});
-    script.addEventListener('error',()=>{ clearTimeout(timeout); reject(new Error('Security verification could not load.')); },{once:true});
-  });
-}
-async function mountCaptcha() {
-  const box = document.querySelector('#captcha-box');
-  if (!box || !state.config.captchaSiteKey) return;
-  state.captchaToken = '';
-  state.captchaWidget = null;
-  try {
-    await loadCaptchaProvider();
-    if (!document.body.contains(box)) return;
-    const options = {
-      sitekey: state.config.captchaSiteKey,
-      theme: document.body.classList.contains('light') ? 'light' : 'dark',
-      callback: value => { state.captchaToken = value || ''; },
-      'expired-callback': () => { state.captchaToken = ''; },
-      'error-callback': () => { state.captchaToken = ''; }
-    };
-    state.captchaWidget = state.config.captchaProvider === 'hcaptcha'
-      ? window.hcaptcha.render(box, options)
-      : window.turnstile.render(box, options);
-  } catch (error) {
-    box.innerHTML = '<div class="captcha-status"><strong>Security verification failed to load</strong><span>' + esc(error.message) + '</span></div>';
-  }
-}
-function captchaSecurity() {
-  if (!state.config.captchaSiteKey) throw new Error('Security verification is not configured for this deployment. Contact support.');
-  if (!state.captchaToken) throw new Error('Complete the security verification before continuing.');
-  return { gotrue_meta_security:{ captcha_token:state.captchaToken } };
-}
-function resetCaptcha() {
-  state.captchaToken = '';
-  try {
-    if (state.config.captchaProvider === 'hcaptcha' && window.hcaptcha && state.captchaWidget !== null) window.hcaptcha.reset(state.captchaWidget);
-    if (state.config.captchaProvider === 'turnstile' && window.turnstile && state.captchaWidget !== null) window.turnstile.reset(state.captchaWidget);
-  } catch {}
 }
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 const money = (value, currency = 'USD') => new Intl.NumberFormat('en', { style:'currency', currency }).format(Number(value || 0) / 100);
@@ -323,12 +261,11 @@ function authPage(path) {
   const title = mfa ? 'Verify your sign-in' : ({ '/login':'Welcome back.', '/signup':'Create your account.', '/forgot-password':'Reset your password.', '/reset-password':'Choose a new password.' })[path];
   let contents;
   if (mfa) contents = form('mfa-login', field('Authenticator code','code','','text','required inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code" maxlength="6"'), 'Verify and sign in') + `<div class="auth-bottom">${btn('Use a different account','logout','','class="ghost"')}</div>`;
-  else if (path === '/login') contents = form('login', field('Email address','email','','email','required autocomplete="email"') + password('Password','password') + '<div class="auth-links"><a href="/forgot-password">Forgot password?</a><a href="/support">Need help?</a></div>' + captchaMarkup(), 'Sign in') + '<div class="auth-bottom">New to Elite Bot? <a href="/signup">Create an account</a></div>' + (state.config.demoMode ? '<div class="auth-bottom"><button type="button" class="ghost" data-action="demo">Continue as Demo</button></div>' : '');
-  else if (path === '/signup') contents = form('signup', field('Full name','name','','text','required minlength="2" maxlength="64" autocomplete="name"') + field('Email address','email','','email','required autocomplete="email"') + password('Password','password','new-password') + '<small>Use at least 12 characters.</small>' + field('Referral code · optional','referral',new URLSearchParams(location.search).get('ref') || '', 'text','maxlength="30"') + '<label class="check legal-consent"><input type="checkbox" name="terms" required> <span>I agree to the <a href="/terms">Terms</a>, <a href="/privacy">Privacy Policy</a>, and <a href="/risk-disclosure">Risk Disclosure</a>.</span></label>' + captchaMarkup(), 'Create account') + '<div class="auth-bottom">Already registered? <a href="/login">Sign in</a></div>';
-  else if (path === '/forgot-password') contents = form('forgot', field('Email address','email','','email','required autocomplete="email"') + captchaMarkup(), 'Send recovery link') + '<div class="auth-bottom"><a href="/login">Back to sign in</a></div>';
+  else if (path === '/login') contents = form('login', field('Email address','email','','email','required autocomplete="email"') + password('Password','password') + '<div class="auth-links"><a href="/forgot-password">Forgot password?</a><a href="/support">Need help?</a></div>', 'Sign in') + '<div class="auth-bottom">New to Elite Bot? <a href="/signup">Create an account</a></div>' + (state.config.demoMode ? '<div class="auth-bottom"><button type="button" class="ghost" data-action="demo">Continue as Demo</button></div>' : '');
+  else if (path === '/signup') contents = form('signup', field('Full name','name','','text','required minlength="2" maxlength="64" autocomplete="name"') + field('Email address','email','','email','required autocomplete="email"') + password('Password','password','new-password') + '<small>Use at least 12 characters.</small>' + field('Referral code · optional','referral',new URLSearchParams(location.search).get('ref') || '', 'text','maxlength="30"') + '<label class="check legal-consent"><input type="checkbox" name="terms" required> <span>I agree to the <a href="/terms">Terms</a>, <a href="/privacy">Privacy Policy</a>, and <a href="/risk-disclosure">Risk Disclosure</a>.</span></label>', 'Create account') + '<div class="auth-bottom">Already registered? <a href="/login">Sign in</a></div>';
+  else if (path === '/forgot-password') contents = form('forgot', field('Email address','email','','email','required autocomplete="email"'), 'Send recovery link') + '<div class="auth-bottom"><a href="/login">Back to sign in</a></div>';
   else contents = form('reset', password('New password','password','new-password') + password('Confirm password','confirm','new-password'), 'Reset password') + '<div class="auth-bottom"><a href="/login">Back to sign in</a></div>';
   root.innerHTML = `<main id="main" class="auth-wrap"><section class="auth-story">${brand}<div class="eyebrow">Built for your next move</div><h2 class="auth-title">Your trading.<br><em>In focus.</em></h2><p>A clear view of your accounts, trading bots, and everything that keeps you connected.</p><div class="auth-features"><div class="auth-feature">${icon('terminal')}<div><strong>One connected workspace</strong><p>Keep your MT5 accounts and bot controls together.</p></div></div><div class="auth-feature">${icon('shield')}<div><strong>Stay in control</strong><p>Manage risk settings, account access, and security.</p></div></div></div><footer><small>Trading involves risk. Performance is not guaranteed.</small></footer></section><section class="auth-form-side"><div class="auth-theme">${themeButton()}</div><div class="auth-form"><div class="eyebrow">ELITE BOT / ACCOUNT</div><h1>${title}</h1><p>${mfa ? 'Enter the six-digit code from your authenticator app.' : path === '/signup' ? 'Your trading workspace starts here.' : path === '/login' ? 'Sign in to continue to your workspace.' : 'Secure access to your trading workspace.'}</p>${contents}</div></section></main>`;
-  if (!mfa && ['/login','/signup','/forgot-password'].includes(path)) queueMicrotask(() => mountCaptcha());
 }
 const activation = () => state.user.active || state.user.role === 'admin' ? '' : '<div class="notice">Activate your subscription to connect an MT5 account and start trading bots. <a href="/subscription">View subscription</a></div>';
 async function terminalPage() {
@@ -483,7 +420,7 @@ document.addEventListener('submit',async event => {
   try {
     if (['password','reset'].includes(action) && data.password !== data.confirm) throw new Error('The new passwords do not match.');
     if (action === 'login') {
-      const auth = await supabaseAuth('token?grant_type=password','POST',{ email:data.email, password:data.password, ...captchaSecurity() });
+      const auth = await supabaseAuth('token?grant_type=password','POST',{ email:data.email, password:data.password });
       let factors = [];
       try {
         const response = await supabaseAuth('factors','GET',undefined,auth.access_token);
@@ -503,7 +440,7 @@ document.addEventListener('submit',async event => {
       return;
     }
     if (action === 'signup') {
-      const auth = await supabaseAuth('signup','POST',{ email:data.email, password:data.password, data:{ full_name:data.name, referral_code:data.referral || '' }, ...captchaSecurity() });
+      const auth = await supabaseAuth('signup','POST',{ email:data.email, password:data.password, data:{ full_name:data.name, referral_code:data.referral || '' } });
       if (!auth.access_token) {
         el.innerHTML = '<div class="notice">Account created. Check your email to confirm your address, then sign in.</div><div class="auth-bottom"><a href="/login">Go to sign in</a></div>';
         return;
@@ -529,7 +466,7 @@ document.addEventListener('submit',async event => {
       return;
     }
     if (action === 'forgot') {
-      await supabaseAuth(`recover?redirect_to=${encodeURIComponent(location.origin + '/reset-password')}`,'POST',{ email:data.email, ...captchaSecurity() });
+      await supabaseAuth(`recover?redirect_to=${encodeURIComponent(location.origin + '/reset-password')}`,'POST',{ email:data.email });
       el.innerHTML = '<div class="notice">If this account exists, a recovery link has been sent.</div>';
       return;
     }
@@ -583,10 +520,7 @@ document.addEventListener('submit',async event => {
     }
     if (modal.open) modal.close(); await identity(); state.config = await api('/config'); toast(action === 'payment' ? 'Payment submitted for review.' : 'Changes saved.'); await render({quiet:true});
   } catch (error) { errorBox.textContent = error.message; errorBox.scrollIntoView({block:'nearest'}); }
-  finally {
-    if (['login','signup','forgot'].includes(action)) resetCaptcha();
-    button.disabled = false; button.textContent = label;
-  }
+  finally { button.disabled = false; button.textContent = label; }
 });
 window.addEventListener('popstate',() => render());
 document.addEventListener('keydown',event => { if (event.key === 'Escape') { document.body.classList.remove('menu-open'); document.querySelector('[data-action="menu"][aria-expanded]')?.setAttribute('aria-expanded','false'); } });
