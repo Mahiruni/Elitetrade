@@ -1,0 +1,5 @@
+Contact: https://elitebot.live/support
+Canonical: https://elitebot.live/.well-known/security.txt
+Policy: https://elitebot.live/terms
+Expires: 2027-10-01T00:00:00Z
+Preferred-Languages: en
