@@ -34,7 +34,7 @@ const btn = (label, action, id = '', extra = '') => `<button type="button" data-
 const themeButton = () => btn(icon('theme'), 'theme', '', 'class="icon ghost" aria-label="Toggle light and dark theme"');
 const empty = (title, detail, action = '') => `<div class="empty"><strong>${title}</strong>${detail}${action ? `<div class="actions center">${action}</div>` : ''}</div>`;
 const field = (label, name, value = '', type = 'text', attrs = '') => `<div class="field"><label for="f-${name}">${label}</label><input id="f-${name}" name="${name}" type="${type}" value="${esc(value)}" ${attrs}></div>`;
-const password = (label, name, autocomplete = 'current-password') => `<div class="field"><label for="f-${name}">${label}</label><div class="toggle-pass"><input id="f-${name}" name="${name}" type="password" required maxlength="128" autocomplete="${autocomplete}" ${autocomplete === 'new-password' ? 'minlength="12"' : ''}>${btn(icon('eye'), 'password', `f-${name}`, `class="icon ghost" aria-label="Show ${label.toLowerCase()}"`)}</div></div>`;
+const password = (label, name, autocomplete = 'current-password') => `<div class="field"><label for="f-${name}">${label}</label><div class="toggle-pass"><input id="f-${name}" name="${name}" type="password" required maxlength="128" autocomplete="${autocomplete}" ${autocomplete === 'new-password' ? 'minlength="12"' : ''}>${btn(icon('eye'), 'password', `f-${name}`, `class="icon ghost" aria-label="Show ${label.toLowerCase()}" aria-pressed="false"`)}</div></div>`;
 const select = (label, name, value, options) => `<div class="field"><label for="f-${name}">${label}</label><select id="f-${name}" name="${name}">${options.map(([v,l]) => `<option value="${esc(v)}" ${String(value) === String(v) ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>`;
 const textarea = (label, name, value = '', attrs = '') => `<div class="field"><label for="f-${name}">${label}</label><textarea id="f-${name}" name="${name}" ${attrs}>${esc(value)}</textarea></div>`;
 const form = (action, content, submit = 'Save changes', id = '') => `<form data-form="${action}" data-id="${esc(id)}">${content}<p class="error" role="alert"></p><div class="actions"><button class="primary" type="submit">${submit}</button></div></form>`;
@@ -112,39 +112,43 @@ function shell(content) {
   const path = location.pathname;
   const nav = [['/mt5','terminal','MT5 terminal'],['/bots','bots','Trading bots'],['/pool','pool','Live pool'],['/referrals','referrals','Referrals'],['/subscription','wallet','Subscription'],['/settings','settings','Settings'],['/support','support','Support']];
   if (state.user.role === 'admin') nav.push(['/admin','shield','Administration'],['/admin/support','support','Support inbox']);
-  root.innerHTML = `<div class="layout"><div class="menu-scrim" data-action="menu"></div><aside class="sidebar">${brand}<div class="nav-label">WORKSPACE</div><nav aria-label="Main navigation">${nav.map(([href,i,title]) => `<a href="${href}" class="${path === href ? 'active' : ''}" ${path === href ? 'aria-current="page"' : ''}>${icon(i)}<span>${title}</span></a>`).join('')}</nav><div class="sidebar-bottom"><div class="plan-label">${badge(state.user.active ? 'active' : 'inactive')} <small>Lifetime access</small></div>${btn(`${icon('logout')} Sign out`, 'logout', '', 'class="ghost logout"')}</div></aside><div class="workspace"><header class="topbar"><div class="desktop-crumb">Workspace <span>/</span> ${esc(nav.find(n => n[0] === path)?.[2] || 'Terminal')}</div>${brand}<div class="topbar-actions"><div class="account-name"><strong>${esc(state.user.name)}</strong><small>${esc(state.user.email)}</small></div>${themeButton()}${btn(icon('menu'), 'menu', '', 'class="icon ghost mobile-only" aria-label="Open navigation" aria-expanded="false"')}</div></header><main id="main" class="content" tabindex="-1">${content}</main><footer class="workspace-footer"><span>Elite Bot</span><span>Trading involves risk. Performance is not guaranteed.</span></footer></div></div>`;
+  root.innerHTML = `<div class="layout"><div class="menu-scrim" data-action="menu"></div><aside class="sidebar" id="workspace-navigation"><div class="sidebar-brand">${brand}${btn(icon("close"),"menu","",'class="icon ghost mobile-only" aria-label="Close navigation"')}</div><div class="nav-label">WORKSPACE</div><nav aria-label="Main navigation">${nav.map(([href,i,title]) => `<a href="${href}" class="${path === href ? 'active' : ''}" ${path === href ? 'aria-current="page"' : ''}>${icon(i)}<span>${title}</span></a>`).join('')}</nav><div class="sidebar-bottom"><div class="plan-label">${badge(state.user.active ? 'active' : 'inactive')} <small>Lifetime access</small></div>${btn(`${icon('logout')} Sign out`, 'logout', '', 'class="ghost logout"')}</div></aside><div class="workspace"><header class="topbar"><div class="desktop-crumb">Workspace <span>/</span> ${esc(nav.find(n => n[0] === path)?.[2] || 'Terminal')}</div>${brand}<div class="topbar-actions"><div class="account-name"><strong>${esc(state.user.name)}</strong><small>${esc(state.user.email)}</small></div>${themeButton()}${btn(icon('menu'), 'menu', '', 'class="icon ghost mobile-only" aria-label="Open navigation" aria-controls="workspace-navigation" aria-expanded="false"')}</div></header><main id="main" class="content" tabindex="-1">${content}</main><footer class="workspace-footer"><span>Elite Bot</span><span>Trading involves risk. Performance is not guaranteed.</span></footer></div></div>`;
 }
 const publicBrand = `<a href="/" class="brand site-brand"><img src="/logo.jpg" alt=""><span>ELITE <em>BOT</em><div class="wordmark-sub">AUTOMATED TRADING PLATFORM</div></span></a>`;
 function marketingHeader() {
   const accountLink = state.user ? '<a class="nav-login" href="/mt5">Workspace</a>' : '<a class="nav-login" href="/login">Sign in</a>';
   const cta = state.user ? '<a class="marketing-cta small" href="/mt5">Open terminal</a>' : '<a class="marketing-cta small" href="/signup">Get started</a>';
-  return `<header class="marketing-header"><div class="marketing-nav">${publicBrand}<nav class="marketing-links" aria-label="Marketing navigation"><a href="/#platform">Platform</a><a href="/#workflow">How it works</a><a href="/#security">Security</a><a href="/#pricing">Access</a></nav><div class="marketing-actions">${themeButton()}${accountLink}${cta}</div></div></header>`;
+  return `<header class="marketing-header"><div class="marketing-nav">${publicBrand}<nav class="marketing-links" aria-label="Marketing navigation"><a href="/#platform">Platform</a><a href="/#workflow">How it works</a><a href="/#security">Security</a><a href="/#pricing">Access</a></nav><div class="marketing-actions">${themeButton()}${accountLink}${cta}<details class="public-menu"><summary aria-label="Navigation menu">${icon("menu")}</summary><nav aria-label="Mobile site navigation"><a href="/#platform">Platform</a><a href="/#workflow">How it works</a><a href="/#security">Security</a><a href="/#pricing">Access</a><a href="/support">Support</a><a href="${state.user ? "/mt5" : "/login"}">${state.user ? "Workspace" : "Sign in"}</a>${cta}</nav></details></div></div></header>`;
 }
 function publicFooter() {
   return `<footer class="marketing-footer"><div class="footer-grid"><div><div class="footer-brand">${publicBrand}</div><p>Tools for managing MT5 connections, automation controls, account access, payments, and support from one focused workspace.</p></div><div><strong>Platform</strong><a href="/#platform">Overview</a><a href="/#security">Security</a><a href="/support">Support</a><a href="/login">Sign in</a></div><div><strong>Legal</strong><a href="/terms">Terms of Service</a><a href="/privacy">Privacy Policy</a><a href="/risk-disclosure">Risk Disclosure</a><a href="/refund-policy">Refund Policy</a><a href="/cookies">Cookie Policy</a></div></div><div class="footer-bottom"><span>© ${new Date().getFullYear()} Elite Bot. All rights reserved.</span><span>Trading involves substantial risk. No performance is guaranteed.</span></div></footer>`;
 }
 function publicShell(content) {
-  root.innerHTML = `${marketingHeader()}<main id="main" class="marketing-main">${content}</main>${publicFooter()}`;
+  root.innerHTML = `${marketingHeader()}<main id="main" class="marketing-main" tabindex="-1">${content}</main>${publicFooter()}`;
 }
 function marketingPage() {
   const dashboardHref = state.user ? '/mt5' : '/signup';
   const dashboardLabel = state.user ? 'Open your terminal' : 'Create your account';
   return `
     <section class="marketing-hero">
-      <div class="hero-orb hero-orb-one"></div><div class="hero-orb hero-orb-two"></div>
+      <div class="hero-index" aria-hidden="true">01 / THE CONTROL LAYER</div>
       <div class="hero-copy">
-        <div class="marketing-kicker"><span></span> MT5 automation, organized around control</div>
-        <h1>Trading automation that<br><em>stays in your hands.</em></h1>
-        <p class="hero-lead">Connect your MT5 workflow, configure automation, manage risk settings, track access, and reach support from a single secure workspace.</p>
-        <div class="hero-actions"><a class="marketing-cta" href="${dashboardHref}">${dashboardLabel} ${icon('arrow')}</a><a class="marketing-secondary" href="#platform">Explore the platform</a></div>
-        <div class="hero-trust"><span>${icon('shield')} Supabase-backed identity</span><span>${icon('terminal')} MT5 connection workflow</span><span>${icon('settings')} User-controlled risk settings</span></div>
+        <div class="marketing-kicker"><span></span> MT5 / AUTOMATION WORKSPACE</div>
+        <h1>Your strategy.<br>Your limits.<br><em>Your control.</em></h1>
+        <p class="hero-lead">Bring your MT5 accounts, automation and risk settings into one focused workspace. Configure with intention. Stay in control.</p>
+        <div class="hero-actions"><a class="marketing-cta" href="${dashboardHref}">${dashboardLabel}</a><a class="marketing-secondary" href="#platform">Explore the platform</a></div>
+        <div class="hero-trust"><span>${icon('shield')} Protected account access</span><span>${icon('terminal')} MT5 connection workflow</span><span>${icon('settings')} User-controlled risk settings</span></div>
       </div>
-      <div class="terminal-showcase" aria-label="Illustrative Elite Bot terminal preview">
-        <div class="showcase-top"><div class="showcase-dots"><i></i><i></i><i></i></div><span>ELITE BOT / TERMINAL</span><small>Illustrative preview</small></div>
-        <div class="showcase-status"><div><small>Workspace status</small><strong>Ready for connection</strong></div><span class="signal"><i></i> Secure</span></div>
-        <div class="showcase-chart"><div class="chart-grid"></div><svg viewBox="0 0 560 170" preserveAspectRatio="none" aria-hidden="true"><path d="M0 135 C55 130 70 98 120 108 S196 145 236 95 S304 60 340 78 S410 112 448 66 S512 38 560 24" fill="none" stroke="currentColor" stroke-width="3"/><path d="M0 135 C55 130 70 98 120 108 S196 145 236 95 S304 60 340 78 S410 112 448 66 S512 38 560 24 L560 170 L0 170 Z" fill="currentColor" opacity=".06"/></svg></div>
-        <div class="showcase-grid"><div><small>Connection</small><strong>MT5</strong><span>Broker account workflow</span></div><div><small>Automation</small><strong>Bot controls</strong><span>Start / stop confirmation</span></div><div><small>Protection</small><strong>Risk limits</strong><span>Defined before execution</span></div></div>
-      </div>
+      <aside class="terminal-showcase" aria-label="Platform workflow">
+        <div class="showcase-top"><span>ELITE BOT / OPERATIONS</span><small>WORKFLOW OVERVIEW</small></div>
+        <div class="showcase-status"><small>Designed around one principle</small><h2>Control before<br>execution.</h2></div>
+        <ol class="operation-steps">
+          <li><span class="step-number">01</span><div><strong>Connect your account</strong><p>MT5 broker · Server · Account</p></div>${icon('terminal')}</li>
+          <li><span class="step-number">02</span><div><strong>Define your boundaries</strong><p>Position size · Loss limits · Drawdown</p></div>${icon('settings')}</li>
+          <li><span class="step-number">03</span><div><strong>Configure automation</strong><p>Strategy · Symbol · Start / stop</p></div>${icon('bots')}</li>
+        </ol>
+        <div class="operations-foot">${icon('shield')}<p>Your broker account stays with your broker.<br><span>You choose the configuration.</span></p></div>
+      </aside>
     </section>
     <section class="trust-bar"><span>SECURE IDENTITY</span><span>•</span><span>ROW-LEVEL ACCESS CONTROL</span><span>•</span><span>ENCRYPTED CREDENTIAL STORAGE</span><span>•</span><span>ADMIN REVIEW WORKFLOWS</span></section>
 
@@ -166,19 +170,19 @@ function marketingPage() {
 
     <section id="security" class="marketing-section security-section">
       <div class="security-copy"><div class="marketing-kicker"><span></span> Security architecture</div><h2>Built so sensitive actions have boundaries.</h2><p>Production data is persisted in PostgreSQL with row-level authorization. MT5 credentials are isolated from normal application tables and stored using Supabase Vault. Authentication uses Supabase Auth, with optional authenticator-based MFA in the workspace.</p><div class="security-list"><span>${icon('shield')} Row-level data access policies</span><span>${icon('shield')} Vault-backed MT5 credential storage</span><span>${icon('shield')} MFA support and protected admin operations</span><span>${icon('shield')} Audit records for administrative changes</span></div></div>
-      <div class="security-visual"><div class="security-ring ring-one"></div><div class="security-ring ring-two"></div><div class="security-core">${icon('shield')}<strong>CONTROL<br>PLANE</strong><small>Identity · Data · Credentials</small></div></div>
+      <div class="security-visual" aria-label="Security boundaries"><div class="boundary"><span>01 / IDENTITY</span><strong>Protected sign-in</strong><p>Account access with optional authenticator verification.</p></div><div class="boundary"><span>02 / DATA</span><strong>Access scoped to you</strong><p>Row-level policies separate member and administrator access.</p></div><div class="boundary"><span>03 / CREDENTIALS</span><strong>Secrets stored separately</strong><p>MT5 passwords are held in encrypted Vault storage.</p></div></div>
     </section>
 
     <section class="marketing-section risk-panel"><div><div class="marketing-kicker"><span></span> Know the risk</div><h2>Automation does not remove market risk.</h2></div><div><p>Trading leveraged instruments can result in rapid losses. Elite Bot is software infrastructure—not a broker, investment adviser, portfolio manager, or promise of profitability. You remain responsible for your broker account, configuration, trading decisions, and compliance obligations.</p><a href="/risk-disclosure">Read the full Risk Disclosure ${icon('arrow')}</a></div></section>
 
     <section id="pricing" class="marketing-section pricing-section">
       <div class="section-heading"><div class="marketing-kicker"><span></span> Platform access</div><h2>A focused workspace for your trading operations.</h2><p>Pricing and payment methods shown after account creation are controlled by the platform administrator and displayed before you submit payment.</p></div>
-      <div class="pricing-card"><div><span class="card-label">ELITE BOT ACCESS</span><h3>One workspace. Clear controls.</h3><ul><li>MT5 account connection workflow</li><li>Bot strategy and risk configuration</li><li>Subscription and payment status</li><li>Referral and pool tracking where enabled</li><li>Account security and support</li></ul></div><div class="pricing-action"><small>Start by creating your account</small><a class="marketing-cta" href="${dashboardHref}">${dashboardLabel} ${icon('arrow')}</a><p>No profit, return, or trading-outcome guarantee is made.</p></div></div>
+      <div class="pricing-card"><div><span class="card-label">ELITE BOT ACCESS</span><h3>One workspace. Clear controls.</h3><ul><li>MT5 account connection workflow</li><li>Bot strategy and risk configuration</li><li>Subscription and payment status</li><li>Referral and pool tracking where enabled</li><li>Account security and support</li></ul></div><div class="pricing-action"><small>Start by creating your account</small><a class="marketing-cta" href="${dashboardHref}">${dashboardLabel}</a><p>No profit, return, or trading-outcome guarantee is made.</p></div></div>
     </section>
 
     <section class="marketing-section faq-section"><div class="section-heading"><div class="marketing-kicker"><span></span> Questions</div><h2>Understand the platform before you connect.</h2></div><div class="marketing-faq"><details><summary>Does Elite Bot guarantee profitable trades?</summary><p>No. Markets are uncertain and trading can lose money. The platform provides tooling and controls; it does not guarantee performance.</p></details><details><summary>Is Elite Bot a broker?</summary><p>No. Your trading account remains with your chosen broker. Elite Bot provides a workflow for connecting and controlling supported automation.</p></details><details><summary>Where are MT5 credentials stored?</summary><p>Production MT5 credentials are isolated from normal public application tables and stored using encrypted Supabase Vault infrastructure.</p></details><details><summary>Can I control the bot?</summary><p>The workspace exposes configuration plus explicit start and stop controls. Actual execution depends on the configured trading gateway and broker connection.</p></details></div></section>
 
-    <section class="final-cta"><div class="marketing-kicker"><span></span> Ready when you are</div><h2>Build a cleaner trading workflow.</h2><p>Create your account, review the policies, and connect only when you understand the risks.</p><div class="hero-actions"><a class="marketing-cta" href="${dashboardHref}">${dashboardLabel} ${icon('arrow')}</a><a class="marketing-secondary" href="/terms">Review terms</a></div></section>`;
+    <section class="final-cta"><div class="marketing-kicker"><span></span> Ready when you are</div><h2>Build a cleaner trading workflow.</h2><p>Create your account, review the policies, and connect only when you understand the risks.</p><div class="hero-actions"><a class="marketing-cta" href="${dashboardHref}">${dashboardLabel}</a><a class="marketing-secondary" href="/terms">Review terms</a></div></section>`;
 }
 const legalDocuments = {
   '/terms': {
@@ -260,6 +264,7 @@ function legalPage(path) {
 function authPage(path) {
   const mfa = state.requiresMfa && path === '/login';
   const title = mfa ? 'Verify your sign-in' : ({ '/login':'Welcome back.', '/signup':'Create your account.', '/resend-confirmation':'Resend confirmation.', '/forgot-password':'Reset your password.', '/reset-password':'Choose a new password.' })[path];
+  document.title = `${title} · Elite Bot`;
   let contents;
   if (mfa) contents = form('mfa-login', field('Authenticator code','code','','text','required inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code" maxlength="6"'), 'Verify and sign in') + `<div class="auth-bottom">${btn('Use a different account','logout','','class="ghost"')}</div>`;
   else if (path === '/login') contents = form('login', field('Email address','email','','email','required autocomplete="email"') + password('Password','password') + '<div class="auth-links"><a href="/forgot-password">Forgot password?</a><a href="/support">Need help?</a></div>', 'Sign in') + '<div class="auth-bottom">New to Elite Bot? <a href="/signup">Create an account</a></div>' + (state.config.demoMode ? '<div class="auth-bottom"><button type="button" class="ghost" data-action="demo">Continue as Demo</button></div>' : '');
@@ -267,7 +272,7 @@ function authPage(path) {
   else if (path === '/resend-confirmation') contents = form('resend-confirmation-form', field('Email address','email',new URLSearchParams(location.search).get('email') || '','email','required autocomplete="email"'), 'Resend confirmation email') + '<div class="auth-bottom"><a href="/login">Back to sign in</a></div>';
   else if (path === '/forgot-password') contents = form('forgot', field('Email address','email','','email','required autocomplete="email"'), 'Send recovery link') + '<div class="auth-bottom"><a href="/login">Back to sign in</a></div>';
   else contents = form('reset', password('New password','password','new-password') + password('Confirm password','confirm','new-password'), 'Reset password') + '<div class="auth-bottom"><a href="/login">Back to sign in</a></div>';
-  root.innerHTML = `<main id="main" class="auth-wrap"><section class="auth-story">${brand}<div class="eyebrow">Built for your next move</div><h2 class="auth-title">Your trading.<br><em>In focus.</em></h2><p>A clear view of your accounts, trading bots, and everything that keeps you connected.</p><div class="auth-features"><div class="auth-feature">${icon('terminal')}<div><strong>One connected workspace</strong><p>Keep your MT5 accounts and bot controls together.</p></div></div><div class="auth-feature">${icon('shield')}<div><strong>Stay in control</strong><p>Manage risk settings, account access, and security.</p></div></div></div><footer><small>Trading involves risk. Performance is not guaranteed.</small></footer></section><section class="auth-form-side"><div class="auth-theme">${themeButton()}</div><div class="auth-form"><div class="eyebrow">ELITE BOT / ACCOUNT</div><h1>${title}</h1><p>${mfa ? 'Enter the six-digit code from your authenticator app.' : path === '/signup' ? 'Your trading workspace starts here.' : path === '/resend-confirmation' ? 'Request a fresh verification link for an unconfirmed account.' : path === '/login' ? 'Sign in to continue to your workspace.' : 'Secure access to your trading workspace.'}</p>${contents}</div></section></main>`;
+  root.innerHTML = `<main id="main" class="auth-wrap" tabindex="-1"><section class="auth-story">${publicBrand}<div class="eyebrow">Built for your next move</div><h2 class="auth-title">Your trading.<br><em>In focus.</em></h2><p>A clear view of your accounts, trading bots, and everything that keeps you connected.</p><div class="auth-features"><div class="auth-feature">${icon('terminal')}<div><strong>One connected workspace</strong><p>Keep your MT5 accounts and bot controls together.</p></div></div><div class="auth-feature">${icon('shield')}<div><strong>Stay in control</strong><p>Manage risk settings, account access, and security.</p></div></div></div><footer><small>Trading involves risk. Performance is not guaranteed.</small></footer></section><section class="auth-form-side"><div class="auth-theme">${themeButton()}</div><div class="auth-form"><a class="auth-home" href="/">${icon("terminal")} Elite Bot</a><div class="eyebrow">ELITE BOT / ACCOUNT</div><h1>${title}</h1><p>${mfa ? 'Enter the six-digit code from your authenticator app.' : path === '/signup' ? 'Your trading workspace starts here.' : path === '/resend-confirmation' ? 'Request a fresh verification link for an unconfirmed account.' : path === '/login' ? 'Sign in to continue to your workspace.' : 'Secure access to your trading workspace.'}</p>${contents}</div></section></main>`;
 }
 const activation = () => state.user.active || state.user.role === 'admin' ? '' : '<div class="notice">Activate your subscription to connect an MT5 account and start trading bots. <a href="/subscription">View subscription</a></div>';
 async function terminalPage() {
@@ -334,7 +339,7 @@ async function adminPage() {
 }
 async function render({ quiet = false } = {}) {
   const version = ++state.version; let path = location.pathname;
-  document.body.classList.remove('menu-open');
+  setWorkspaceMenu(false,false);
   if (path === '/dashboard') { path = state.user ? '/mt5' : '/login'; history.replaceState(null,'',path); }
   if (path === '/logout') { await logout(); return; }
   const auth = ['/login','/signup','/resend-confirmation','/forgot-password','/reset-password'].includes(path);
@@ -353,7 +358,7 @@ async function render({ quiet = false } = {}) {
     document.title = pageTitle;
   } catch (error) { if (version !== state.version) return; if (error.status === 401) { state.user = null; navigate('/login',true); } else (state.user ? shell : publicShell)(empty('Unable to load this page',esc(error.message),btn('Try again','refresh'))); }
 }
-function navigate(path, replace = false) { if (modal.open) modal.close(); history[replace ? 'replaceState' : 'pushState'](null,'',path); window.scrollTo(0,0); render(); }
+function navigate(path, replace = false) { if (modal.open) modal.close(); history[replace ? 'replaceState' : 'pushState'](null,'',path); window.scrollTo(0,0); render().then(() => document.querySelector('#main')?.focus({preventScroll:true})); }
 async function logout() {
   const accessToken = state.auth?.access_token || '';
   if (accessToken) await supabaseAuth('logout','POST',{},accessToken).catch(() => {});
@@ -380,10 +385,10 @@ const actions = {
     toast('If this address is awaiting confirmation, a new confirmation email has been requested. Check your inbox and spam folder.');
   },
   demo: async () => { const d = await api('/auth/demo','POST'); state.user = d.user; state.requiresMfa = false; navigate('/mt5',true); },
-  theme: () => { document.body.classList.toggle('light'); try { localStorage.setItem('elite-theme',document.body.classList.contains('light') ? 'light' : 'dark'); } catch {} },
-  menu: () => { const open = document.body.classList.toggle('menu-open'); document.querySelector('[data-action="menu"][aria-expanded]')?.setAttribute('aria-expanded',String(open)); },
+  theme: () => { const theme = document.body.classList.contains('light') ? 'dark' : 'light'; applyTheme(theme); try { localStorage.setItem('elite-theme',theme); } catch {} },
+  menu: () => setWorkspaceMenu(!document.body.classList.contains('menu-open')),
   close: () => modal.close(),
-  password: (id,button) => { const input = document.getElementById(id); input.type = input.type === 'password' ? 'text' : 'password'; button.setAttribute('aria-label',input.type === 'password' ? 'Show password' : 'Hide password'); },
+  password: (id,button) => { const input = document.getElementById(id); input.type = input.type === 'password' ? 'text' : 'password'; button.setAttribute('aria-label',input.type === 'password' ? 'Show password' : 'Hide password'); button.setAttribute('aria-pressed',String(input.type === 'text')); },
   copy: async value => { await navigator.clipboard.writeText(value); toast('Copied to clipboard.'); },
   refresh: async () => { await identity(); await render(); }, logout,
   'account-add':accountModal,
@@ -410,6 +415,8 @@ const actions = {
 };
 document.addEventListener('click',async event => {
   const link = event.target.closest('a[href]');
+  if (link) document.querySelectorAll('.public-menu[open]').forEach(menu => menu.removeAttribute('open'));
+  if (!event.target.closest('.public-menu')) document.querySelectorAll('.public-menu[open]').forEach(menu => menu.removeAttribute('open'));
   if (link && link.origin === location.origin && !link.hash && !event.metaKey && !event.ctrlKey && event.button === 0) { event.preventDefault(); navigate(link.pathname + link.search); return; }
   const button = event.target.closest('[data-action]'); if (!button || button.disabled) return;
   const action = actions[button.dataset.action]; if (!action) return;
@@ -422,7 +429,7 @@ document.addEventListener('submit',async event => {
   const el = event.target.closest('form[data-form]'); if (!el) return; event.preventDefault();
   const button = el.querySelector('[type="submit"]'); if (button.disabled) return;
   const data = Object.fromEntries(new FormData(el)), action = el.dataset.form, id = el.dataset.id;
-  const errorBox = el.querySelector('.error'); errorBox.textContent = ''; button.disabled = true; const label = button.textContent; button.textContent = 'Please wait…';
+  const errorBox = el.querySelector('.error'); errorBox.textContent = ''; button.disabled = true; const label = button.textContent; button.textContent = 'Please wait…'; el.setAttribute('aria-busy','true');
   try {
     if (['password','reset'].includes(action) && data.password !== data.confirm) throw new Error('The new passwords do not match.');
     if (action === 'login') {
@@ -540,11 +547,41 @@ document.addEventListener('submit',async event => {
     }
     errorBox.scrollIntoView({block:'nearest'});
   }
-  finally { button.disabled = false; button.textContent = label; }
+  finally { button.disabled = false; button.textContent = label; el.removeAttribute('aria-busy'); }
 });
 window.addEventListener('popstate',() => render());
-document.addEventListener('keydown',event => { if (event.key === 'Escape') { document.body.classList.remove('menu-open'); document.querySelector('[data-action="menu"][aria-expanded]')?.setAttribute('aria-expanded','false'); } });
-try { document.body.classList.toggle('light',localStorage.getItem('elite-theme') === 'light'); } catch {}
+function setWorkspaceMenu(open,restoreFocus = true) {
+  const opener = document.querySelector('[data-action="menu"][aria-expanded]');
+  const wasOpen = document.body.classList.contains('menu-open');
+  const mobile = window.matchMedia('(max-width: 760px)').matches;
+  document.body.classList.toggle('menu-open',open && mobile);
+  opener?.setAttribute('aria-expanded',String(open && mobile));
+  const workspace = document.querySelector('.workspace');
+  if (workspace) workspace.inert = open && mobile;
+  if (open && mobile) document.querySelector('.sidebar a.active, .sidebar a')?.focus();
+  else if (wasOpen && restoreFocus) opener?.focus();
+}
+window.matchMedia('(max-width: 760px)').addEventListener('change',() => setWorkspaceMenu(false));
+document.addEventListener('keydown',event => {
+  if (event.key === 'Escape') {
+    setWorkspaceMenu(false);
+    document.querySelectorAll('.public-menu[open]').forEach(menu => { menu.removeAttribute('open'); menu.querySelector('summary').focus(); });
+  }
+  if (event.key === 'Tab' && document.body.classList.contains('menu-open')) {
+    const controls = [...document.querySelectorAll('.sidebar a[href], .sidebar button:not(:disabled)')].filter(el => el.getClientRects().length);
+    const first = controls[0], last = controls.at(-1);
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+  }
+});
+const systemTheme = window.matchMedia('(prefers-color-scheme: light)');
+function applyTheme(theme) {
+  document.body.classList.toggle('light',theme === 'light');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content',theme === 'light' ? '#f5f6f7' : '#111315');
+}
+try { applyTheme(localStorage.getItem('elite-theme') || (systemTheme.matches ? 'light' : 'dark')); }
+catch { applyTheme(systemTheme.matches ? 'light' : 'dark'); }
+systemTheme.addEventListener('change',event => { try { if (!localStorage.getItem('elite-theme')) applyTheme(event.matches ? 'light' : 'dark'); } catch {} });
 try {
   state.config = await api('/config');
   if (location.hash && location.pathname !== '/reset-password') {
