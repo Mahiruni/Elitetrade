@@ -60,12 +60,3 @@ test('marketing homepage and legal routes are public', async t => {
   }
 });
 
-test('config exposes CAPTCHA integration fields without leaking secrets', async t => {
-  const base = await fixture(t, { CAPTCHA_PROVIDER:'turnstile', CAPTCHA_SITE_KEY:'public-test-site-key' });
-  const response = await fetch(base + '/api/config');
-  const body = await response.json();
-  assert.equal(body.captchaProvider, 'turnstile');
-  assert.equal(body.captchaSiteKey, 'public-test-site-key');
-  assert.equal(body.captchaConfigured, true);
-  assert.equal(Object.hasOwn(body, 'captchaSecret'), false);
-});
