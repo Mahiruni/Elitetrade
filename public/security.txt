@@ -1,5 +1,5 @@
-Contact: https://elitebot.live/support
-Canonical: https://elitebot.live/.well-known/security.txt
-Policy: https://elitebot.live/terms
+Contact: https://elitetradee.vercel.app/support
+Canonical: https://elitetradee.vercel.app/.well-known/security.txt
+Policy: https://elitetradee.vercel.app/terms
 Expires: 2027-10-01T00:00:00Z
 Preferred-Languages: en

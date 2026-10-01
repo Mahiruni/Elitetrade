@@ -547,10 +547,13 @@ document.addEventListener('keydown',event => { if (event.key === 'Escape') { doc
 try { document.body.classList.toggle('light',localStorage.getItem('elite-theme') === 'light'); } catch {}
 try {
   state.config = await api('/config');
-  if (location.pathname === '/login' && location.hash) {
+  if (location.hash && location.pathname !== '/reset-password') {
     const callback = new URLSearchParams(location.hash.slice(1));
     const accessToken = callback.get('access_token') || '';
-    if (accessToken) {
+    const callbackType = callback.get('type') || '';
+    if (accessToken && callbackType === 'recovery') {
+      history.replaceState(null,'','/reset-password' + location.hash);
+    } else if (accessToken) {
       saveAuth({
         access_token:accessToken,
         refresh_token:callback.get('refresh_token') || '',

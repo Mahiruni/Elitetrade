@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createSupabaseApplication } from '../src/supabase-app.mjs';
 
 async function fixture(t, extraEnv = {}) {
@@ -60,3 +61,16 @@ test('marketing homepage and legal routes are public', async t => {
   }
 });
 
+
+
+test('public canonical and auth callback use the Vercel site URL', () => {
+  const app = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  const index = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
+  const robots = readFileSync(new URL('../public/robots.txt', import.meta.url), 'utf8');
+  const security = readFileSync(new URL('../public/security.txt', import.meta.url), 'utf8');
+  assert.match(app, /AUTH_REDIRECT_ORIGIN = 'https:\/\/elitetradee\.vercel\.app'/);
+  assert.match(app, /location\.hash && location\.pathname !== '\/reset-password'/);
+  assert.match(index, /https:\/\/elitetradee\.vercel\.app\//);
+  assert.match(robots, /https:\/\/elitetradee\.vercel\.app\/sitemap\.xml/);
+  assert.match(security, /https:\/\/elitetradee\.vercel\.app\/\.well-known\/security\.txt/);
+});

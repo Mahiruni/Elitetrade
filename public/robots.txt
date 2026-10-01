@@ -9,4 +9,4 @@ Disallow: /subscribe
 Disallow: /pool
 Disallow: /referrals
 
-Sitemap: https://elitebot.live/sitemap.xml
+Sitemap: https://elitetradee.vercel.app/sitemap.xml
