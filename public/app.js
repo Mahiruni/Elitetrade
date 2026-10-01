@@ -208,7 +208,18 @@ async function render({ quiet = false } = {}) {
   } catch (error) { if (version !== state.version) return; if (error.status === 401) { state.user = null; navigate('/login',true); } else (state.user ? shell : publicShell)(empty('Unable to load this page',esc(error.message),btn('Try again','refresh'))); }
 }
 function navigate(path, replace = false) { if (modal.open) modal.close(); history[replace ? 'replaceState' : 'pushState'](null,'',path); window.scrollTo(0,0); render(); }
-async function logout() { await api('/auth/logout','POST'); state.user = null; state.requiresMfa = false; state.csrf = null; state.chat = null; state.stream?.close(); state.stream = null; navigate('/login',true); }
+async function logout() {
+  const accessToken = state.auth?.access_token || '';
+  if (accessToken) await supabaseAuth('logout','POST',{},accessToken).catch(() => {});
+  clearAuth();
+  state.user = null;
+  state.requiresMfa = false;
+  state.csrf = null;
+  state.chat = null;
+  state.stream?.close();
+  state.stream = null;
+  navigate('/login',true);
+}
 function accountModal() { openModal('Add MT5 account',form('account',field('Broker','broker','','text','required minlength="2" maxlength="100" placeholder="Your broker name"') + field('MT5 account number','login','','text','required inputmode="numeric" pattern="[0-9]+" maxlength="30"') + field('Server','server','','text','required minlength="2" maxlength="100" placeholder="Exact server name from MT5"') + password('MT5 password','password') + '<p class="meta">Your credentials are encrypted on the server. The connection stays pending until the trading service confirms access.</p>', 'Save account')); }
 function botModal(id) {
   const b = state.data.bots.find(b => b.id === id);
@@ -234,7 +245,7 @@ const actions = {
   'mfa-setup': async () => {
     if (state.user.mfaEnabled) { openModal('Disable two-factor authentication',form('mfa-disable',password('Password','password') + field('Authenticator code','code','','text','required inputmode="numeric" pattern="[0-9]{6}" maxlength="6"'),'Disable two-factor authentication')); return; }
     const d = await api('/auth/mfa/enroll','POST');
-    openModal('Set up your authenticator',`<p class="meta">Scan this code in your authenticator app, or enter the setup key manually. Then enter a fresh six-digit code.</p><img class="qr" src="${esc(d.qr)}" alt="Authenticator setup QR code"><p class="mono secret">${esc(d.secret)}</p>${form('mfa-enable',field('Authenticator code','code','','text','required inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"'),'Enable two-factor authentication')}`);
+    openModal('Set up your authenticator',`<p class="meta">Scan this code in your authenticator app, or enter the setup key manually. Then enter a fresh six-digit code.</p><img class="qr" src="${esc(d.qr)}" alt="Authenticator setup QR code"><p class="mono secret">${esc(d.secret)}</p>${form('mfa-enable',`<input type="hidden" name="factorId" value="${esc(d.factorId)}"><input type="hidden" name="challengeId" value="${esc(d.challengeId)}">` + field('Authenticator code','code','','text','required inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"'),'Enable two-factor authentication')}`);
   },
   'chat-create': () => openModal('New support conversation',form('chat-create',(state.user ? '' : field('Your name','name','','text','required minlength="2" maxlength="64"') + field('Email · optional','email','','email','autocomplete="email"')) + '<p class="meta">Your conversation is saved in this browser. Sign in to keep conversations attached to your account.</p>','Start conversation')),
   'chat-select': async id => { state.chat = id; await render({quiet:true}); },
@@ -266,8 +277,23 @@ document.addEventListener('submit',async event => {
     if (['password','reset'].includes(action) && data.password !== data.confirm) throw new Error('The new passwords do not match.');
     if (action === 'login') {
       const auth = await supabaseAuth('token?grant_type=password','POST',{ email:data.email, password:data.password });
-      const d = await api('/auth/supabase-session','POST',{ accessToken:auth.access_token });
-      state.user = d.user; state.requiresMfa = false; navigate('/mt5',true); return;
+      let factors = [];
+      try {
+        const response = await supabaseAuth('factors','GET',undefined,auth.access_token);
+        factors = Array.isArray(response) ? response : [...(response?.totp || []), ...(response?.phone || [])];
+      } catch {}
+      const factor = factors.find(f => f.status === 'verified');
+      if (factor && decodeJwt(auth.access_token).aal !== 'aal2') {
+        const challenge = await supabaseAuth(`factors/${encodeURIComponent(factor.id)}/challenge`,'POST',{},auth.access_token);
+        state.pendingMfa = { auth, factorId:factor.id, challengeId:challenge.id };
+        state.requiresMfa = true;
+        authPage('/login');
+        return;
+      }
+      saveAuth(auth);
+      await identity();
+      navigate('/mt5',true);
+      return;
     }
     if (action === 'signup') {
       const auth = await supabaseAuth('signup','POST',{ email:data.email, password:data.password, data:{ full_name:data.name, referral_code:data.referral || '' } });
@@ -275,10 +301,26 @@ document.addEventListener('submit',async event => {
         el.innerHTML = '<div class="notice">Account created. Check your email to confirm your address, then sign in.</div><div class="auth-bottom"><a href="/login">Go to sign in</a></div>';
         return;
       }
-      const d = await api('/auth/supabase-session','POST',{ accessToken:auth.access_token });
-      state.user = d.user; state.requiresMfa = false; navigate('/subscription',true); return;
+      saveAuth(auth);
+      await identity();
+      navigate('/subscription',true);
+      return;
     }
-    if (action === 'mfa-login') throw new Error('Use your Supabase sign-in credentials to continue.');
+    if (action === 'mfa-login') {
+      if (!state.pendingMfa) throw new Error('Start a new sign-in attempt.');
+      const verified = await supabaseAuth(
+        `factors/${encodeURIComponent(state.pendingMfa.factorId)}/verify`,
+        'POST',
+        { challenge_id:state.pendingMfa.challengeId, code:data.code },
+        state.pendingMfa.auth.access_token
+      );
+      saveAuth(verified);
+      state.pendingMfa = null;
+      state.requiresMfa = false;
+      await identity();
+      navigate('/mt5',true);
+      return;
+    }
     if (action === 'forgot') {
       await supabaseAuth(`recover?redirect_to=${encodeURIComponent(location.origin + '/reset-password')}`,'POST',{ email:data.email });
       el.innerHTML = '<div class="notice">If this account exists, a recovery link has been sent.</div>';
@@ -292,11 +334,39 @@ document.addEventListener('submit',async event => {
       history.replaceState(null,'','/login'); state.user = null; state.csrf = null;
       toast('Password reset. Sign in with your new password.'); navigate('/login',true); return;
     }
-    if (action === 'password') { await api('/auth/password','POST',data); state.user = null; state.csrf = null; state.stream?.close(); state.stream = null; toast('Password updated. Please sign in again.'); navigate('/login',true); return; }
+    if (action === 'password') {
+      await api('/auth/password','POST',data);
+      clearAuth();
+      state.user = null;
+      state.csrf = null;
+      state.stream?.close();
+      state.stream = null;
+      toast('Password updated. Please sign in again.');
+      navigate('/login',true);
+      return;
+    }
+    if (action === 'mfa-enable') {
+      const d = await api('/auth/mfa/enable','POST',data);
+      if (d.session?.access_token) saveAuth(d.session);
+      if (modal.open) modal.close();
+      await identity();
+      toast('Two-factor authentication enabled.');
+      await render({quiet:true});
+      return;
+    }
+    if (action === 'mfa-disable') {
+      const d = await api('/auth/mfa/disable','POST',data);
+      if (d.session?.access_token) saveAuth(d.session);
+      if (modal.open) modal.close();
+      await identity();
+      toast('Two-factor authentication disabled.');
+      await render({quiet:true});
+      return;
+    }
     if (action === 'chat-message') { await api(`/support/${id}/messages`,'POST',data); el.reset(); await refreshChat(); return; }
     if (action === 'chat-create') { const d = await api('/support','POST',data); state.chat = d.id; connectEvents(); }
     else {
-      const endpoints = { profile:['/profile','PATCH'], account:['/accounts','POST'], 'account-delete':[`/accounts/${id}`,'DELETE'], bot:[`/bots/${id}`,'PATCH'], 'bot-control':[`/bots/${id}/control`,'POST'], payment:['/payments','POST'], payout:['/referrals/payout','POST'], 'mfa-enable':['/auth/mfa/enable','POST'], 'mfa-disable':['/auth/mfa/disable','POST'], user:[`/admin/users/${id}`,'PATCH'], method:[`/admin/payment-methods${id ? `/${id}` : ''}`,'POST'], round:[`/admin/rounds${id ? `/${id}` : ''}`,'POST'], 'payment-review':[`/admin/payments/${id}/review`,'POST'], 'account-review':[`/admin/accounts/${id}/review`,'POST'], 'payout-review':[`/admin/payouts/${id}/review`,'POST'], 'admin-settings':['/admin/settings','POST'], 'chat-close':[`/support/${id}/close`,'POST'] };
+      const endpoints = { profile:['/profile','PATCH'], account:['/accounts','POST'], 'account-delete':[`/accounts/${id}`,'DELETE'], bot:[`/bots/${id}`,'PATCH'], 'bot-control':[`/bots/${id}/control`,'POST'], payment:['/payments','POST'], payout:['/referrals/payout','POST'], user:[`/admin/users/${id}`,'PATCH'], method:[`/admin/payment-methods${id ? `/${id}` : ''}`,'POST'], round:[`/admin/rounds${id ? `/${id}` : ''}`,'POST'], 'payment-review':[`/admin/payments/${id}/review`,'POST'], 'account-review':[`/admin/accounts/${id}/review`,'POST'], 'payout-review':[`/admin/payouts/${id}/review`,'POST'], 'admin-settings':['/admin/settings','POST'], 'chat-close':[`/support/${id}/close`,'POST'] };
       const endpoint = endpoints[action]; if (!endpoint) throw new Error('Unknown form. Refresh this page.');
       if (action === 'user') { data.active = data.active === 'true'; data.disabled = data.disabled === 'true'; }
       if (action === 'method') data.enabled = data.enabled === 'true';
@@ -311,6 +381,12 @@ document.addEventListener('submit',async event => {
 window.addEventListener('popstate',() => render());
 document.addEventListener('keydown',event => { if (event.key === 'Escape') { document.body.classList.remove('menu-open'); document.querySelector('[data-action="menu"][aria-expanded]')?.setAttribute('aria-expanded','false'); } });
 try { document.body.classList.toggle('light',localStorage.getItem('elite-theme') === 'light'); } catch {}
-try { await identity(); state.config = await api('/config'); await render(); } catch (error) { root.innerHTML = `<main id="main" class="public-content">${empty('Unable to connect',esc(error.message),'<a href="/">Try again</a>')}</main>`; }
+try {
+  state.config = await api('/config');
+  await identity();
+  await render();
+} catch (error) {
+  root.innerHTML = `<main id="main" class="public-content">${empty('Unable to connect',esc(error.message),'<a href="/">Try again</a>')}</main>`;
+}
 setInterval(() => { if (!document.hidden && location.pathname.includes('support') && state.chat) refreshChat().catch(() => {}); },15000);
 setInterval(() => { if (!document.hidden && state.user && !modal.open && !document.body.classList.contains('menu-open') && ['/mt5','/bots'].includes(location.pathname)) render({quiet:true}); },15000);
