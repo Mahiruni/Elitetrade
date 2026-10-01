@@ -113,7 +113,149 @@ function shell(content) {
   if (state.user.role === 'admin') nav.push(['/admin','shield','Administration'],['/admin/support','support','Support inbox']);
   root.innerHTML = `<div class="layout"><div class="menu-scrim" data-action="menu"></div><aside class="sidebar">${brand}<div class="nav-label">WORKSPACE</div><nav aria-label="Main navigation">${nav.map(([href,i,title]) => `<a href="${href}" class="${path === href ? 'active' : ''}" ${path === href ? 'aria-current="page"' : ''}>${icon(i)}<span>${title}</span></a>`).join('')}</nav><div class="sidebar-bottom"><div class="plan-label">${badge(state.user.active ? 'active' : 'inactive')} <small>Lifetime access</small></div>${btn(`${icon('logout')} Sign out`, 'logout', '', 'class="ghost logout"')}</div></aside><div class="workspace"><header class="topbar"><div class="desktop-crumb">Workspace <span>/</span> ${esc(nav.find(n => n[0] === path)?.[2] || 'Terminal')}</div>${brand}<div class="topbar-actions"><div class="account-name"><strong>${esc(state.user.name)}</strong><small>${esc(state.user.email)}</small></div>${themeButton()}${btn(icon('menu'), 'menu', '', 'class="icon ghost mobile-only" aria-label="Open navigation" aria-expanded="false"')}</div></header><main id="main" class="content" tabindex="-1">${content}</main><footer class="workspace-footer"><span>Elite Bot</span><span>Trading involves risk. Performance is not guaranteed.</span></footer></div></div>`;
 }
-function publicShell(content) { root.innerHTML = `<header class="public-header">${brand}<div class="topbar-actions">${themeButton()}<a href="/login">Sign in</a></div></header><main id="main" class="public-content">${content}</main>`; }
+const publicBrand = `<a href="/" class="brand site-brand"><img src="/logo.jpg" alt=""><span>ELITE <em>BOT</em><div class="wordmark-sub">AUTOMATED TRADING PLATFORM</div></span></a>`;
+function marketingHeader() {
+  const accountLink = state.user ? '<a class="nav-login" href="/mt5">Workspace</a>' : '<a class="nav-login" href="/login">Sign in</a>';
+  const cta = state.user ? '<a class="marketing-cta small" href="/mt5">Open terminal</a>' : '<a class="marketing-cta small" href="/signup">Get started</a>';
+  return `<header class="marketing-header"><div class="marketing-nav">${publicBrand}<nav class="marketing-links" aria-label="Marketing navigation"><a href="/#platform">Platform</a><a href="/#workflow">How it works</a><a href="/#security">Security</a><a href="/#pricing">Access</a></nav><div class="marketing-actions">${themeButton()}${accountLink}${cta}</div></div></header>`;
+}
+function publicFooter() {
+  return `<footer class="marketing-footer"><div class="footer-grid"><div><div class="footer-brand">${publicBrand}</div><p>Tools for managing MT5 connections, automation controls, account access, payments, and support from one focused workspace.</p></div><div><strong>Platform</strong><a href="/#platform">Overview</a><a href="/#security">Security</a><a href="/support">Support</a><a href="/login">Sign in</a></div><div><strong>Legal</strong><a href="/terms">Terms of Service</a><a href="/privacy">Privacy Policy</a><a href="/risk-disclosure">Risk Disclosure</a><a href="/refund-policy">Refund Policy</a><a href="/cookies">Cookie Policy</a></div></div><div class="footer-bottom"><span>© ${new Date().getFullYear()} Elite Bot. All rights reserved.</span><span>Trading involves substantial risk. No performance is guaranteed.</span></div></footer>`;
+}
+function publicShell(content) {
+  root.innerHTML = `${marketingHeader()}<main id="main" class="marketing-main">${content}</main>${publicFooter()}`;
+}
+function marketingPage() {
+  const dashboardHref = state.user ? '/mt5' : '/signup';
+  const dashboardLabel = state.user ? 'Open your terminal' : 'Create your account';
+  return `
+    <section class="marketing-hero">
+      <div class="hero-orb hero-orb-one"></div><div class="hero-orb hero-orb-two"></div>
+      <div class="hero-copy">
+        <div class="marketing-kicker"><span></span> MT5 automation, organized around control</div>
+        <h1>Trading automation that<br><em>stays in your hands.</em></h1>
+        <p class="hero-lead">Connect your MT5 workflow, configure automation, manage risk settings, track access, and reach support from a single secure workspace.</p>
+        <div class="hero-actions"><a class="marketing-cta" href="${dashboardHref}">${dashboardLabel} ${icon('arrow')}</a><a class="marketing-secondary" href="#platform">Explore the platform</a></div>
+        <div class="hero-trust"><span>${icon('shield')} Supabase-backed identity</span><span>${icon('terminal')} MT5 connection workflow</span><span>${icon('settings')} User-controlled risk settings</span></div>
+      </div>
+      <div class="terminal-showcase" aria-label="Illustrative Elite Bot terminal preview">
+        <div class="showcase-top"><div class="showcase-dots"><i></i><i></i><i></i></div><span>ELITE BOT / TERMINAL</span><small>Illustrative preview</small></div>
+        <div class="showcase-status"><div><small>Workspace status</small><strong>Ready for connection</strong></div><span class="signal"><i></i> Secure</span></div>
+        <div class="showcase-chart"><div class="chart-grid"></div><svg viewBox="0 0 560 170" preserveAspectRatio="none" aria-hidden="true"><path d="M0 135 C55 130 70 98 120 108 S196 145 236 95 S304 60 340 78 S410 112 448 66 S512 38 560 24" fill="none" stroke="currentColor" stroke-width="3"/><path d="M0 135 C55 130 70 98 120 108 S196 145 236 95 S304 60 340 78 S410 112 448 66 S512 38 560 24 L560 170 L0 170 Z" fill="currentColor" opacity=".06"/></svg></div>
+        <div class="showcase-grid"><div><small>Connection</small><strong>MT5</strong><span>Broker account workflow</span></div><div><small>Automation</small><strong>Bot controls</strong><span>Start / stop confirmation</span></div><div><small>Protection</small><strong>Risk limits</strong><span>Defined before execution</span></div></div>
+      </div>
+    </section>
+    <section class="trust-bar"><span>SECURE IDENTITY</span><span>•</span><span>ROW-LEVEL ACCESS CONTROL</span><span>•</span><span>ENCRYPTED CREDENTIAL STORAGE</span><span>•</span><span>ADMIN REVIEW WORKFLOWS</span></section>
+
+    <section id="platform" class="marketing-section">
+      <div class="section-heading"><div class="marketing-kicker"><span></span> One focused operating layer</div><h2>Everything important, without the noise.</h2><p>Elite Bot brings the operational parts of automated trading into one deliberately simple interface.</p></div>
+      <div class="bento">
+        <article class="bento-card bento-wide"><div class="bento-icon">${icon('terminal')}</div><div><span class="card-label">MT5 CONNECTIONS</span><h3>Your broker accounts in one place.</h3><p>Submit MT5 connection details, follow connection status, and keep automation attached to the account you intend to use.</p></div><div class="mini-terminal"><span>Broker account</span><strong>Connection review</strong><small>Credentials are stored separately from public application data.</small></div></article>
+        <article class="bento-card"><div class="bento-icon">${icon('bots')}</div><span class="card-label">AUTOMATION</span><h3>Configure before you run.</h3><p>Set strategy, symbol, lot size, stop loss, take profit, drawdown, and daily loss limits before issuing a start command.</p></article>
+        <article class="bento-card"><div class="bento-icon">${icon('shield')}</div><span class="card-label">CONTROL</span><h3>Human approval where it matters.</h3><p>Critical account, payment, and access workflows use explicit states and administrator review instead of silent assumptions.</p></article>
+        <article class="bento-card"><div class="bento-icon">${icon('wallet')}</div><span class="card-label">ACCESS</span><h3>Clear subscription status.</h3><p>See payment review status and access state directly in your workspace, with a traceable administrative workflow.</p></article>
+        <article class="bento-card bento-accent"><div class="bento-icon">${icon('support')}</div><span class="card-label">SUPPORT</span><h3>A support thread tied to your workspace.</h3><p>Keep questions about payments, connections, and account access in one conversation history.</p><a href="/support">Open support ${icon('arrow')}</a></article>
+      </div>
+    </section>
+
+    <section id="workflow" class="marketing-section workflow-section">
+      <div class="section-heading"><div class="marketing-kicker"><span></span> Designed for clarity</div><h2>From account to automation in four deliberate steps.</h2></div>
+      <div class="workflow-grid"><article><b>01</b><h3>Create your secure account</h3><p>Register, verify your identity flow, and protect access with available security controls.</p></article><article><b>02</b><h3>Activate platform access</h3><p>Submit an eligible payment reference and follow its review status transparently.</p></article><article><b>03</b><h3>Connect MT5</h3><p>Add the broker, account number, server, and credential required for the connection workflow.</p></article><article><b>04</b><h3>Configure and control</h3><p>Review risk parameters, attach the intended account, then start or stop automation intentionally.</p></article></div>
+    </section>
+
+    <section id="security" class="marketing-section security-section">
+      <div class="security-copy"><div class="marketing-kicker"><span></span> Security architecture</div><h2>Built so sensitive actions have boundaries.</h2><p>Production data is persisted in PostgreSQL with row-level authorization. MT5 credentials are isolated from normal application tables and stored using Supabase Vault. Authentication uses Supabase Auth, with optional authenticator-based MFA in the workspace.</p><div class="security-list"><span>${icon('shield')} Row-level data access policies</span><span>${icon('shield')} Vault-backed MT5 credential storage</span><span>${icon('shield')} MFA support and protected admin operations</span><span>${icon('shield')} Audit records for administrative changes</span></div></div>
+      <div class="security-visual"><div class="security-ring ring-one"></div><div class="security-ring ring-two"></div><div class="security-core">${icon('shield')}<strong>CONTROL<br>PLANE</strong><small>Identity · Data · Credentials</small></div></div>
+    </section>
+
+    <section class="marketing-section risk-panel"><div><div class="marketing-kicker"><span></span> Know the risk</div><h2>Automation does not remove market risk.</h2></div><div><p>Trading leveraged instruments can result in rapid losses. Elite Bot is software infrastructure—not a broker, investment adviser, portfolio manager, or promise of profitability. You remain responsible for your broker account, configuration, trading decisions, and compliance obligations.</p><a href="/risk-disclosure">Read the full Risk Disclosure ${icon('arrow')}</a></div></section>
+
+    <section id="pricing" class="marketing-section pricing-section">
+      <div class="section-heading"><div class="marketing-kicker"><span></span> Platform access</div><h2>A focused workspace for your trading operations.</h2><p>Pricing and payment methods shown after account creation are controlled by the platform administrator and displayed before you submit payment.</p></div>
+      <div class="pricing-card"><div><span class="card-label">ELITE BOT ACCESS</span><h3>One workspace. Clear controls.</h3><ul><li>MT5 account connection workflow</li><li>Bot strategy and risk configuration</li><li>Subscription and payment status</li><li>Referral and pool tracking where enabled</li><li>Account security and support</li></ul></div><div class="pricing-action"><small>Start by creating your account</small><a class="marketing-cta" href="${dashboardHref}">${dashboardLabel} ${icon('arrow')}</a><p>No profit, return, or trading-outcome guarantee is made.</p></div></div>
+    </section>
+
+    <section class="marketing-section faq-section"><div class="section-heading"><div class="marketing-kicker"><span></span> Questions</div><h2>Understand the platform before you connect.</h2></div><div class="marketing-faq"><details><summary>Does Elite Bot guarantee profitable trades?</summary><p>No. Markets are uncertain and trading can lose money. The platform provides tooling and controls; it does not guarantee performance.</p></details><details><summary>Is Elite Bot a broker?</summary><p>No. Your trading account remains with your chosen broker. Elite Bot provides a workflow for connecting and controlling supported automation.</p></details><details><summary>Where are MT5 credentials stored?</summary><p>Production MT5 credentials are isolated from normal public application tables and stored using encrypted Supabase Vault infrastructure.</p></details><details><summary>Can I control the bot?</summary><p>The workspace exposes configuration plus explicit start and stop controls. Actual execution depends on the configured trading gateway and broker connection.</p></details></div></section>
+
+    <section class="final-cta"><div class="marketing-kicker"><span></span> Ready when you are</div><h2>Build a cleaner trading workflow.</h2><p>Create your account, review the policies, and connect only when you understand the risks.</p><div class="hero-actions"><a class="marketing-cta" href="${dashboardHref}">${dashboardLabel} ${icon('arrow')}</a><a class="marketing-secondary" href="/terms">Review terms</a></div></section>`;
+}
+const legalDocuments = {
+  '/terms': {
+    kicker:'Legal / Terms',
+    title:'Terms of Service',
+    intro:'These Terms govern access to and use of Elite Bot and its related account, automation, payment, support, and administrative features.',
+    sections:[
+      ['1. Acceptance and eligibility','By creating an account or using the platform, you agree to these Terms and confirm that you are legally able to enter into them. You are responsible for ensuring that your use of automated trading software is lawful where you live and where your broker operates.'],
+      ['2. What Elite Bot provides','Elite Bot provides software tools for account management, MT5 connection workflows, automation configuration, payment-status tracking, support, and related operational features. Elite Bot is not a bank, broker-dealer, investment adviser, exchange, custodian, or fiduciary.'],
+      ['3. Trading responsibility','You decide whether to connect an account, configure automation, and issue start or stop commands. You are responsible for checking all settings, broker conditions, symbol specifications, leverage, margin, and open positions. No strategy or automated process is guaranteed to be profitable.'],
+      ['4. Account security','You must provide accurate information, keep credentials secure, protect your authenticator devices, and promptly report suspected unauthorized access. You may not share access in a way that defeats platform security or access controls.'],
+      ['5. Payments and access','Where paid access is offered, pricing, payment methods, and review status are shown before activation. Payment references may be manually verified. Access can be suspended for fraud, chargebacks, abuse, legal requirements, or material breach of these Terms.'],
+      ['6. Prohibited use','You may not misuse the platform, probe or bypass security, automate abusive requests, interfere with other users, reverse engineer protected systems, use stolen credentials or funds, or use the service for unlawful activity.'],
+      ['7. Availability and third parties','The service may depend on brokers, MT5 infrastructure, hosting providers, payment networks, messaging providers, and other third parties. Their availability, pricing, data, execution, and policies are outside Elite Bot’s direct control.'],
+      ['8. No warranty','The platform is provided on an “as available” basis to the extent permitted by law. We do not warrant uninterrupted operation, error-free execution, specific broker compatibility, or financial performance.'],
+      ['9. Limitation of liability','To the maximum extent permitted by applicable law, Elite Bot is not liable for trading losses, missed opportunities, broker actions, market movements, connectivity failures, third-party outages, or indirect or consequential losses arising from use of the platform.'],
+      ['10. Changes and termination','We may update the service or these Terms when reasonably necessary for security, legal, operational, or product reasons. Material updates should be communicated through the platform or other reasonable means. You may stop using the service at any time.'],
+      ['11. Contact','Questions about these Terms can be sent through the platform Support page.']
+    ]
+  },
+  '/privacy': {
+    kicker:'Legal / Privacy',
+    title:'Privacy Policy',
+    intro:'This policy explains the categories of information Elite Bot processes, why it is used, and the controls surrounding that data.',
+    sections:[
+      ['1. Information we process','We may process account identifiers, email address, profile name, authentication information, platform activity, payment references, support messages, referral relationships, bot configuration, MT5 account metadata, and technical security logs.'],
+      ['2. Sensitive credentials','MT5 credentials are treated separately from ordinary application data. In production they are stored through encrypted secret-storage infrastructure and are retrieved only for authorized connection workflows. We do not display stored MT5 passwords back to users.'],
+      ['3. Why we process information','Information is used to authenticate users, provide requested platform features, maintain account state, review payments, connect supported services, prevent abuse, provide support, enforce policies, audit administrative changes, and protect the platform.'],
+      ['4. Service providers','We use infrastructure and service providers to operate the product, including authentication/database hosting and deployment infrastructure. Those providers process data subject to their own contractual and security obligations.'],
+      ['5. Retention','We retain information for as long as reasonably necessary to provide the service, resolve disputes, meet security and legal obligations, maintain audit integrity, and enforce agreements. Retention periods can differ by data category.'],
+      ['6. Your choices','You can update supported profile information in the workspace and can contact Support regarding account or privacy requests. Some records may need to be retained where required for security, financial reconciliation, fraud prevention, or law.'],
+      ['7. Security','We use access controls, row-level authorization, encrypted secret storage, session controls, MFA capabilities, HTTPS, and administrative audit mechanisms. No online system can be guaranteed completely secure.'],
+      ['8. International processing','Infrastructure providers may process data in jurisdictions different from your own. By using the service, you understand that cross-border processing may occur subject to applicable legal safeguards.'],
+      ['9. Children','Elite Bot is not intended for children or anyone legally unable to use the relevant trading or financial services in their jurisdiction.'],
+      ['10. Contact and updates','Privacy questions can be submitted through Support. We may revise this policy as the service, legal requirements, or data practices change.']
+    ]
+  },
+  '/risk-disclosure': {
+    kicker:'Legal / Risk',
+    title:'Trading Risk Disclosure',
+    intro:'Read this disclosure carefully before connecting a brokerage account or enabling any automated trading function.',
+    sections:[
+      ['Trading can result in substantial loss','Foreign exchange, CFDs, derivatives, leveraged products, cryptocurrencies, and other traded instruments can move rapidly. Leverage can magnify both gains and losses and may result in losses exceeding amounts you expected to risk, depending on broker terms and jurisdiction.'],
+      ['Automation introduces additional risks','Automated strategies may behave differently during gaps, high volatility, illiquidity, news events, rejected orders, connectivity loss, incorrect symbol mapping, abnormal spreads, slippage, latency, broker restrictions, or software faults.'],
+      ['Past results do not predict future outcomes','Historical, simulated, back-tested, administrator-reported, or previously observed results do not guarantee future performance. Any displayed pool or account figures should be understood in context and independently verified where appropriate.'],
+      ['You remain responsible','You are responsible for deciding whether trading is appropriate for you, selecting your broker, funding your account, reviewing settings, monitoring positions, and stopping automation when necessary. Consider independent financial, legal, and tax advice where appropriate.'],
+      ['No investment advice or fiduciary relationship','Platform functionality, interfaces, settings, examples, alerts, support responses, and educational content are not individualized investment advice and do not create a fiduciary relationship.'],
+      ['Only risk capital you can afford to lose','Do not trade money needed for living expenses, debt obligations, emergency savings, or other essential purposes. If you do not understand a product, strategy, or risk control, do not enable it until you do.']
+    ]
+  },
+  '/refund-policy': {
+    kicker:'Legal / Payments',
+    title:'Refund Policy',
+    intro:'This policy describes how refund requests for platform-access payments are handled.',
+    sections:[
+      ['Before activation','If a payment has been submitted but platform access has not yet been activated, contact Support promptly. Eligibility for cancellation or refund depends on whether funds have been received, payment-network limitations, and any processing costs.'],
+      ['After activation','Because access may be provisioned digitally and immediately after approval, payments may become non-refundable once access has been activated, except where applicable law requires otherwise or a confirmed duplicate/incorrect payment has occurred.'],
+      ['Trading losses are not refundable','Market losses, broker losses, missed trades, strategy outcomes, spread/slippage, or dissatisfaction with trading performance are not grounds for refund of a software-access payment.'],
+      ['Crypto and network errors','Blockchain transfers are generally irreversible. Users are responsible for using the exact asset, address, and network displayed by the platform. Funds sent to an incorrect network or address may be unrecoverable.'],
+      ['How to request review','Open a Support conversation with the payment reference and relevant details. Requests are reviewed individually and may require proof of payment or identity verification.']
+    ]
+  },
+  '/cookies': {
+    kicker:'Legal / Cookies',
+    title:'Cookie & Local Storage Policy',
+    intro:'Elite Bot uses a limited set of browser storage mechanisms that are necessary for account access, preferences, and product operation.',
+    sections:[
+      ['Essential storage','The application may use cookies or local browser storage for authentication/session continuity, guest support conversations, theme preference, and security-related state.'],
+      ['No trading decisions from cookies','Browser storage is not used to decide trades, change strategy parameters, or guarantee any financial outcome.'],
+      ['Third-party services','Authentication, hosting, abuse prevention, or other integrated services may set or rely on their own necessary browser data under their respective policies.'],
+      ['Your controls','You can clear cookies and local storage in your browser settings, but doing so may sign you out, reset preferences, or interrupt support/session continuity.']
+    ]
+  }
+};
+function legalPage(path) {
+  const doc = legalDocuments[path];
+  return `<section class="legal-hero"><div class="marketing-kicker"><span></span> ${doc.kicker}</div><h1>${doc.title}</h1><p>${doc.intro}</p><small>Last updated: October 1, 2026</small></section><section class="legal-layout"><aside><strong>Legal center</strong><a class="${path==='/terms'?'active':''}" href="/terms">Terms of Service</a><a class="${path==='/privacy'?'active':''}" href="/privacy">Privacy Policy</a><a class="${path==='/risk-disclosure'?'active':''}" href="/risk-disclosure">Risk Disclosure</a><a class="${path==='/refund-policy'?'active':''}" href="/refund-policy">Refund Policy</a><a class="${path==='/cookies'?'active':''}" href="/cookies">Cookie Policy</a></aside><article class="legal-document">${doc.sections.map(([title,body])=>`<section><h2>${title}</h2><p>${body}</p></section>`).join('')}<div class="legal-note">This policy is intended to describe the platform’s operating terms and practices. Specific legal rights can vary by jurisdiction.</div></article></section>`;
+}
 function authPage(path) {
   const mfa = state.requiresMfa && path === '/login';
   const title = mfa ? 'Verify your sign-in' : ({ '/login':'Welcome back.', '/signup':'Create your account.', '/forgot-password':'Reset your password.', '/reset-password':'Choose a new password.' })[path];
@@ -191,20 +333,22 @@ async function adminPage() {
 async function render({ quiet = false } = {}) {
   const version = ++state.version; let path = location.pathname;
   document.body.classList.remove('menu-open');
-  if (['/','/dashboard'].includes(path)) { path = state.user ? '/mt5' : '/login'; history.replaceState(null,'',path); }
+  if (path === '/dashboard') { path = state.user ? '/mt5' : '/login'; history.replaceState(null,'',path); }
   if (path === '/logout') { await logout(); return; }
   const auth = ['/login','/signup','/forgot-password','/reset-password'].includes(path);
-  if (!state.user && !auth && !['/support','/terms','/privacy'].includes(path)) { history.replaceState(null,'','/login'); authPage('/login'); return; }
+  const publicRoutes = ['/','/support','/terms','/privacy','/risk-disclosure','/refund-policy','/cookies'];
+  if (!state.user && !auth && !publicRoutes.includes(path)) { history.replaceState(null,'','/login'); authPage('/login'); return; }
   if (auth) { if (state.user && ['/login','/signup'].includes(path)) { navigate('/mt5',true); return; } authPage(path); return; }
   if (path.startsWith('/admin') && state.user?.role !== 'admin') { shell(empty('Administrator access required','This page is available to administrators only.')); return; }
   if (!quiet) (state.user ? shell : publicShell)('<div class="loading" aria-busy="true">Loading your workspace…</div>');
   try {
-    const pages = { '/mt5':terminalPage,'/bots':botsPage,'/subscription':subscriptionPage,'/subscribe':subscriptionPage,'/pool':poolPage,'/referrals':referralsPage,'/settings':settingsPage,'/support':supportPage,'/admin':adminPage,'/admin/support':() => supportPage(true) };
+    const pages = { '/':marketingPage,'/terms':()=>legalPage('/terms'),'/privacy':()=>legalPage('/privacy'),'/risk-disclosure':()=>legalPage('/risk-disclosure'),'/refund-policy':()=>legalPage('/refund-policy'),'/cookies':()=>legalPage('/cookies'),'/mt5':terminalPage,'/bots':botsPage,'/subscription':subscriptionPage,'/subscribe':subscriptionPage,'/pool':poolPage,'/referrals':referralsPage,'/settings':settingsPage,'/support':supportPage,'/admin':adminPage,'/admin/support':() => supportPage(true) };
     const content = pages[path] ? await pages[path]() : empty('Page not found','<a href="/mt5">Return to your workspace</a>');
     if (version !== state.version) return;
     (state.user ? shell : publicShell)(content); connectEvents();
     const messages = document.querySelector('#messages'); if (messages) messages.scrollTop = messages.scrollHeight;
-    document.title = `${document.querySelector('h1')?.textContent || 'Workspace'} · Elite Bot`;
+    const pageTitle = path === '/' ? 'Elite Bot · MT5 Trading Automation Platform' : `${document.querySelector('h1')?.textContent || 'Workspace'} · Elite Bot`;
+    document.title = pageTitle;
   } catch (error) { if (version !== state.version) return; if (error.status === 401) { state.user = null; navigate('/login',true); } else (state.user ? shell : publicShell)(empty('Unable to load this page',esc(error.message),btn('Try again','refresh'))); }
 }
 function navigate(path, replace = false) { if (modal.open) modal.close(); history[replace ? 'replaceState' : 'pushState'](null,'',path); window.scrollTo(0,0); render(); }
