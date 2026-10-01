@@ -3,7 +3,11 @@ import { createApplication } from './src/app.mjs';
 
 // Vercel provides HTTPS and a disposable runtime. APP_ORIGIN can be derived
 // automatically. The SQLite file must live in the writable runtime directory.
-process.env.APP_ORIGIN ||= process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
+if (process.env.VERCEL_ENV === 'production') {
+  process.env.APP_ORIGIN = 'https://elitebot.live';
+} else {
+  process.env.APP_ORIGIN ||= process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
+}
 process.env.ENCRYPTION_KEY ||= randomBytes(32).toString('base64');
 process.env.SQLITE_PATH ||= process.env.VERCEL ? '/tmp/elitetrade.sqlite' : './data/elitetrade.sqlite';
 
