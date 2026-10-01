@@ -1,6 +1,7 @@
 const root = document.querySelector('#app');
 const modal = document.querySelector('#modal');
 const AUTH_KEY = 'elite-supabase-session';
+const AUTH_REDIRECT_ORIGIN = 'https://elitetradee.vercel.app';
 const readStoredAuth = () => {
   try { return JSON.parse(localStorage.getItem(AUTH_KEY) || 'null'); }
   catch { return null; }
@@ -440,7 +441,7 @@ document.addEventListener('submit',async event => {
       return;
     }
     if (action === 'signup') {
-      const auth = await supabaseAuth('signup','POST',{ email:data.email, password:data.password, data:{ full_name:data.name, referral_code:data.referral || '' } });
+      const auth = await supabaseAuth(`signup?redirect_to=${encodeURIComponent(AUTH_REDIRECT_ORIGIN + '/login')}`,'POST',{ email:data.email, password:data.password, data:{ full_name:data.name, referral_code:data.referral || '' } });
       if (!auth.access_token) {
         el.innerHTML = '<div class="notice">Account created. Check your email to confirm your address, then sign in.</div><div class="auth-bottom"><a href="/login">Go to sign in</a></div>';
         return;
@@ -466,7 +467,7 @@ document.addEventListener('submit',async event => {
       return;
     }
     if (action === 'forgot') {
-      await supabaseAuth(`recover?redirect_to=${encodeURIComponent(location.origin + '/reset-password')}`,'POST',{ email:data.email });
+      await supabaseAuth(`recover?redirect_to=${encodeURIComponent(AUTH_REDIRECT_ORIGIN + '/reset-password')}`,'POST',{ email:data.email });
       el.innerHTML = '<div class="notice">If this account exists, a recovery link has been sent.</div>';
       return;
     }
