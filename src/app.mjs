@@ -47,6 +47,9 @@ export function createApplication(options = {}) {
   const mailer = options.mailer === undefined ? createMailer(env) : options.mailer;
   const gateway = options.gateway === undefined ? createGateway(env) : options.gateway;
   const telegram = options.telegram === undefined ? createTelegram(env) : options.telegram;
+  const supabaseUrl = String(env.SUPABASE_URL || '').replace(/\/$/, '');
+  const supabaseKey = env.SUPABASE_PUBLISHABLE_KEY || '';
+  const supabaseConfigured = !!(supabaseUrl && supabaseKey);
   const clients = new Set();
   let tradingMutation = false;
   const get = (sql, ...args) => db.prepare(sql).get(...args);
@@ -108,8 +111,66 @@ export function createApplication(options = {}) {
     const path = url.pathname, method = req.method, guest = cookies(req.headers.cookie).elite_guest;
     const ip = env.TRUST_PROXY === 'true' ? String(req.headers['x-forwarded-for'] || req.socket.remoteAddress).split(',')[0].trim() : req.socket.remoteAddress;
     if (method !== 'GET') rateLimit(`write:${ip}`, 90);
-    if (path === '/api/config' && method === 'GET') return json(res, { priceCents: Number(setting('price_cents')), emailConfigured: !!mailer, gatewayConfigured: !!gateway, telegramConfigured: !!telegram, demoMode: env.DEMO_MODE === 'true' });
+    if (path === '/api/config' && method === 'GET') return json(res, {
+      priceCents: Number(setting('price_cents')),
+      emailConfigured: !!mailer,
+      gatewayConfigured: !!gateway,
+      telegramConfigured: !!telegram,
+      demoMode: env.DEMO_MODE === 'true',
+      supabaseUrl: supabaseConfigured ? supabaseUrl : '',
+      supabasePublishableKey: supabaseConfigured ? supabaseKey : ''
+    });
     if (path === '/api/me' && method === 'GET') return json(res, { user: context?.session.verified ? publicUser(context.user) : null, requiresMfa: !!context && !context.session.verified, csrf: context?.session.csrf || null });
+    if (path === '/api/auth/supabase-session' && method === 'POST') {
+      if (!supabaseConfigured) fail(503, 'Supabase authentication is not configured.');
+      const accessToken = string(body.accessToken, 'Access token', 20, 10000);
+      let authResponse;
+      try {
+        authResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
+          headers: { apikey: supabaseKey, Authorization: `Bearer ${accessToken}` }
+        });
+      } catch {
+        fail(503, 'Authentication service is temporarily unavailable.');
+      }
+      if (!authResponse.ok) fail(401, 'Your sign-in session could not be verified.');
+      const authUser = await authResponse.json();
+      if (!authUser?.id || !authUser?.email) fail(401, 'Your sign-in session is invalid.');
+
+      let profile = null;
+      try {
+        const profileResponse = await fetch(
+          `${supabaseUrl}/rest/v1/elitetrade_profiles?id=eq.${encodeURIComponent(authUser.id)}&select=id,full_name,role,active,disabled,referral_code,created_at`,
+          { headers: { apikey: supabaseKey, Authorization: `Bearer ${accessToken}`, Accept: 'application/json' } }
+        );
+        if (profileResponse.ok) profile = (await profileResponse.json())[0] || null;
+      } catch {}
+
+      const email = String(authUser.email).toLowerCase();
+      const name = String(profile?.full_name || authUser.user_metadata?.full_name || email.split('@')[0] || 'Trader').slice(0, 64);
+      const role = profile?.role === 'admin' ? 'admin' : 'user';
+      const active = profile?.active ? 1 : 0;
+      const disabled = profile?.disabled ? 1 : 0;
+      if (disabled) fail(403, 'This account has been disabled.');
+      const referralCode = String(profile?.referral_code || authUser.id.replace(/-/g, '').slice(0, 12)).toUpperCase();
+      const existing = get('SELECT * FROM users WHERE id=? OR email=?', authUser.id, email);
+      if (!existing) {
+        const refCode = String(authUser.user_metadata?.referral_code || '').trim().toUpperCase();
+        const referrer = refCode ? get('SELECT id FROM users WHERE referral_code=?', refCode) : null;
+        transaction(db, () => {
+          run('INSERT INTO users (id,email,name,password_hash,role,active,disabled,referral_code,referrer_id,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)',
+            authUser.id, email, name, 'supabase-auth', role, active, disabled, referralCode, referrer?.id || null, Date.parse(profile?.created_at || '') || now());
+          run('INSERT INTO bots (id,user_id,name,strategy,symbol,risk_percent,stop_loss,take_profit,max_drawdown,daily_loss,lot_size,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+            id(), authUser.id, 'Elite Bot', 'trend', 'XAUUSD', 1, 1, 2, 10, 3, 0.01, now());
+        });
+      } else {
+        run('UPDATE users SET email=?,name=?,role=?,active=?,disabled=?,referral_code=? WHERE id=?',
+          email, name, role, active, disabled, referralCode, existing.id);
+      }
+      const localUser = get('SELECT * FROM users WHERE id=? OR email=?', authUser.id, email);
+      const csrf = newSession(res, localUser);
+      return json(res, { user: publicUser(localUser), csrf });
+    }
+
     if (path === '/api/auth/signup' && method === 'POST') {
       rateLimit(`signup:${ip}`, 10, 900000);
       const email = emailValue(body.email), password = passwordValue(body.password), name = string(body.name, 'Name', 2, 64);
