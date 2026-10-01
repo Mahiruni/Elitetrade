@@ -716,7 +716,11 @@ export function createSupabaseApplication(options = {}) {
         '/app.js':['app.js','text/javascript'],
         '/styles.css':['styles.css','text/css'],
         '/favicon.svg':['favicon.svg','image/svg+xml'],
-        '/logo.jpg':['logo.jpg','image/jpeg']
+        '/logo.jpg':['logo.jpg','image/jpeg'],
+        '/robots.txt':['robots.txt','text/plain; charset=utf-8'],
+        '/sitemap.xml':['sitemap.xml','application/xml; charset=utf-8'],
+        '/security.txt':['security.txt','text/plain; charset=utf-8'],
+        '/.well-known/security.txt':['security.txt','text/plain; charset=utf-8']
       };
       const entry = files[url.pathname] || (pages.has(url.pathname) ? ['index.html','text/html'] : null);
       if (!entry) fail(404, 'Page not found.');
