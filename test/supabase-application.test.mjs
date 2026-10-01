@@ -1,11 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { randomBytes } from 'node:crypto';
 import { createSupabaseApplication } from '../src/supabase-app.mjs';
 
 async function fixture(t, extraEnv = {}) {
   const app = createSupabaseApplication({
-    key: randomBytes(32),
     gateway: null,
     telegram: null,
     env: {
@@ -33,6 +31,7 @@ test('Supabase production backend boots and reports persistent storage', async t
   const body = await config.json();
   assert.equal(body.persistentData, true);
   assert.equal(body.credentialEncryptionConfigured, true);
+  assert.equal(body.credentialVaultConfigured, true);
   assert.equal(body.supabaseUrl, 'https://example.supabase.co');
   assert.equal(body.demoMode, false);
 });
