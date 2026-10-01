@@ -500,7 +500,7 @@ export function createApplication(options = {}) {
   }
 
   const publicPath = resolve(options.publicPath || new URL('../public/', import.meta.url).pathname);
-  const pages = new Set(['/', '/login', '/signup', '/forgot-password', '/reset-password', '/logout', '/mt5', '/dashboard', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/admin', '/admin/support']);
+  const pages = new Set(['/', '/login', '/signup', '/forgot-password', '/reset-password', '/logout', '/mt5', '/dashboard', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
   const server = createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Referrer-Policy', 'no-referrer'); res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
