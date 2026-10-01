@@ -124,6 +124,22 @@ export function createApplication(options = {}) {
       const user = get('SELECT * FROM users WHERE id=?', userId); const csrf = newSession(res, user);
       return json(res, { user: publicUser(user), csrf }, 201);
     }
+    if (path === '/api/auth/demo' && method === 'POST') {
+      if (env.DEMO_MODE !== 'true') fail(404, 'Demo access is disabled.');
+      let user = get("SELECT * FROM users WHERE email='demo@elitetrade.local' AND disabled=0");
+      if (!user) {
+        const userId = id();
+        transaction(db, () => {
+          run('INSERT INTO users (id,email,name,password_hash,role,active,disabled,referral_code,created_at) VALUES (?,?,?,?,?,?,?,?,?)',
+            userId, 'demo@elitetrade.local', 'Demo Trader', 'demo-only-no-password', 'user', 1, 0, randomBytes(6).toString('hex').toUpperCase(), now());
+          run('INSERT INTO bots (id,user_id,name,strategy,symbol,risk_percent,stop_loss,take_profit,max_drawdown,daily_loss,lot_size,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+            id(), userId, 'Elite Bot', 'trend', 'XAUUSD', 1, 1, 2, 10, 3, 0.01, now());
+        });
+        user = get('SELECT * FROM users WHERE id=?', userId);
+      }
+      const csrf = newSession(res, user);
+      return json(res, { user: publicUser(user), csrf, demo: true });
+    }
     if (path === '/api/auth/login' && method === 'POST') {
       rateLimit(`login:${ip}`, 10, 900000);
       const email = emailValue(body.email), password = credential(body.password);
