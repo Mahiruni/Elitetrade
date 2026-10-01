@@ -1,6 +1,28 @@
 const root = document.querySelector('#app');
 const modal = document.querySelector('#modal');
-const state = { user: null, csrf: null, config: {}, data: {}, chat: null, adminTab: 'payments', version: 0, stream: null };
+const AUTH_KEY = 'elite-supabase-session';
+const readStoredAuth = () => {
+  try { return JSON.parse(localStorage.getItem(AUTH_KEY) || 'null'); }
+  catch { return null; }
+};
+const state = { user: null, csrf: null, config: {}, data: {}, chat: null, adminTab: 'payments', version: 0, stream: null, auth: readStoredAuth(), pendingMfa: null };
+function saveAuth(session) {
+  if (!session?.access_token) return;
+  const expiresAt = Number(session.expires_at || (Date.now() / 1000 + Number(session.expires_in || 3600)));
+  state.auth = { access_token:session.access_token, refresh_token:session.refresh_token || state.auth?.refresh_token || '', expires_at:expiresAt };
+  try { localStorage.setItem(AUTH_KEY, JSON.stringify(state.auth)); } catch {}
+}
+function clearAuth() {
+  state.auth = null;
+  state.pendingMfa = null;
+  try { localStorage.removeItem(AUTH_KEY); } catch {}
+}
+function decodeJwt(jwt) {
+  try {
+    const raw = jwt.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
+    return JSON.parse(atob(raw));
+  } catch { return {}; }
+}
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 const money = (value, currency = 'USD') => new Intl.NumberFormat('en', { style:'currency', currency }).format(Number(value || 0) / 100);
 const date = value => value ? new Date(value).toLocaleString([], { dateStyle:'medium', timeStyle:'short' }) : '—';
@@ -21,10 +43,26 @@ const stat = (label, value) => `<div class="stat"><small>${label}</small><div cl
 function toast(message) { const el = document.querySelector('#toast'); el.textContent = message; el.classList.add('visible'); clearTimeout(state.toastTimer); state.toastTimer = setTimeout(() => el.classList.remove('visible'), 5000); }
 function openModal(title, body) { modal.innerHTML = `<div class="dialog-head"><h2>${title}</h2>${btn(icon('close'), 'close', '', 'class="icon ghost" aria-label="Close dialog"')}</div><div class="dialog-body">${body}</div>`; modal.showModal(); }
 async function api(path, method = 'GET', body) {
-  const response = await fetch(`/api${path}`, { method, credentials:'same-origin', headers: { ...(method !== 'GET' ? { 'Content-Type':'application/json', 'X-CSRF-Token':state.csrf || '' } : {}) }, body: method !== 'GET' ? JSON.stringify(body || {}) : undefined });
-  const result = await response.json();
-  if (!response.ok) { const error = new Error(result.error || 'Request failed. Please try again.'); error.status = response.status; throw error; }
-  if (Object.hasOwn(result, 'csrf')) state.csrf = result.csrf;
+  const accessToken = path === '/config' ? '' : await ensureAccessToken();
+  const response = await fetch(`/api${path}`, {
+    method,
+    credentials:'same-origin',
+    headers: {
+      ...(accessToken ? { Authorization:`Bearer ${accessToken}` } : {}),
+      ...(method !== 'GET' ? { 'Content-Type':'application/json' } : {})
+    },
+    body: method !== 'GET' ? JSON.stringify(body || {}) : undefined
+  });
+  const result = response.status === 204 ? {} : await response.json().catch(() => ({}));
+  if (!response.ok) {
+    if (response.status === 401 && accessToken) {
+      clearAuth();
+      state.user = null;
+    }
+    const error = new Error(result.error || 'Request failed. Please try again.');
+    error.status = response.status;
+    throw error;
+  }
   return result;
 }
 async function supabaseAuth(path, method = 'POST', body, accessToken = '') {
@@ -42,7 +80,25 @@ async function supabaseAuth(path, method = 'POST', body, accessToken = '') {
   if (!response.ok) throw new Error(result.msg || result.message || result.error_description || result.error || 'Authentication failed.');
   return result;
 }
-async function identity() { const me = await api('/me'); state.user = me.user; state.requiresMfa = me.requiresMfa; return me; }
+async function ensureAccessToken() {
+  if (!state.auth?.access_token) return '';
+  if (Number(state.auth.expires_at || 0) * 1000 > Date.now() + 60000) return state.auth.access_token;
+  if (!state.auth.refresh_token || !state.config.supabaseUrl) { clearAuth(); return ''; }
+  try {
+    const refreshed = await supabaseAuth('token?grant_type=refresh_token','POST',{ refresh_token:state.auth.refresh_token });
+    saveAuth(refreshed);
+    return state.auth?.access_token || '';
+  } catch {
+    clearAuth();
+    return '';
+  }
+}
+async function identity() {
+  const me = await api('/me');
+  state.user = me.user;
+  state.requiresMfa = me.requiresMfa;
+  return me;
+}
 function connectEvents() {
   if (state.stream || !state.user && !state.chat) return;
   state.stream = new EventSource('/api/events');
