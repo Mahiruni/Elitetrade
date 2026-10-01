@@ -51,6 +51,8 @@ export function createSupabaseApplication(options = {}) {
   const origin = new URL(env.APP_ORIGIN || (env.VERCEL_URL ? `https://${env.VERCEL_URL}` : 'http://localhost:3000')).origin;
   const supabaseUrl = String(env.SUPABASE_URL || 'https://amwpbnczylbarqqcprev.supabase.co').replace(/\/$/, '');
   const supabaseKey = env.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_Vqc0cqRem0xIFPT1-oqXIw_aQxSJSIO';
+  const captchaProvider = ['turnstile','hcaptcha'].includes(String(env.CAPTCHA_PROVIDER || '').toLowerCase()) ? String(env.CAPTCHA_PROVIDER).toLowerCase() : '';
+  const captchaSiteKey = String(env.CAPTCHA_SITE_KEY || '');
   const db = createSupabaseData({ url:supabaseUrl, key:supabaseKey });
 
 
@@ -171,7 +173,10 @@ export function createSupabaseApplication(options = {}) {
         supabasePublishableKey:supabaseKey,
         persistentData:true,
         credentialEncryptionConfigured:true,
-        credentialVaultConfigured:true
+        credentialVaultConfigured:true,
+        captchaProvider,
+        captchaSiteKey,
+        captchaConfigured:!!(captchaProvider && captchaSiteKey)
       });
     }
 
@@ -682,8 +687,10 @@ export function createSupabaseApplication(options = {}) {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('X-Frame-Options', 'DENY');
+    const captchaScripts = captchaProvider === 'hcaptcha' ? ' https://js.hcaptcha.com https://*.hcaptcha.com' : captchaProvider === 'turnstile' ? ' https://challenges.cloudflare.com' : '';
+    const captchaFrames = captchaProvider === 'hcaptcha' ? ' https://*.hcaptcha.com https://newassets.hcaptcha.com' : captchaProvider === 'turnstile' ? ' https://challenges.cloudflare.com' : '';
     res.setHeader('Content-Security-Policy',
-      `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' ${supabaseUrl}; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'`);
+      `default-src 'self'; script-src 'self'${captchaScripts}; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' ${supabaseUrl}${captchaScripts}; frame-src 'self'${captchaFrames}; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'`);
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
     if (production) res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     res.setHeader('Cache-Control', 'no-store');
