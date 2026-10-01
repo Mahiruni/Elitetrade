@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /mt5
+Disallow: /bots
+Disallow: /settings
+Disallow: /subscription
+Disallow: /subscribe
+Disallow: /pool
+Disallow: /referrals
+
+Sitemap: https://elitebot.live/sitemap.xml
