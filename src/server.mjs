@@ -1,8 +1,8 @@
-import { randomBytes } from 'node:crypto';
 import { createApplication } from './app.mjs';
 
-process.env.APP_ORIGIN ||= process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
-process.env.ENCRYPTION_KEY ||= randomBytes(32).toString('base64');
+if (!process.env.APP_ORIGIN && process.env.VERCEL_URL) {
+  process.env.APP_ORIGIN = `https://${process.env.VERCEL_URL}`;
+}
 process.env.SQLITE_PATH ||= process.env.VERCEL ? '/tmp/elitetrade.sqlite' : './data/elitetrade.sqlite';
 
 const app = createApplication();
