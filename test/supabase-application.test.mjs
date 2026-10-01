@@ -50,3 +50,22 @@ test('unauthenticated identity is empty without contacting Supabase', async t =>
   assert.equal(me.status, 200);
   assert.deepEqual(await me.json(), { user:null, requiresMfa:false });
 });
+
+test('marketing homepage and legal routes are public', async t => {
+  const base = await fixture(t);
+  for (const path of ['/', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies']) {
+    const response = await fetch(base + path);
+    assert.equal(response.status, 200, path);
+    assert.match(await response.text(), /app\.js/);
+  }
+});
+
+test('config exposes CAPTCHA integration fields without leaking secrets', async t => {
+  const base = await fixture(t, { CAPTCHA_PROVIDER:'turnstile', CAPTCHA_SITE_KEY:'public-test-site-key' });
+  const response = await fetch(base + '/api/config');
+  const body = await response.json();
+  assert.equal(body.captchaProvider, 'turnstile');
+  assert.equal(body.captchaSiteKey, 'public-test-site-key');
+  assert.equal(body.captchaConfigured, true);
+  assert.equal(Object.hasOwn(body, 'captchaSecret'), false);
+});
