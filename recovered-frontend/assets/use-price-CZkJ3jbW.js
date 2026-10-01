@@ -1,0 +1,1 @@
+import{u as i}from"./useQuery-DMt4i6fi.js";import{u as o}from"./useServerFn-DCM27h-c.js";import{g as s}from"./payments.functions-CYyE4sTY.js";function c(){const r=o(s),{data:e}=i({queryKey:["subscriptionPrice"],queryFn:()=>r(void 0),staleTime:3e4});return e?.price??140}export{c as u};

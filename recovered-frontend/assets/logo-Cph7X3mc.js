@@ -1,0 +1,1 @@
+import{j as t}from"./index-CELiIWTZ.js";const e="/__l5e/assets-v1/ca689c98-66a7-4402-a7b6-d3d474f525dc/elite-bot-logo.jpg",a={url:e};function r({className:s="",height:o=32}){return t.jsx("img",{src:a.url,alt:"Elite Bot",height:o,style:{height:o},className:`w-auto select-none rounded-md ${s}`,draggable:!1})}export{r as L};

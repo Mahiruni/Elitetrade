@@ -1,0 +1,546 @@
+{
+  "origin": "https://elitebot.live",
+  "records": [
+    {
+      "url": "https://elitebot.live/",
+      "effective_url": "https://elitebot.live/",
+      "status": "200",
+      "content_type": "text/html",
+      "path": "pages/home.html",
+      "retrieved_at": "2026-10-01T13:57:00.977056+00:00",
+      "bytes": 4777,
+      "sha256": "5709f6dbc4d9b2a0b9187b59c1c4fa763f5afcabc9c2919809e3ba09b0446991",
+      "retrieval_note": "Reused an earlier successful download from this conversation; archived during this retrieval pass."
+    },
+    {
+      "url": "https://elitebot.live/assets/index-CELiIWTZ.js",
+      "effective_url": "https://elitebot.live/assets/index-CELiIWTZ.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/index-CELiIWTZ.js",
+      "retrieved_at": "2026-10-01T13:57:00.978597+00:00",
+      "bytes": 604270,
+      "sha256": "c416d0f36dc72cd9bcdc679713f9cc213356bb875978997fa552ee24b27c0162",
+      "retrieval_note": "Reused an earlier successful download from this conversation; archived during this retrieval pass."
+    },
+    {
+      "url": "https://elitebot.live/__l5e/assets-v1/ca689c98-66a7-4402-a7b6-d3d474f525dc/elite-bot-logo.jpg",
+      "effective_url": "https://elitebot.live/__l5e/assets-v1/ca689c98-66a7-4402-a7b6-d3d474f525dc/elite-bot-logo.jpg",
+      "status": "200",
+      "content_type": "image/jpeg",
+      "path": "__l5e/assets-v1/ca689c98-66a7-4402-a7b6-d3d474f525dc/elite-bot-logo.jpg",
+      "retrieved_at": "2026-10-01T13:57:00.989554+00:00",
+      "bytes": 41179,
+      "sha256": "bb1c6eb4c036b725a165c771449c3a7da3b75eaebcd7f2982d55b355093f3047"
+    },
+    {
+      "url": "https://elitebot.live/assets/_authenticated-Dx47GIXP.js",
+      "effective_url": "https://elitebot.live/assets/_authenticated-Dx47GIXP.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/_authenticated-Dx47GIXP.js",
+      "retrieved_at": "2026-10-01T13:57:00.990361+00:00",
+      "bytes": 738,
+      "sha256": "30a8d694d529ec586a98183e18369d386fbde6cabd0f383f1f2329df1c477211"
+    },
+    {
+      "url": "https://elitebot.live/assets/admin-B7O7dBoY.js",
+      "effective_url": "https://elitebot.live/assets/admin-B7O7dBoY.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/admin-B7O7dBoY.js",
+      "retrieved_at": "2026-10-01T13:57:00.991151+00:00",
+      "bytes": 40963,
+      "sha256": "59c8fcb150ccd7afbfa0c31d02f5fe04537a623051b6b4649cae59ae35607cd9"
+    },
+    {
+      "url": "https://elitebot.live/assets/admin.functions-X0VyiQO1.js",
+      "effective_url": "https://elitebot.live/assets/admin.functions-X0VyiQO1.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/admin.functions-X0VyiQO1.js",
+      "retrieved_at": "2026-10-01T13:57:00.992699+00:00",
+      "bytes": 2886,
+      "sha256": "b37015b485ebc1f7e166ba74b07a8b48278f18e136b89fe6e865ab0a620f08f1"
+    },
+    {
+      "url": "https://elitebot.live/assets/admin.support-B2sAhu1r.js",
+      "effective_url": "https://elitebot.live/assets/admin.support-B2sAhu1r.js",
+      "status": "200",
+      "content_type": "text/javascript; charset=utf-8",
+      "path": "assets/admin.support-B2sAhu1r.js",
+      "retrieved_at": "2026-10-01T13:57:12.690194+00:00",
+      "bytes": 4691,
+      "sha256": "47387d2d8f56452af3990e46c1a6f90e831aeb116b0e35811542cef52e6892e8"
+    },
+    {
+      "url": "https://elitebot.live/assets/arrow-left-DAL418Ct.js",
+      "effective_url": "https://elitebot.live/assets/arrow-left-DAL418Ct.js",
+      "status": "200",
+      "content_type": "text/javascript; charset=utf-8",
+      "path": "assets/arrow-left-DAL418Ct.js",
+      "retrieved_at": "2026-10-01T13:57:11.903001+00:00",
+      "bytes": 177,
+      "sha256": "27db41f762b1447fb2504f3a5d0c1c02aa29d4eb87e873be311df29b4eae42e5"
+    },
+    {
+      "url": "https://elitebot.live/assets/auth-W4ffuZEE.js",
+      "effective_url": "https://elitebot.live/assets/auth-W4ffuZEE.js",
+      "status": "200",
+      "content_type": "text/javascript; charset=utf-8",
+      "path": "assets/auth-W4ffuZEE.js",
+      "retrieved_at": "2026-10-01T13:57:11.722495+00:00",
+      "bytes": 1465,
+      "sha256": "5b74758ab78ea11d04cb5497e991efd67a023bbf946a892843182a5e9786da56"
+    },
+    {
+      "url": "https://elitebot.live/assets/bots-D-8Z-qCP.js",
+      "effective_url": "https://elitebot.live/assets/bots-D-8Z-qCP.js",
+      "status": "200",
+      "content_type": "text/javascript; charset=utf-8",
+      "path": "assets/bots-D-8Z-qCP.js",
+      "retrieved_at": "2026-10-01T13:57:12.211516+00:00",
+      "bytes": 6607,
+      "sha256": "65ea9fb095b219568f7fce7ec892d6a8080af5cdca3e158bc7e8ed4359e45a74"
+    },
+    {
+      "url": "https://elitebot.live/assets/button-BVEXmqzJ.js",
+      "effective_url": "https://elitebot.live/assets/button-BVEXmqzJ.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/button-BVEXmqzJ.js",
+      "retrieved_at": "2026-10-01T13:57:11.723673+00:00",
+      "bytes": 4333,
+      "sha256": "cec0e659728972d0bf07d2f864132487e100f53ce17e2524651fade77c81c7fa"
+    },
+    {
+      "url": "https://elitebot.live/assets/copy-D9sR5tEa.js",
+      "effective_url": "https://elitebot.live/assets/copy-D9sR5tEa.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/copy-D9sR5tEa.js",
+      "retrieved_at": "2026-10-01T13:57:11.723998+00:00",
+      "bytes": 243,
+      "sha256": "466e49dca6bb0d9fa87ae0677b3d40c1435106c50bd42b2a01cbac46384070ae"
+    },
+    {
+      "url": "https://elitebot.live/assets/createLucideIcon-BihDqcg_.js",
+      "effective_url": "https://elitebot.live/assets/createLucideIcon-BihDqcg_.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/createLucideIcon-BihDqcg_.js",
+      "retrieved_at": "2026-10-01T13:57:11.725513+00:00",
+      "bytes": 1202,
+      "sha256": "840b7dbe070746c54be9380c35985e7e442dd2f76d7ae52945441dc5f4f09fcf"
+    },
+    {
+      "url": "https://elitebot.live/assets/createServerFn-BKvBj79F.js",
+      "effective_url": "https://elitebot.live/assets/createServerFn-BKvBj79F.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/createServerFn-BKvBj79F.js",
+      "retrieved_at": "2026-10-01T13:57:11.725756+00:00",
+      "bytes": 4271,
+      "sha256": "864c3bbcf4e07470d04d815784c46e5f3353caeba4d374d5cb7e61cc2cc7c25b"
+    },
+    {
+      "url": "https://elitebot.live/assets/forgot-password-CG9S2JMh.js",
+      "effective_url": "https://elitebot.live/assets/forgot-password-CG9S2JMh.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/forgot-password-CG9S2JMh.js",
+      "retrieved_at": "2026-10-01T13:57:11.726026+00:00",
+      "bytes": 1114,
+      "sha256": "05370da2daef538d2a8c1cf533950fa805c7955d621372597a1ceadbfd4db8cb"
+    },
+    {
+      "url": "https://elitebot.live/assets/index-CLwec8P_.js",
+      "effective_url": "https://elitebot.live/assets/index-CLwec8P_.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/index-CLwec8P_.js",
+      "retrieved_at": "2026-10-01T13:57:11.726318+00:00",
+      "bytes": 554,
+      "sha256": "0e75a5495d8aaada98a88db2aac94fe836b49fbb09aac06d0b4556e4a4cb2309"
+    },
+    {
+      "url": "https://elitebot.live/assets/login-C8ZIoxH5.js",
+      "effective_url": "https://elitebot.live/assets/login-C8ZIoxH5.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/login-C8ZIoxH5.js",
+      "retrieved_at": "2026-10-01T13:57:11.726568+00:00",
+      "bytes": 1950,
+      "sha256": "387e445f5fac2556609d771692b145aeaeb0fd92897bf985108901d129cbfd4e"
+    },
+    {
+      "url": "https://elitebot.live/assets/logo-Cph7X3mc.js",
+      "effective_url": "https://elitebot.live/assets/logo-Cph7X3mc.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/logo-Cph7X3mc.js",
+      "retrieved_at": "2026-10-01T13:57:11.726846+00:00",
+      "bytes": 324,
+      "sha256": "55fc4adfde69e0bc34c7104b368ebde81608b230847ddea30fe796d17503b65c"
+    },
+    {
+      "url": "https://elitebot.live/assets/logout-DLoOPEb6.js",
+      "effective_url": "https://elitebot.live/assets/logout-DLoOPEb6.js",
+      "status": "200",
+      "content_type": "text/javascript; charset=utf-8",
+      "path": "assets/logout-DLoOPEb6.js",
+      "retrieved_at": "2026-10-01T13:57:23.344510+00:00",
+      "bytes": 425,
+      "sha256": "3a706feffabf51c187dbee6ba2077d8b8f5cd6b460bed782509db88ad866a8c4"
+    },
+    {
+      "url": "https://elitebot.live/assets/mock-data-BNOexhK3.js",
+      "effective_url": "https://elitebot.live/assets/mock-data-BNOexhK3.js",
+      "status": "200",
+      "content_type": "text/javascript; charset=utf-8",
+      "path": "assets/mock-data-BNOexhK3.js",
+      "retrieved_at": "2026-10-01T13:57:21.179579+00:00",
+      "bytes": 1797,
+      "sha256": "5069b7889076a4d48cf0b60e8e60a4db46271f773f2b65e7c0c695b75be912de"
+    },
+    {
+      "url": "https://elitebot.live/assets/mt5-BC3pRJQQ.js",
+      "effective_url": "https://elitebot.live/assets/mt5-BC3pRJQQ.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/mt5-BC3pRJQQ.js",
+      "retrieved_at": "2026-10-01T13:57:23.349564+00:00",
+      "bytes": 16799,
+      "sha256": "c533c79567e278f36033c1f86a7458398a238a130d64c59470cfaced18311f7d"
+    },
+    {
+      "url": "https://elitebot.live/assets/payments.functions-CYyE4sTY.js",
+      "effective_url": "https://elitebot.live/assets/payments.functions-CYyE4sTY.js",
+      "status": "200",
+      "content_type": "text/javascript; charset=utf-8",
+      "path": "assets/payments.functions-CYyE4sTY.js",
+      "retrieved_at": "2026-10-01T13:57:21.141540+00:00",
+      "bytes": 1417,
+      "sha256": "7a8fb35485ae9be28aabfbb29ba6d72ff99e2cbf2fc4c76e47b44b332ad8e109"
+    },
+    {
+      "url": "https://elitebot.live/assets/pool-x48Tkf2y.js",
+      "effective_url": "https://elitebot.live/assets/pool-x48Tkf2y.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/pool-x48Tkf2y.js",
+      "retrieved_at": "2026-10-01T13:57:23.350475+00:00",
+      "bytes": 15606,
+      "sha256": "232e75eec697f30a04153df36d47db97eab4e6ec2e2517d96f47b97c971e029a"
+    },
+    {
+      "url": "https://elitebot.live/assets/referrals-CA60-mNu.js",
+      "effective_url": "https://elitebot.live/assets/referrals-CA60-mNu.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/referrals-CA60-mNu.js",
+      "retrieved_at": "2026-10-01T13:57:21.143857+00:00",
+      "bytes": 3063,
+      "sha256": "6ddc47ca3092a36b61e7c2714aaa285f1b596dc7a4dde6257658de619592ee95"
+    },
+    {
+      "url": "https://elitebot.live/assets/reset-password-c2NWN6hi.js",
+      "effective_url": "https://elitebot.live/assets/reset-password-c2NWN6hi.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/reset-password-c2NWN6hi.js",
+      "retrieved_at": "2026-10-01T13:57:21.144203+00:00",
+      "bytes": 1027,
+      "sha256": "a47304474b389af813668a15102ef0af37e85ba859ae2e9147059fac1a672e4a"
+    },
+    {
+      "url": "https://elitebot.live/assets/send-udO35Khf.js",
+      "effective_url": "https://elitebot.live/assets/send-udO35Khf.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/send-udO35Khf.js",
+      "retrieved_at": "2026-10-01T13:57:21.144589+00:00",
+      "bytes": 302,
+      "sha256": "9956fd55862fb2c8964b56cd189263b581e14f19d73528da97173c41fa4c4d45"
+    },
+    {
+      "url": "https://elitebot.live/assets/settings-ClVfMczi.js",
+      "effective_url": "https://elitebot.live/assets/settings-ClVfMczi.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/settings-ClVfMczi.js",
+      "retrieved_at": "2026-10-01T13:57:21.144822+00:00",
+      "bytes": 3679,
+      "sha256": "1ef0ccb63698084c4f2f3f417c22f4a3caa42cc3cc1ba46d65964bce7931ab9c"
+    },
+    {
+      "url": "https://elitebot.live/assets/shell-C9yOzUsw.js",
+      "effective_url": "https://elitebot.live/assets/shell-C9yOzUsw.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/shell-C9yOzUsw.js",
+      "retrieved_at": "2026-10-01T13:57:21.145144+00:00",
+      "bytes": 1597,
+      "sha256": "cf2a270bbc51fcf98834b04040e6a39f6a05936b70f099cd5e5650d0973b42ed"
+    },
+    {
+      "url": "https://elitebot.live/assets/shield-DBzc_QNP.js",
+      "effective_url": "https://elitebot.live/assets/shield-DBzc_QNP.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/shield-DBzc_QNP.js",
+      "retrieved_at": "2026-10-01T13:57:21.145440+00:00",
+      "bytes": 466,
+      "sha256": "ae7315b9b74c80a713e9c8a666ffe03592be332e936c2f4d821eccd68e6c0b9b"
+    },
+    {
+      "url": "https://elitebot.live/assets/signup-BcccYUP_.js",
+      "effective_url": "https://elitebot.live/assets/signup-BcccYUP_.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/signup-BcccYUP_.js",
+      "retrieved_at": "2026-10-01T13:57:21.145613+00:00",
+      "bytes": 2059,
+      "sha256": "ceba20dc80abd45806621029c22bed6d3fe341a167e69ce582e58fc1c7c0dce7"
+    },
+    {
+      "url": "https://elitebot.live/assets/stat-card-BGGfH2Do.js",
+      "effective_url": "https://elitebot.live/assets/stat-card-BGGfH2Do.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/stat-card-BGGfH2Do.js",
+      "retrieved_at": "2026-10-01T13:57:21.145987+00:00",
+      "bytes": 644,
+      "sha256": "c38e72e675727fb23b32a1f80dcccae787ca8095146f9f461683c7e5cacd0786"
+    },
+    {
+      "url": "https://elitebot.live/assets/styles-DrvA8MDb.css",
+      "effective_url": "https://elitebot.live/assets/styles-DrvA8MDb.css",
+      "status": "200",
+      "content_type": "text/css",
+      "path": "assets/styles-DrvA8MDb.css",
+      "retrieved_at": "2026-10-01T13:57:21.146187+00:00",
+      "bytes": 101099,
+      "sha256": "8d411e2ad53da806ff99f539856ad8c5ae4166323a717e1e53dda70b11970e13"
+    },
+    {
+      "url": "https://elitebot.live/assets/subscribe-BBe0KygN.js",
+      "effective_url": "https://elitebot.live/assets/subscribe-BBe0KygN.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/subscribe-BBe0KygN.js",
+      "retrieved_at": "2026-10-01T13:57:21.149498+00:00",
+      "bytes": 7280,
+      "sha256": "e076d87f52af8b70eaa5ffaefc73c7c6c1cef3a4c3de3be370d3f933a81ddf42"
+    },
+    {
+      "url": "https://elitebot.live/assets/subscription-dab9M6jc.js",
+      "effective_url": "https://elitebot.live/assets/subscription-dab9M6jc.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/subscription-dab9M6jc.js",
+      "retrieved_at": "2026-10-01T13:57:21.150001+00:00",
+      "bytes": 6749,
+      "sha256": "d0ba18f82bff6c50cdbaee27f47f0fbc467dd2f3caff88360279db898e69a4b4"
+    },
+    {
+      "url": "https://elitebot.live/assets/support-CcXmZSpE.js",
+      "effective_url": "https://elitebot.live/assets/support-CcXmZSpE.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/support-CcXmZSpE.js",
+      "retrieved_at": "2026-10-01T13:57:21.151048+00:00",
+      "bytes": 9463,
+      "sha256": "a790572d310191e94e78068dfa8cc89bb22b9f92b59a483a0b6a8f42b60203b3"
+    },
+    {
+      "url": "https://elitebot.live/assets/support.functions-CdHaasSb.js",
+      "effective_url": "https://elitebot.live/assets/support.functions-CdHaasSb.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/support.functions-CdHaasSb.js",
+      "retrieved_at": "2026-10-01T13:57:21.151995+00:00",
+      "bytes": 746,
+      "sha256": "20f5a89c04b611ffb5ca51a3f99bbc5cd9f587d2e0e7b1e4822a14f321ea518d"
+    },
+    {
+      "url": "https://elitebot.live/assets/use-payment-methods-CX_-X7Xn.js",
+      "effective_url": "https://elitebot.live/assets/use-payment-methods-CX_-X7Xn.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/use-payment-methods-CX_-X7Xn.js",
+      "retrieved_at": "2026-10-01T13:57:21.152270+00:00",
+      "bytes": 260,
+      "sha256": "724f1b32e27dfa2fca6c3a18157c19ae856d94999aea1c28e4e107af22d4c040"
+    },
+    {
+      "url": "https://elitebot.live/assets/use-price-CZkJ3jbW.js",
+      "effective_url": "https://elitebot.live/assets/use-price-CZkJ3jbW.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/use-price-CZkJ3jbW.js",
+      "retrieved_at": "2026-10-01T13:57:21.152574+00:00",
+      "bytes": 286,
+      "sha256": "c638f02d38eafbe89a045a187ba5a07991ce94c9603658a5511630ef8091fe42"
+    },
+    {
+      "url": "https://elitebot.live/assets/useQuery-DMt4i6fi.js",
+      "effective_url": "https://elitebot.live/assets/useQuery-DMt4i6fi.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/useQuery-DMt4i6fi.js",
+      "retrieved_at": "2026-10-01T13:57:21.152805+00:00",
+      "bytes": 8814,
+      "sha256": "68dd627e93223fda2def2428a2caa4da3311bb7b17f6cf5d675bad290a5c53bf"
+    },
+    {
+      "url": "https://elitebot.live/assets/useServerFn-DCM27h-c.js",
+      "effective_url": "https://elitebot.live/assets/useServerFn-DCM27h-c.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/useServerFn-DCM27h-c.js",
+      "retrieved_at": "2026-10-01T13:57:21.153069+00:00",
+      "bytes": 312,
+      "sha256": "b9cdf52ed2313d6383b287730fd435c23c42ac59d51e8c9b58ebbeb3c2b8ecc6"
+    },
+    {
+      "url": "https://elitebot.live/assets/users-CVhgWt8c.js",
+      "effective_url": "https://elitebot.live/assets/users-CVhgWt8c.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/users-CVhgWt8c.js",
+      "retrieved_at": "2026-10-01T13:57:21.153257+00:00",
+      "bytes": 318,
+      "sha256": "1f412f235752c180f89d1e5f39393dabbc99b94cb59829134df9da6fb55642f3"
+    },
+    {
+      "url": "https://elitebot.live/assets/utils-DDt1maD9.js",
+      "effective_url": "https://elitebot.live/assets/utils-DDt1maD9.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/utils-DDt1maD9.js",
+      "retrieved_at": "2026-10-01T13:57:21.153563+00:00",
+      "bytes": 26685,
+      "sha256": "06980020cff818891f96edf51ac7a33b941c6b9803224461b13abdb470e8eed3"
+    },
+    {
+      "url": "https://elitebot.live/assets/x-YlD66STX.js",
+      "effective_url": "https://elitebot.live/assets/x-YlD66STX.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "assets/x-YlD66STX.js",
+      "retrieved_at": "2026-10-01T13:57:21.154014+00:00",
+      "bytes": 446,
+      "sha256": "c748a4aa90a9536bca7d79b1ccd38fe7a4ebc64a12009b116a861df1f39cd87d"
+    },
+    {
+      "url": "https://elitebot.live/favicon.png",
+      "effective_url": "https://elitebot.live/favicon.png",
+      "status": "200",
+      "content_type": "image/png",
+      "path": "favicon.png",
+      "retrieved_at": "2026-10-01T13:57:21.154911+00:00",
+      "bytes": 2293,
+      "sha256": "b417fe86501f00b8aa115ab6af59285cc8add856f0954410d45d0d0152471711"
+    },
+    {
+      "url": "https://elitebot.live/~flock.js",
+      "effective_url": "https://elitebot.live/~flock.js",
+      "status": "200",
+      "content_type": "text/javascript",
+      "path": "~flock.js",
+      "retrieved_at": "2026-10-01T13:57:21.155068+00:00",
+      "bytes": 21296,
+      "sha256": "a86e084b4f82709814be6c15fd6305daa783fda87ad95402da9a4d3a1dd6d748"
+    },
+    {
+      "url": "https://elitebot.live/login",
+      "effective_url": "https://elitebot.live/login",
+      "status": "200",
+      "content_type": "text/html",
+      "path": "pages/login.html",
+      "retrieved_at": "2026-10-01T13:57:23.359786+00:00",
+      "bytes": 6859,
+      "sha256": "824c7eeaa491a5a2255c3cf7f16650e80e55ae0a07a486ebc41c4af087650ea8"
+    },
+    {
+      "url": "https://elitebot.live/signup",
+      "effective_url": "https://elitebot.live/signup",
+      "status": "200",
+      "content_type": "text/html",
+      "path": "pages/signup.html",
+      "retrieved_at": "2026-10-01T13:57:23.362451+00:00",
+      "bytes": 6752,
+      "sha256": "8b867c1e1026debee3bd53ba10743529ee244d28963eaa54e0c77256a336ca71"
+    },
+    {
+      "url": "https://elitebot.live/forgot-password",
+      "effective_url": "https://elitebot.live/forgot-password",
+      "status": "200",
+      "content_type": "text/html",
+      "path": "pages/forgot-password.html",
+      "retrieved_at": "2026-10-01T13:57:23.362150+00:00",
+      "bytes": 5985,
+      "sha256": "6da34471c16ed2655bfa5bc0012730c76bdda1b6fc6535844443797d01723c4e"
+    },
+    {
+      "url": "https://elitebot.live/reset-password",
+      "effective_url": "https://elitebot.live/reset-password",
+      "status": "200",
+      "content_type": "text/html",
+      "path": "pages/reset-password.html",
+      "retrieved_at": "2026-10-01T13:57:23.363144+00:00",
+      "bytes": 6398,
+      "sha256": "091110604c6791510bbe9e55e136afa4030af95865ef9e8ec093586e4bf123e6"
+    },
+    {
+      "url": "https://elitebot.live/support",
+      "effective_url": "https://elitebot.live/support",
+      "status": "200",
+      "content_type": "text/html",
+      "path": "pages/support.html",
+      "retrieved_at": "2026-10-01T13:57:23.363667+00:00",
+      "bytes": 10980,
+      "sha256": "3be5a0551bf09c3958876be83b8ac0d481b86d10f186c374ca5f029165e83feb"
+    },
+    {
+      "url": "https://elitebot.live/subscribe",
+      "effective_url": "https://elitebot.live/subscribe",
+      "status": "200",
+      "content_type": "text/html",
+      "path": "pages/subscribe.html",
+      "retrieved_at": "2026-10-01T13:57:23.364337+00:00",
+      "bytes": 8225,
+      "sha256": "de74e5fb259e64638fa7d5971ac303a21699ac1c235a3e7bc61c7b2c47a802f4"
+    }
+  ],
+  "external_references": [
+    "http://localhost",
+    "http://localhost:3000",
+    "http://localhost:9999",
+    "http://www.w3.org/1998/Math/MathML",
+    "http://www.w3.org/1999/xlink",
+    "http://www.w3.org/2000/svg",
+    "http://www.w3.org/XML/1998/namespace",
+    "https://api.tinybird.co/v0/events?name=${i}&token=${c}",
+    "https://fonts.googleapis.com",
+    "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap",
+    "https://fonts.gstatic.com",
+    "https://ghosttrader.ai/r/NEURAL-9X42",
+    "https://lovable.dev",
+    "https://react.dev/errors/",
+    "https://synap-trade-ai.lovable.app",
+    "https://synap-trade-ai.lovable.app/og-image.png",
+    "https://t.me/elitebotchannel1",
+    "https://wqzbgbdgllwiccsqaeqp.supabase.co"
+  ],
+  "distinct_recovered_files": 51,
+  "file_counts": {
+    ".html": 7,
+    ".js": 41,
+    ".jpg": 1,
+    ".css": 1,
+    ".png": 1
+  },
+  "scope": "Public browser-delivered assets and HTML only; private server source and data not retrieved."
+}

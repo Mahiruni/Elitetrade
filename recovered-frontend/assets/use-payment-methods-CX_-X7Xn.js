@@ -1,0 +1,1 @@
+import{u as t}from"./useQuery-DMt4i6fi.js";import{u as r}from"./useServerFn-DCM27h-c.js";import{a as o}from"./payments.functions-CYyE4sTY.js";function n(){const e=r(o);return t({queryKey:["paymentMethods"],queryFn:()=>e(void 0),staleTime:3e4})}export{n as u};

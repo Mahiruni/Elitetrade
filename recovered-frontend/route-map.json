@@ -1,0 +1,107 @@
+{
+  "origin": "https://elitebot.live",
+  "routes": [
+    {
+      "path": "/",
+      "authenticated": false,
+      "admin": false,
+      "redirect_to": null
+    },
+    {
+      "path": "/login",
+      "authenticated": false,
+      "admin": false,
+      "redirect_to": null
+    },
+    {
+      "path": "/signup",
+      "authenticated": false,
+      "admin": false,
+      "redirect_to": null
+    },
+    {
+      "path": "/forgot-password",
+      "authenticated": false,
+      "admin": false,
+      "redirect_to": null
+    },
+    {
+      "path": "/reset-password",
+      "authenticated": false,
+      "admin": false,
+      "redirect_to": null
+    },
+    {
+      "path": "/logout",
+      "authenticated": false,
+      "admin": false,
+      "redirect_to": null
+    },
+    {
+      "path": "/subscribe",
+      "authenticated": false,
+      "admin": false,
+      "redirect_to": null
+    },
+    {
+      "path": "/support",
+      "authenticated": false,
+      "admin": false,
+      "redirect_to": null
+    },
+    {
+      "path": "/dashboard",
+      "authenticated": true,
+      "admin": false,
+      "redirect_to": "/mt5"
+    },
+    {
+      "path": "/mt5",
+      "authenticated": true,
+      "admin": false,
+      "redirect_to": null
+    },
+    {
+      "path": "/bots",
+      "authenticated": true,
+      "admin": false,
+      "redirect_to": null
+    },
+    {
+      "path": "/pool",
+      "authenticated": true,
+      "admin": false,
+      "redirect_to": null
+    },
+    {
+      "path": "/referrals",
+      "authenticated": true,
+      "admin": false,
+      "redirect_to": null
+    },
+    {
+      "path": "/settings",
+      "authenticated": true,
+      "admin": false,
+      "redirect_to": null
+    },
+    {
+      "path": "/subscription",
+      "authenticated": true,
+      "admin": false,
+      "redirect_to": null
+    },
+    {
+      "path": "/admin",
+      "authenticated": true,
+      "admin": true,
+      "redirect_to": null
+    },
+    {
+      "path": "/admin/support",
+      "authenticated": true,
+      "admin": true,
+      "redirect_to": null
+    }
+  ]
+}
