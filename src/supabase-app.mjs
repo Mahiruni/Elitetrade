@@ -677,7 +677,7 @@ export function createSupabaseApplication(options = {}) {
   }
 
   const publicPath = resolve(options.publicPath || new URL('../public/', import.meta.url).pathname);
-  const pages = new Set(['/', '/login', '/signup', '/forgot-password', '/reset-password', '/logout', '/mt5', '/dashboard', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/admin', '/admin/support']);
+  const pages = new Set(['/', '/login', '/signup', '/forgot-password', '/reset-password', '/logout', '/mt5', '/dashboard', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
   const server = createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
