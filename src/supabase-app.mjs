@@ -55,11 +55,8 @@ export function createSupabaseApplication(options = {}) {
   const db = createSupabaseData({ url:supabaseUrl, key:supabaseKey });
 
   let key = options.key || (env.ENCRYPTION_KEY ? Buffer.from(env.ENCRYPTION_KEY, 'base64') : null);
-  if (!key) {
-    if (production) throw new Error('ENCRYPTION_KEY is required in production');
-    key = randomBytes(32);
-  }
-  if (key.length !== 32) throw new Error('ENCRYPTION_KEY must decode to exactly 32 bytes');
+  if (!key && !production) key = randomBytes(32);
+  if (key && key.length !== 32) throw new Error('ENCRYPTION_KEY must decode to exactly 32 bytes');
 
   const gateway = options.gateway === undefined ? createGateway(env) : options.gateway;
   const telegram = options.telegram === undefined ? createTelegram(env) : options.telegram;
@@ -176,7 +173,8 @@ export function createSupabaseApplication(options = {}) {
         demoMode:false,
         supabaseUrl,
         supabasePublishableKey:supabaseKey,
-        persistentData:true
+        persistentData:true,
+        credentialEncryptionConfigured:!!key
       });
     }
 
@@ -354,6 +352,7 @@ export function createSupabaseApplication(options = {}) {
       const server = string(body.server, 'MT5 server', 2, 100);
       const password = credential(body.password, 'MT5 password');
       if (!/^\d+$/.test(login)) fail(400, 'MT5 login must contain only digits.');
+      if (!key) fail(503, 'MT5 credential encryption is not configured. Add a stable ENCRYPTION_KEY in Vercel.');
       const encrypted = encrypt(password, key);
       await db.rpc('elitetrade_create_account', {
         p_broker:broker, p_login:login, p_server:server, p_password_encrypted:encrypted
@@ -636,6 +635,7 @@ export function createSupabaseApplication(options = {}) {
           const owner = await db.one('elitetrade_profiles', `id=eq.${q(account.user_id)}&select=active,role,disabled`, ctx.token);
           if (!owner || owner.disabled || (!owner.active && owner.role !== 'admin')) fail(409, 'Activate the member account before connecting MT5.');
           if (account.gateway_id) fail(409, 'This account already has a gateway connection. Refresh its status.');
+          if (!key) fail(503, 'MT5 credential encryption is not configured. Add a stable ENCRYPTION_KEY in Vercel.');
           const secret = await db.rpc('elitetrade_admin_get_account_secret', { p_account_id:account.id }, ctx.token);
           const response = await gateway.connect({
             accountId:account.id, broker:account.broker, login:account.login, server:account.server, password:decrypt(secret, key)
