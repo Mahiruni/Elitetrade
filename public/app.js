@@ -27,6 +27,21 @@ async function api(path, method = 'GET', body) {
   if (Object.hasOwn(result, 'csrf')) state.csrf = result.csrf;
   return result;
 }
+async function supabaseAuth(path, method = 'POST', body, accessToken = '') {
+  if (!state.config.supabaseUrl || !state.config.supabasePublishableKey) throw new Error('Sign-in service is not configured yet.');
+  const response = await fetch(`${state.config.supabaseUrl}/auth/v1/${path}`, {
+    method,
+    headers: {
+      apikey: state.config.supabasePublishableKey,
+      Authorization: `Bearer ${accessToken || state.config.supabasePublishableKey}`,
+      'Content-Type':'application/json'
+    },
+    body: body === undefined ? undefined : JSON.stringify(body)
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.msg || result.message || result.error_description || result.error || 'Authentication failed.');
+  return result;
+}
 async function identity() { const me = await api('/me'); state.user = me.user; state.requiresMfa = me.requiresMfa; return me; }
 function connectEvents() {
   if (state.stream || !state.user && !state.chat) return;
@@ -193,9 +208,34 @@ document.addEventListener('submit',async event => {
   const errorBox = el.querySelector('.error'); errorBox.textContent = ''; button.disabled = true; const label = button.textContent; button.textContent = 'Please wait…';
   try {
     if (['password','reset'].includes(action) && data.password !== data.confirm) throw new Error('The new passwords do not match.');
-    if (['login','signup','mfa-login'].includes(action)) { const d = await api(action === 'mfa-login' ? '/auth/mfa/login' : `/auth/${action}`,'POST',data); state.user = d.user; state.requiresMfa = !!d.requiresMfa; navigate(d.requiresMfa ? '/login' : action === 'signup' ? '/subscription' : '/mt5',true); return; }
-    if (action === 'forgot') { const d = await api('/auth/forgot-password','POST',data); el.innerHTML = `<div class="notice">${esc(d.message)}</div>`; return; }
-    if (action === 'reset') { data.token = new URLSearchParams(location.hash.slice(1)).get('token') || ''; await api('/auth/reset-password','POST',data); history.replaceState(null,'','/login'); state.user = null; state.csrf = null; toast('Password reset. Sign in with your new password.'); navigate('/login',true); return; }
+    if (action === 'login') {
+      const auth = await supabaseAuth('token?grant_type=password','POST',{ email:data.email, password:data.password });
+      const d = await api('/auth/supabase-session','POST',{ accessToken:auth.access_token });
+      state.user = d.user; state.requiresMfa = false; navigate('/mt5',true); return;
+    }
+    if (action === 'signup') {
+      const auth = await supabaseAuth('signup','POST',{ email:data.email, password:data.password, data:{ full_name:data.name, referral_code:data.referral || '' } });
+      if (!auth.access_token) {
+        el.innerHTML = '<div class="notice">Account created. Check your email to confirm your address, then sign in.</div><div class="auth-bottom"><a href="/login">Go to sign in</a></div>';
+        return;
+      }
+      const d = await api('/auth/supabase-session','POST',{ accessToken:auth.access_token });
+      state.user = d.user; state.requiresMfa = false; navigate('/subscription',true); return;
+    }
+    if (action === 'mfa-login') throw new Error('Use your Supabase sign-in credentials to continue.');
+    if (action === 'forgot') {
+      await supabaseAuth(`recover?redirect_to=${encodeURIComponent(location.origin + '/reset-password')}`,'POST',{ email:data.email });
+      el.innerHTML = '<div class="notice">If this account exists, a recovery link has been sent.</div>';
+      return;
+    }
+    if (action === 'reset') {
+      const params = new URLSearchParams(location.hash.slice(1));
+      const accessToken = params.get('access_token') || '';
+      if (!accessToken) throw new Error('This recovery link is invalid or expired. Request a new one.');
+      await supabaseAuth('user','PUT',{ password:data.password },accessToken);
+      history.replaceState(null,'','/login'); state.user = null; state.csrf = null;
+      toast('Password reset. Sign in with your new password.'); navigate('/login',true); return;
+    }
     if (action === 'password') { await api('/auth/password','POST',data); state.user = null; state.csrf = null; state.stream?.close(); state.stream = null; toast('Password updated. Please sign in again.'); navigate('/login',true); return; }
     if (action === 'chat-message') { await api(`/support/${id}/messages`,'POST',data); el.reset(); await refreshChat(); return; }
     if (action === 'chat-create') { const d = await api('/support','POST',data); state.chat = d.id; connectEvents(); }
