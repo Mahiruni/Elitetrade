@@ -165,6 +165,8 @@ export function createSupabaseApplication(options = {}) {
         priceCents,
         emailConfigured:true,
         gatewayConfigured:!!gateway,
+        connectionMode:gateway?.mode || (gateway ? 'execution' : 'unconfigured'),
+        tradingEnabled:!!gateway && gateway.tradingEnabled !== false,
         telegramConfigured:!!telegram,
         demoMode:false,
         supabaseUrl,
@@ -431,6 +433,7 @@ export function createSupabaseApplication(options = {}) {
       const bot = await db.one('elitetrade_bots', `id=eq.${q(botControl[1])}&user_id=eq.${q(ctx.user.id)}&select=*`, ctx.token);
       if (!bot) fail(404, 'Record not found.');
       if (!gateway) fail(503, 'Live trading requires a configured MT5 gateway.');
+      if (gateway.tradingEnabled === false) fail(503, 'Demo connection only: automatic trading is not implemented. No order or bot command was sent.');
       if (!bot.account_id) fail(409, 'Select an MT5 account in the bot configuration first.');
       const account = await db.one('elitetrade_accounts',
         `id=eq.${q(bot.account_id)}&user_id=eq.${q(ctx.user.id)}&select=id,gateway_id,status`, ctx.token);
@@ -630,7 +633,7 @@ export function createSupabaseApplication(options = {}) {
           const owner = await db.one('elitetrade_profiles', `id=eq.${q(account.user_id)}&select=active,role,disabled`, ctx.token);
           if (!owner || owner.disabled || (!owner.active && owner.role !== 'admin')) fail(409, 'Activate the member account before connecting MT5.');
           if (account.gateway_id) fail(409, 'This account already has a gateway connection. Refresh its status.');
-          const secret = await db.rpc('elitetrade_admin_get_account_secret', { p_account_id:account.id }, ctx.token);
+          const secret = gateway.mode === 'demo-read-only' ? undefined : await db.rpc('elitetrade_admin_get_account_secret', { p_account_id:account.id }, ctx.token);
           const response = await gateway.connect({
             accountId:account.id, broker:account.broker, login:account.login, server:account.server, password:secret
           });

@@ -1,3 +1,4 @@
+import { createMetaApiGateway } from './metaapi-gateway.mjs';
 import nodemailer from 'nodemailer';
 
 export function createMailer(env) {
@@ -11,6 +12,7 @@ export function createMailer(env) {
 }
 
 export function createGateway(env) {
+  if (env.MT5_GATEWAY_PROVIDER === 'metaapi') return createMetaApiGateway(env);
   if (!env.MT5_GATEWAY_URL || !env.MT5_GATEWAY_TOKEN) return null;
   const base = new URL(env.MT5_GATEWAY_URL);
   if (base.username || base.password || base.search || base.hash) throw new Error('Invalid MT5 gateway URL');
