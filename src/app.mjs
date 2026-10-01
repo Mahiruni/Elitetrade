@@ -115,6 +115,8 @@ export function createApplication(options = {}) {
       priceCents: Number(setting('price_cents')),
       emailConfigured: !!mailer,
       gatewayConfigured: !!gateway,
+      connectionMode: gateway?.mode || (gateway ? 'execution' : 'unconfigured'),
+      tradingEnabled: !!gateway && gateway.tradingEnabled !== false,
       telegramConfigured: !!telegram,
       demoMode: env.DEMO_MODE === 'true',
       supabaseUrl: supabaseConfigured ? supabaseUrl : '',
@@ -376,6 +378,7 @@ export function createApplication(options = {}) {
       // Stopping remains available after a subscription is revoked.
       if (body.running) activeUser(context);
       if (!gateway) fail(503, 'Live trading requires a configured MT5 gateway.');
+      if (gateway.tradingEnabled === false) fail(503, 'Automatic trading is not implemented. No order or bot command was sent.');
       if (!bot.account_id) fail(409, 'Select an MT5 account in the bot configuration first.');
       const account = own('accounts', bot.account_id, user); if (!account.gateway_id || body.running && account.status !== 'connected') fail(409, 'Confirm the MT5 connection first.');
       if (body.running) { let snapshot; try { snapshot = safeSnapshot(await gateway.snapshot(account.gateway_id)); } catch { fail(502, 'The MT5 gateway could not verify this account.'); } if (!snapshot.connected) fail(409, 'The MT5 gateway reports that this account is disconnected.'); }
@@ -475,10 +478,10 @@ export function createApplication(options = {}) {
           if (!gateway) fail(503, 'Configure the MT5 gateway before approving connections.');
           const owner = get('SELECT active,role,disabled FROM users WHERE id=?', account.user_id);
           if (owner.disabled || !owner.active && owner.role !== 'admin') fail(409, 'Activate the member account before connecting MT5.');
-          if (account.gateway_id) fail(409, 'This account already has a gateway connection. Refresh its status.');
+          if (account.gateway_id && !(gateway.mode === 'account-data' && account.status === 'pending')) fail(409, 'This account already has a gateway connection. Refresh its status.');
           const response = await gateway.connect({ accountId: account.id, broker: account.broker, login: account.login, server: account.server, password: decrypt(account.password_encrypted, key) });
-          if (typeof response.accountId !== 'string' || !response.accountId || response.connected !== true) fail(502, 'The gateway did not confirm a connected account.');
-          run("UPDATE accounts SET status='connected',gateway_id=?,note=? WHERE id=?", response.accountId, note, account.id);
+          if (typeof response.accountId !== 'string' || !response.accountId || (response.connected !== true && !(gateway.mode === 'account-data' && response.pending === true))) fail(502, 'The gateway did not confirm a connected account.');
+          run("UPDATE accounts SET status=?,gateway_id=?,note=? WHERE id=?", response.connected ? 'connected' : 'pending', response.accountId, response.connected ? note : 'MetaApi is connecting. Retry administrator approval shortly.', account.id);
         }
         audit(admin.id, `account.${decision}`, account.id); broadcast(account.user_id); return json(res, { ok: true });
       }

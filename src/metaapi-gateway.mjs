@@ -1,86 +1,92 @@
-// First-stage hosted connection: reads an explicitly bound demo account only.
-// Account provisioning and billing stay under the operator's MetaApi account.
+import { createHash } from 'node:crypto';
 const provisioning = 'https://mt-provisioning-api-v1.agiliumtrade.agiliumtrade.ai';
 const idPattern = /^[a-zA-Z0-9_-]{1,128}$/;
 const error = (message, status = 503) => Object.assign(new Error(message), { status });
+const nameFor = id => `EliteTrade ${id}`;
 
 export function createMetaApiGateway(env, fetchImpl = fetch) {
-  if (!env.METAAPI_TOKEN || !env.METAAPI_ACCOUNT_ID || !env.METAAPI_LOCAL_ACCOUNT_ID) return null;
-  const remoteId = env.METAAPI_ACCOUNT_ID;
-  const localId = env.METAAPI_LOCAL_ACCOUNT_ID;
+  if (!env.METAAPI_TOKEN) return null;
   const region = env.METAAPI_REGION || 'new-york';
-  if (!idPattern.test(remoteId) || !idPattern.test(localId) || !/^[a-z][a-z0-9-]{0,40}$/.test(region)) {
-    throw error('Invalid MetaApi account binding or region.');
-  }
-  const gatewayId = `metaapi:${localId}:${remoteId}`;
-  const clientBase = `https://mt-client-api-v1.${region}.agiliumtrade.ai`;
-  const read = async (base, path) => {
+  if (!/^[a-z][a-z0-9-]{0,40}$/.test(region)) throw error('Invalid MetaApi region.');
+  const call = async (base, path, method = 'GET', body, extra = {}) => {
     let response;
     try {
       response = await fetchImpl(new URL(path, base), {
-        method:'GET', redirect:'error', signal:AbortSignal.timeout(12000),
-        headers:{ 'auth-token':env.METAAPI_TOKEN, Accept:'application/json' }
+        method, redirect:'error', signal:AbortSignal.timeout(12000),
+        headers:{ 'auth-token':env.METAAPI_TOKEN, Accept:'application/json', 'Content-Type':'application/json', ...extra },
+        ...(body ? {body:JSON.stringify(body)} : {})
       });
     } catch { throw error('MetaApi could not be reached. Check the provider connection.'); }
+    if (response.status === 202) throw error('MetaApi is processing this connection. Retry approval later; the same request will be resumed.');
     if (!response.ok) {
       if ([401,403].includes(response.status)) throw error('MetaApi access was denied. Check the server-side token permissions.');
-      if (response.status === 429) throw error('MetaApi rate limit reached. Wait before trying again.');
-      throw error('MetaApi account is unavailable. Check that the demo account is deployed and connected.');
+      if (response.status === 429) throw error('MetaApi rate limit reached. Wait before retrying.');
+      if (response.status === 400) throw error('MetaApi could not verify these MT5 credentials or broker settings. Check the login, server and password.');
+      throw error('MetaApi could not complete the account request. Check the provider dashboard.');
     }
-    try { return await response.json(); }
-    catch { throw error('MetaApi returned an invalid response.'); }
+    if (response.status === 204) return null;
+    try { return await response.json(); } catch { throw error('MetaApi returned an invalid response.'); }
   };
-  const verifyId = value => {
-    if (value !== gatewayId) throw error('This account is not bound to the hosted demo connection.',403);
+  const parse = id => {
+    const parts = String(id).split(':');
+    if (parts.length !== 3 || parts[0] !== 'metaapi' || !parts.slice(1).every(p => idPattern.test(p))) throw error('Invalid hosted account binding.',403);
+    return {localId:parts[1],remoteId:parts[2]};
   };
-  const readAccount = async () => {
-    const account = await read(provisioning,`/users/current/accounts/${encodeURIComponent(remoteId)}`);
-    if (account._id !== remoteId) throw error('MetaApi returned a different account.',403);
-    if (account.region !== region) throw error('METAAPI_REGION must match the account region shown in MetaApi.');
-    if (account.state !== 'DEPLOYED' || account.connectionStatus !== 'CONNECTED') {
-      throw error('The MetaApi demo account is not connected. Deploy it in MetaApi and try again.');
-    }
-    const info = await read(clientBase,`/users/current/accounts/${encodeURIComponent(remoteId)}/account-information?refreshTerminalState=true`);
-    if (info.platform !== 'mt5' || info.type !== 'ACCOUNT_TRADE_MODE_DEMO') {
-      throw error('This integration accepts MT5 demo accounts only.',403);
-    }
-    if (String(info.login) !== String(account.login) || info.server !== account.server) {
-      throw error('MetaApi account identity could not be verified.',403);
-    }
-    if (!Number.isFinite(info.balance) || !Number.isFinite(info.equity) || !/^[A-Z]{3}$/.test(info.currency || '')) {
-      throw error('MetaApi account figures are incomplete.');
-    }
+  const metadata = async id => {
+    const {localId,remoteId} = parse(id);
+    const account = await call(provisioning,`/users/current/accounts/${remoteId}`);
+    if (account._id !== remoteId || account.metadata?.elitetradeAccountId !== localId || account.name !== nameFor(localId)) throw error('MetaApi account ownership could not be verified.',403);
+    if (!/^[a-z][a-z0-9-]{0,40}$/.test(account.region || '')) throw error('MetaApi returned an invalid account region.');
+    return account;
+  };
+  const figures = async (id, account) => {
+    account ||= await metadata(id);
+    if (account.state !== 'DEPLOYED' || account.connectionStatus !== 'CONNECTED') throw error('The MT5 account is still connecting. Retry approval after MetaApi confirms the connection.');
+    const {remoteId} = parse(id);
+    const info = await call(`https://mt-client-api-v1.${account.region}.agiliumtrade.ai`,`/users/current/accounts/${remoteId}/account-information?refreshTerminalState=true`);
+    if (info.platform !== 'mt5' || !['ACCOUNT_TRADE_MODE_DEMO','ACCOUNT_TRADE_MODE_REAL'].includes(info.type)) throw error('A verified MT5 demo or real account is required.',403);
+    if (String(info.login) !== String(account.login) || info.server !== account.server) throw error('MetaApi account identity could not be verified.',403);
+    if (!Number.isFinite(info.balance) || !Number.isFinite(info.equity) || !/^[A-Z]{3}$/.test(info.currency || '')) throw error('MetaApi account figures are incomplete.');
     return info;
   };
   return {
-    mode:'demo-read-only', tradingEnabled:false,
+    mode:'account-data', tradingEnabled:false,
     async connect(account) {
-      if (account.accountId !== localId) throw error('This EliteTrade account is not enabled for the hosted demo connection.',403);
-      const info = await readAccount();
-      if (String(info.login) !== String(account.login) || info.server !== account.server) {
-        throw error('The MT5 login and server must match the configured MetaApi demo account.',403);
+      const localId = account.accountId;
+      if (!idPattern.test(localId || '') || !/^\d+$/.test(String(account.login)) || !account.server || !account.password) throw error('Valid MT5 account credentials are required.',400);
+      // Exact local-row metadata, never a shared broker login, identifies retries.
+      const list = await call(provisioning,`/users/current/accounts?query=${encodeURIComponent(nameFor(localId))}&limit=1000`);
+      if (!Array.isArray(list)) throw error('MetaApi returned an invalid accounts list.');
+      const matches = list.filter(a => a.metadata?.elitetradeAccountId === localId && a.name === nameFor(localId));
+      if (matches.length > 1) throw error('Multiple provider bindings found. Review this connection in MetaApi.');
+      let remoteId = matches[0]?._id;
+      if (!remoteId) {
+        const result = await call(provisioning,'/users/current/accounts','POST',{
+          name:nameFor(localId), login:String(account.login), password:account.password, server:account.server,
+          platform:'mt5',type:'cloud-g2',region,magic:0,manualTrades:true,
+          metadata:{elitetradeAccountId:localId}
+        },{'transaction-id':createHash('sha256').update(`elitetrade:${localId}`).digest('hex').slice(0,32)});
+        remoteId = result?.id;
       }
-      // Password is deliberately not forwarded: the operator added the demo
-      // account to MetaApi directly, preferably with its investor password.
-      return { accountId:gatewayId, connected:true };
+      if (!idPattern.test(remoteId || '')) throw error('MetaApi did not return a valid account ID.');
+      const id = `metaapi:${localId}:${remoteId}`;
+      const details = await metadata(id);
+      if (String(details.login) !== String(account.login) || details.server !== account.server) throw error('The provider connection does not match these MT5 details.',403);
+      if (details.state === 'UNDEPLOYED') await call(provisioning,`/users/current/accounts/${remoteId}/deploy`,'POST');
+      if (details.state !== 'DEPLOYED' || details.connectionStatus !== 'CONNECTED') return {accountId:id,connected:false,pending:true};
+      await figures(id,details);
+      return {accountId:id,connected:true};
     },
     async snapshot(id) {
-      verifyId(id);
-      const info = await readAccount();
-      return { connected:true, currency:info.currency, balance:info.balance, equity:info.equity, history:[] };
+      const info = await figures(id);
+      return {connected:true,currency:info.currency,balance:info.balance,equity:info.equity,accountType:info.type === 'ACCOUNT_TRADE_MODE_REAL' ? 'real' : 'demo',history:[]};
     },
-    async botState(id) {
-      verifyId(id);
-      throw error('This hosted connection is read-only. No strategy execution state is available.');
-    },
-    async control(id) {
-      verifyId(id);
-      throw error('Demo connection only: automatic trading is not implemented. No order or bot command was sent.');
-    },
+    async botState() { throw error('No strategy execution state is available.'); },
+    async control() { throw error('Automatic trading is not implemented. No order or bot command was sent.'); },
     async disconnect(id) {
-      verifyId(id);
-      // Removing the application binding is not a provider account deletion.
-      return { disconnected:true };
+      await metadata(id);
+      await call(provisioning,`/users/current/accounts/${parse(id).remoteId}`,'DELETE');
+      return {disconnected:true};
     }
   };
 }

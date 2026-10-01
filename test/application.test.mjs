@@ -205,3 +205,30 @@ test('accounts and settings survive a real database close and reopen', async t =
   const db = openDatabase(path); db.prepare("UPDATE settings SET value='19500' WHERE key='price_cents'").run(); db.close();
   const reopened = openDatabase(path); assert.equal(reopened.prepare("SELECT value FROM settings WHERE key='price_cents'").get().value,'19500'); reopened.close();
 });
+
+test('hosted account review retains pending binding, retries approval and rejects trading', async t => {
+  let ready=false, controls=0, removals=0;
+  const gateway={mode:'account-data',tradingEnabled:false,
+    connect:async a=>({accountId:`metaapi:${a.accountId}:remote`,connected:ready,pending:!ready}),
+    snapshot:async()=>({connected:true,balance:100,equity:100,currency:'USD'}),
+    control:async()=>{controls++;return {running:true};},
+    disconnect:async()=>{removals++;return {disconnected:true};}};
+  const f=await fixture(t,{gateway}),admin=await f.administrator(),member=f.client(),outsider=f.client();
+  const u=await f.signup(member,'hosted@example.test');await f.signup(outsider,'outsider@example.test');
+  f.db.prepare('UPDATE users SET active=1 WHERE id=?').run(u.id);
+  await member.call('/api/accounts','POST',{broker:'Broker',login:'12345',server:'Broker-Live',password:PASSWORD});
+  const account=(await member.call('/api/accounts')).data.accounts[0];
+  const review=`/api/admin/accounts/${account.id}/review`;
+  assert.equal((await member.call(review,'POST',{decision:'approve'})).status,403);
+  assert.equal((await admin.call(review,'POST',{decision:'approve'})).status,200);
+  assert.equal(f.db.prepare('SELECT status FROM accounts WHERE id=?').get(account.id).status,'pending');
+  ready=true;
+  assert.equal((await admin.call(review,'POST',{decision:'approve'})).status,200);
+  assert.equal(f.db.prepare('SELECT status FROM accounts WHERE id=?').get(account.id).status,'connected');
+  assert.equal((await outsider.call('/api/accounts')).data.accounts.length,0);
+  const config=(await member.call('/api/config')).data;assert.equal(config.tradingEnabled,false);
+  const bot=(await member.call('/api/bots')).data.bots[0];
+  assert.equal((await member.call(`/api/bots/${bot.id}/control`,'POST',{running:true})).status,503);
+  assert.equal(controls,0);
+  assert.equal((await member.call(`/api/accounts/${account.id}`,'DELETE')).status,200);assert.equal(removals,1);
+});
