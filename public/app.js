@@ -443,12 +443,23 @@ document.addEventListener('submit',async event => {
     if (action === 'signup') {
       const auth = await supabaseAuth(`signup?redirect_to=${encodeURIComponent(AUTH_REDIRECT_ORIGIN + '/login')}`,'POST',{ email:data.email, password:data.password, data:{ full_name:data.name, referral_code:data.referral || '' } });
       if (!auth.access_token) {
-        el.innerHTML = '<div class="notice">Account created. Check your email to confirm your address, then sign in.</div><div class="auth-bottom"><a href="/login">Go to sign in</a></div>';
+        el.innerHTML = `<div class="notice">If this address is new and needs verification, a confirmation email has been sent. If you already have an account, sign in or reset your password.</div>
+          <form data-form="resend-confirmation">
+            <input type="hidden" name="email" value="${esc(data.email)}">
+            <p class="error" role="alert"></p>
+            <div class="actions"><button class="secondary" type="submit">Resend confirmation</button></div>
+          </form>
+          <div class="auth-bottom"><a href="/login">Go to sign in</a> · <a href="/forgot-password">Reset password</a></div>`;
         return;
       }
       saveAuth(auth);
       await identity();
       navigate('/subscription',true);
+      return;
+    }
+    if (action === 'resend-confirmation') {
+      await supabaseAuth(`resend?redirect_to=${encodeURIComponent(AUTH_REDIRECT_ORIGIN + '/login')}`,'POST',{ type:'signup', email:data.email });
+      el.innerHTML = '<div class="notice">If this address has a pending signup confirmation, a new confirmation email has been sent. Check your inbox and spam folder.</div><div class="auth-bottom"><a href="/login">Go to sign in</a></div>';
       return;
     }
     if (action === 'mfa-login') {
