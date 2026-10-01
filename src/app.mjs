@@ -47,8 +47,8 @@ export function createApplication(options = {}) {
   const mailer = options.mailer === undefined ? createMailer(env) : options.mailer;
   const gateway = options.gateway === undefined ? createGateway(env) : options.gateway;
   const telegram = options.telegram === undefined ? createTelegram(env) : options.telegram;
-  const supabaseUrl = String(env.SUPABASE_URL || '').replace(/\/$/, '');
-  const supabaseKey = env.SUPABASE_PUBLISHABLE_KEY || '';
+  const supabaseUrl = String(env.SUPABASE_URL || 'https://amwpbnczylbarqqcprev.supabase.co').replace(/\/$/, '');
+  const supabaseKey = env.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_Vqc0cqRem0xIFPT1-oqXIw_aQxSJSIO';
   const supabaseConfigured = !!(supabaseUrl && supabaseKey);
   const clients = new Set();
   let tradingMutation = false;
