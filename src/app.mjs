@@ -108,7 +108,7 @@ export function createApplication(options = {}) {
     const path = url.pathname, method = req.method, guest = cookies(req.headers.cookie).elite_guest;
     const ip = env.TRUST_PROXY === 'true' ? String(req.headers['x-forwarded-for'] || req.socket.remoteAddress).split(',')[0].trim() : req.socket.remoteAddress;
     if (method !== 'GET') rateLimit(`write:${ip}`, 90);
-    if (path === '/api/config' && method === 'GET') return json(res, { priceCents: Number(setting('price_cents')), emailConfigured: !!mailer, gatewayConfigured: !!gateway, telegramConfigured: !!telegram });
+    if (path === '/api/config' && method === 'GET') return json(res, { priceCents: Number(setting('price_cents')), emailConfigured: !!mailer, gatewayConfigured: !!gateway, telegramConfigured: !!telegram, demoMode: env.DEMO_MODE === 'true' });
     if (path === '/api/me' && method === 'GET') return json(res, { user: context?.session.verified ? publicUser(context.user) : null, requiresMfa: !!context && !context.session.verified, csrf: context?.session.csrf || null });
     if (path === '/api/auth/signup' && method === 'POST') {
       rateLimit(`signup:${ip}`, 10, 900000);
