@@ -63,7 +63,7 @@ test('marketing homepage and legal routes are public', async t => {
 
 
 
-test('public canonical and auth callback use the Vercel site URL', () => {
+test('public canonical uses the Vercel site URL and auth callback uses the current origin', () => {
   const app = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
   const index = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
   const robots = readFileSync(new URL('../public/robots.txt', import.meta.url), 'utf8');
