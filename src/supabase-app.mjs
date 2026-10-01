@@ -49,8 +49,8 @@ export function createSupabaseApplication(options = {}) {
   const env = options.env || process.env;
   const production = env.NODE_ENV === 'production';
   const origin = new URL(env.APP_ORIGIN || (env.VERCEL_URL ? `https://${env.VERCEL_URL}` : 'http://localhost:3000')).origin;
-  const supabaseUrl = String(env.SUPABASE_URL || 'https://amwpbnczylbarqqcprev.supabase.co').replace(/\/$/, '');
-  const supabaseKey = env.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_Vqc0cqRem0xIFPT1-oqXIw_aQxSJSIO';
+  const supabaseUrl = String(env.SUPABASE_URL || 'https://cgpvhayfwnpipktyltho.supabase.co').replace(/\/$/, '');
+  const supabaseKey = env.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_SNPQ5m9R3hv3Y7Uw-icxEQ_WSng7M8W';
   const db = createSupabaseData({ url:supabaseUrl, key:supabaseKey });
 
 
