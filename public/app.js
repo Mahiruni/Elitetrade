@@ -153,17 +153,18 @@ function publicShell(content) {
 function marketingPage() {
   const dashboardHref = state.user ? '/mt5' : '/signup';
   const dashboardLabel = state.user ? 'Open your terminal' : 'Create your account';
+  const heroLine = (text,tag = 'span') => `<${tag} class="hero-title-line"><span class="hero-title-sizer" aria-hidden="true">${text}</span><span class="hero-title-track"><span>${text}</span><span aria-hidden="true">${text}</span></span></${tag}>`;
   const trustItems = [['shield','access','Protected account access'],['terminal','connection','MT5 connection workflow'],['settings','risk','User-controlled risk settings']].map(([symbol,tone,label]) => `<li><span class="trust-icon trust-icon-${tone}">${icon(symbol)}</span><span>${label}</span></li>`).join('');
   return `
     <section class="marketing-hero hero-illustrated" aria-labelledby="hero-title">
       <div class="hero-copy">
         <div class="marketing-kicker"><span></span> MT5 / AUTOMATION WORKSPACE</div>
-        <h1 id="hero-title"><span>Your strategy.</span> <span>Your limits.</span> <em>Your control.</em></h1>
+        <h1 id="hero-title" class="hero-title-animated">${heroLine('Your strategy.')} ${heroLine('Your limits.')} ${heroLine('Your control.','em')}</h1>
         <p class="hero-lead">Bring your MT5 accounts, automation and risk settings into one focused workspace. Configure with intention. Stay in control.</p>
         <div class="hero-actions"><a class="marketing-cta" href="${dashboardHref}">${dashboardLabel}</a><a class="marketing-secondary" href="#platform">Explore the platform</a></div>
         <div class="hero-trust hero-trust-marquee" role="region" aria-label="Platform safeguards">
-          <div class="trust-marquee-window"><div class="hero-trust-track"><ul class="hero-trust-group">${trustItems}</ul><ul class="hero-trust-group" aria-hidden="true">${trustItems}</ul></div></div>
-          ${btn('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 5v14m6-14v14"/></svg>','trust-motion','','class="trust-motion-toggle" aria-label="Pause feature animation" aria-pressed="false" title="Pause feature animation"')}
+          <div class="trust-marquee-window"><div class="hero-trust-track" id="hero-feature-track"><ul class="hero-trust-group">${trustItems}</ul><ul class="hero-trust-group" aria-hidden="true">${trustItems}</ul></div></div>
+          ${btn('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 5v14m6-14v14"/></svg>','trust-motion','','class="trust-motion-toggle" aria-label="Pause text animations" aria-pressed="false" aria-controls="hero-title hero-feature-track" title="Pause text animations"')}
         </div>
       </div>
       <figure class="hero-visual">
@@ -469,7 +470,8 @@ function roundModal(id) { const r = state.data.admin.rounds.find(r => r.id === i
 const actions = {
   'trust-motion': (_,button) => {
     const paused = button.closest('.hero-trust-marquee').classList.toggle('is-paused');
-    const label = paused ? 'Resume feature animation' : 'Pause feature animation';
+    button.closest('.marketing-hero').classList.toggle('is-heading-paused',paused);
+    const label = paused ? 'Resume text animations' : 'Pause text animations';
     button.setAttribute('aria-pressed',String(paused));
     button.setAttribute('aria-label',label);
     button.title = label;

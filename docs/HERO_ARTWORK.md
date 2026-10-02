@@ -15,6 +15,10 @@ Both versions retain the generated alpha channel. `srcset`, intrinsic dimensions
 
 This is a decorative market demo with no live price feed or trading actions. A caption control pauses and resumes the chart. Reduced-motion preference keeps the chart static. Animation stops when the illustration is offscreen or the browser tab is hidden, and its observer, frame, and listeners are removed when leaving the page.
 
+## Hero headline motion
+
+The three headline lines roll upward in a staggered eight-second cycle, holding still for most of each cycle. Identical visual copies make the reset seamless; extra copies are hidden from assistive technology. An invisible sizer reserves the actual line height, including when enlarged text wraps, so the hero does not jump. The text animation control pauses both the headline and feature marquee. Reduced-motion preference keeps the headline static.
+
 Generation mode: built-in image generation, followed by WebP packaging and responsive sizing. The original PNG is retained in the generation output.
 
 Verified at 320, 390, 768, 1024, 1440, and 1920px in both themes: no horizontal overflow or overlapping columns. The homepage reflows at 200% text size. Both image routes serve WebP successfully; account and platform links work; the hero has no axe WCAG A/AA violations or browser script errors. Browser verification uses an isolated local database and does not create production accounts or perform trading actions.

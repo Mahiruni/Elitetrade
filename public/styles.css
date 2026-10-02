@@ -290,6 +290,25 @@ dialog .actions { margin-top:1.4rem }
 }
 .hero-illustrated h1>span,.hero-illustrated h1>em { display:block }
 .hero-illustrated h1 em { font-weight:650 }
+/* Two identical copies roll through a mask; the hidden sizer reserves each line. */
+.hero-title-animated .hero-title-line { position:relative; overflow:hidden }
+.hero-title-sizer,.hero-title-track,.hero-title-track>span { display:block }
+.hero-title-sizer { visibility:hidden }
+.hero-title-track {
+  position:absolute; inset:0 0 auto; width:100%;
+  animation:hero-title-roll 8s cubic-bezier(.22,1,.36,1) infinite;
+  animation-delay:-5.85s;
+}
+.hero-title-line:nth-child(2) .hero-title-track { animation-delay:-5.63s }
+.hero-title-line:nth-child(3) .hero-title-track { animation-delay:-5.41s }
+.is-heading-paused .hero-title-track { animation:none; transform:none }
+@keyframes hero-title-roll {
+  0%,74% { transform:translateY(0) }
+  91%,100% { transform:translateY(-50%) }
+}
+@media (prefers-reduced-motion:reduce) {
+  .hero-title-track { animation:none; transform:none }
+}
 .hero-illustrated .hero-lead { max-width:460px; margin:1.5rem 0 0; font-size:1rem; line-height:1.8 }
 .hero-illustrated .hero-actions { justify-content:flex-start; gap:.75rem; margin-top:2rem }
 .hero-illustrated .marketing-secondary { background:transparent; color:var(--text); border-color:var(--control-border) }
