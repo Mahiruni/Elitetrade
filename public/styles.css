@@ -259,7 +259,14 @@ dialog .actions { margin-top:1.4rem }
 .qr { display:block; width:min(240px,100%); height:auto; margin:1rem auto; border-radius:24px; padding:12px; background:white }
 .secret { overflow-wrap:anywhere; text-align:center; font-size:var(--type-control)}
 /* Public site: editorial composition with a real product workflow. */
-.marketing-header { position:sticky; top:0; z-index:40; border:0; background:color-mix(in srgb,var(--bg) 82%,transparent); backdrop-filter:blur(20px) }
+.marketing-header {
+  --bg:#0a1428; --panel:#111f38; --surface:#192f50;
+  --text:#f5f8ff; --muted:#cedaf0; --accent:#a8c5ff; --control-border:#7790b3;
+  position:sticky; top:0; z-index:40; color:var(--text);
+  border:0; border-bottom:1px solid #8bb3ff30;
+  background:radial-gradient(ellipse at 52% 0%,#4274c532,transparent 64%),linear-gradient(110deg,#071226 0%,#102441 58%,#152e50 100%);
+  box-shadow:0 8px 30px #06112418;
+}
 .marketing-nav { min-height:72px; max-width:1440px; padding:.5rem 2.5rem; margin:auto; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.5rem 1rem }
 .site-brand { flex:none }
 .marketing-links,.marketing-actions { display:flex; align-items:center; gap:1.5rem }
