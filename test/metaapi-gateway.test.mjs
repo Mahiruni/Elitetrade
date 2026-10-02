@@ -27,6 +27,20 @@ test('requires only a private API token and validates region',()=>{
   assert.ok(createMetaApiGateway(env));
   assert.throws(()=>createMetaApiGateway({...env,METAAPI_REGION:'evil.test/'}),/Invalid/);
 });
+test('normalizes pasted tokens, rejects invalid headers, retries only safe reads',async()=>{
+ const seen=[];
+ const normalized=createMetaApiGateway({...env,METAAPI_TOKEN:'  Bearer private\n'},async(url,options)=>{seen.push(options.headers['auth-token']);return Response.json([]);});
+ await assert.rejects(normalized.connect(supplied),/valid account ID/);
+ assert.deepEqual(seen,['private','private']);
+ let calls=0;
+ const invalid=createMetaApiGateway({...env,METAAPI_TOKEN:'bad\ntoken'},async()=>{calls++;});
+ await assert.rejects(invalid.connect(supplied),/invalid characters/);assert.equal(calls,0);
+ const transient=createMetaApiGateway(env,async()=>{calls++;if(calls===1)throw Object.assign(new Error('secret'),{cause:{code:'ECONNRESET'}});return Response.json([]);});
+ await assert.rejects(transient.connect(supplied),/valid account ID/);assert.equal(calls,3);
+ calls=0;
+ const write=createMetaApiGateway(env,async(url,options)=>{calls++;if(options.method==='POST')throw Object.assign(new Error('secret-password'),{name:'TimeoutError'});return Response.json([]);});
+ await assert.rejects(write.connect(supplied),/timed out/);assert.equal(calls,2);
+});
 test('provisions distinct per-user demo and real connections; retries reuse account',async()=>{
   for(const type of ['ACCOUNT_TRADE_MODE_REAL','ACCOUNT_TRADE_MODE_DEMO']) {
     const f=fixture({info:{type}}); const first=await f.gateway.connect(supplied);

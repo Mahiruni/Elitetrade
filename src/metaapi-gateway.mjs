@@ -6,17 +6,32 @@ const nameFor = id => `EliteTrade ${id}`;
 
 export function createMetaApiGateway(env, fetchImpl = fetch) {
   if (!env.METAAPI_TOKEN) return null;
+  const token = String(env.METAAPI_TOKEN).trim().replace(/^Bearer\s+/i,'').trim();
   const region = env.METAAPI_REGION || 'new-york';
   if (!/^[a-z][a-z0-9-]{0,40}$/.test(region)) throw error('Invalid MetaApi region.');
   const call = async (base, path, method = 'GET', body, extra = {}) => {
+    if (!token || /\s|[^\x21-\x7e]/.test(token)) throw error('METAAPI_TOKEN contains spaces or invalid characters. Paste only the API token in Vercel, then redeploy.');
     let response;
-    try {
+    for (let attempt=0; attempt < (method === 'GET' ? 2 : 1); attempt++) {
+     try {
       response = await fetchImpl(new URL(path, base), {
-        method, redirect:'error', signal:AbortSignal.timeout(12000),
-        headers:{ 'auth-token':env.METAAPI_TOKEN, Accept:'application/json', 'Content-Type':'application/json', ...extra },
+        method, redirect:'error', signal:AbortSignal.timeout(20000),
+        headers:{ 'auth-token':token, Accept:'application/json', 'Content-Type':'application/json', ...extra },
         ...(body ? {body:JSON.stringify(body)} : {})
       });
-    } catch { throw error('MetaApi could not be reached. Check the provider connection.'); }
+       break;
+     } catch (failure) {
+       const code = failure?.cause?.code || failure?.code || failure?.name;
+       const kind = ['TimeoutError','AbortError','UND_ERR_CONNECT_TIMEOUT','UND_ERR_HEADERS_TIMEOUT'].includes(code) ? 'timeout' : ['ENOTFOUND','EAI_AGAIN'].includes(code) ? 'dns' : ['ECONNRESET','ECONNREFUSED','UND_ERR_SOCKET'].includes(code) ? 'network' : 'request';
+       // Never log provider response bodies, tokens or submitted account credentials.
+       console.warn(JSON.stringify({event:'metaapi.transport',host:new URL(base).hostname,method,kind}));
+       if(method === 'GET' && attempt === 0 && kind !== 'request') continue;
+       if(kind === 'timeout') throw error('MetaApi connection timed out. Retry approval shortly; any created account will be reused.');
+       if(kind === 'dns') throw error('The website server could not resolve the MetaApi API address. Check provider DNS availability and retry.');
+       if(kind === 'network') throw error('The website server could not establish a connection to MetaApi. Retry approval shortly.');
+       throw error('MetaApi request could not be sent. Check METAAPI_TOKEN formatting in Vercel and redeploy; provider diagnostics have been recorded.');
+     }
+    }
     if (response.status === 202) throw error('MetaApi is processing this connection. Retry approval later; the same request will be resumed.');
     if (!response.ok) {
       if ([401,403].includes(response.status)) throw error('MetaApi access was denied. Check the server-side token permissions.');
