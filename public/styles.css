@@ -611,3 +611,10 @@ input:focus,select:focus,textarea:focus { box-shadow:0 0 0 4px color-mix(in srgb
   .operations-foot span { margin-left:0 }
   .operations-foot br { display:block }
 }
+
+.crypto-checkout { margin-top: 1.8rem; }
+.crypto-amount { font-size: clamp(1.55rem, 3vw, 2.5rem); font-weight: 600; letter-spacing: -.035em; overflow-wrap: anywhere; }
+.crypto-amount span { font-size: .85rem; letter-spacing: .02em; }
+.manual-payment { margin-top: 2rem; }
+.manual-payment summary { cursor: pointer; color: var(--muted); padding-block: .6rem; }
+.manual-payment[open] summary { margin-bottom: .5rem; }

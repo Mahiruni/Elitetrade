@@ -6,6 +6,7 @@ import { createGateway, createTelegram } from './services.mjs';
 import { createSupabaseData } from './supabase-data.mjs';
 import { engineReady } from './demo-engine.mjs';
 import { STRATEGIES,evaluateStrategy,planTrade } from './trading-strategies.mjs';
+import {USDT_DESTINATION,usdtAmount} from './tron-payments.mjs';
 
 const now = () => Date.now();
 class HttpError extends Error { constructor(status, message) { super(message); this.status = status; } }
@@ -46,6 +47,12 @@ const safeAccount = row => {
   const { gateway_id, ...safe } = row;
   return safe;
 };
+const cryptoHealth = row => ({
+  ready:!!row?.provider_ok && Date.now()-Date.parse(row.updated_at || '') < 300000,
+  message:row?.message || 'Automatic USDT verification is being configured.',
+  updatedAt:row?.updated_at || null
+});
+const cryptoInvoice = row => row ? {...row,amount:usdtAmount(row.amount_units)} : null;
 
 export function createSupabaseApplication(options = {}) {
   const env = options.env || process.env;
@@ -176,7 +183,8 @@ export function createSupabaseApplication(options = {}) {
         supabasePublishableKey:supabaseKey,
         persistentData:true,
         credentialEncryptionConfigured:true,
-        credentialVaultConfigured:true
+        credentialVaultConfigured:true,
+        cryptoInvoicesSupported:true
       });
     }
 
@@ -254,11 +262,30 @@ export function createSupabaseApplication(options = {}) {
 
     if (path === '/api/payment-methods' && method === 'GET') {
       const ctx = await needUser(req);
-      const [methods, price] = await Promise.all([
+      const [methods, price, health] = await Promise.all([
         db.query('elitetrade_payment_methods', 'enabled=eq.true&select=id,name,kind,details,network,instructions,enabled,created_at&order=created_at.asc', ctx.token),
-        setting('price_cents', ctx.token)
+        setting('price_cents', ctx.token),
+        db.one('elitetrade_crypto_health','id=eq.true&select=provider_ok,message,updated_at',ctx.token)
       ]);
-      return json(res, { methods, priceCents:Number(price || 14000) });
+      return json(res, { methods:methods.map(m=>({...m,automatic:m.kind==='crypto'&&m.network==='TRC20'&&m.details===USDT_DESTINATION})), priceCents:Number(price || 14000),crypto:cryptoHealth(health) });
+    }
+
+    if (path === '/api/crypto-invoices' && method === 'GET') {
+      const ctx=await needUser(req);
+      const [invoices,health]=await Promise.all([
+        db.query('elitetrade_crypto_invoices',`user_id=eq.${q(ctx.user.id)}&select=id,method_id,destination,price_cents,amount_units,created_at,expires_at,status,txid&order=created_at.desc&limit=10`,ctx.token),
+        db.one('elitetrade_crypto_health','id=eq.true&select=provider_ok,message,updated_at',ctx.token)
+      ]);
+      return json(res,{invoices:invoices.map(cryptoInvoice),crypto:cryptoHealth(health)});
+    }
+
+    if (path === '/api/crypto-invoices' && method === 'POST') {
+      const ctx=await needUser(req);
+      rateLimit(`crypto-invoice:${ctx.user.id}`,5,900000);
+      const methodId=string(body.methodId,'Payment method',36,36);
+      if(!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(methodId))fail(400,'Invalid payment method.');
+      const invoice=await db.rpc('elitetrade_crypto_invoice',{p_method_id:methodId},ctx.token);
+      return json(res,{invoice:cryptoInvoice(invoice)},201);
     }
 
     if (path === '/api/payments' && method === 'GET') {
@@ -273,6 +300,7 @@ export function createSupabaseApplication(options = {}) {
       rateLimit(`payment:${ctx.user.id}`, 10, 900000);
       const methodId = string(body.methodId, 'Payment method', 10, 100);
       const reference = string(body.reference, 'Transaction reference', 6, 200);
+      if(/^trc20:/i.test(reference))fail(400,'This reference is reserved for automatically verified USDT invoices.');
       const kind = choice(body.kind || 'subscription', ['subscription','pool'], 'payment type');
       const roundId = kind === 'pool' ? string(body.roundId, 'Pool round', 10, 100) : null;
       const amountCents = kind === 'pool' ? cents(body.amount) : null;
@@ -578,7 +606,7 @@ export function createSupabaseApplication(options = {}) {
       const ctx = await needAdmin(req);
 
       if (path === '/api/admin/overview' && method === 'GET') {
-        const [profiles,payments,methods,accounts,payouts,rounds,auditRows,price,telegramChat] = await Promise.all([
+        const [profiles,payments,methods,accounts,payouts,rounds,auditRows,price,telegramChat,health] = await Promise.all([
           db.query('elitetrade_profiles', 'select=id,email,full_name,role,active,disabled,created_at&order=created_at.desc', ctx.token),
           db.query('elitetrade_payments', 'select=*&order=created_at.desc', ctx.token),
           db.query('elitetrade_payment_methods', 'select=*&order=created_at.asc', ctx.token),
@@ -587,7 +615,8 @@ export function createSupabaseApplication(options = {}) {
           db.query('elitetrade_pool_rounds', 'select=*&order=created_at.desc', ctx.token),
           db.query('elitetrade_audit_log', 'select=*&order=created_at.desc&limit=100', ctx.token),
           setting('price_cents', ctx.token),
-          setting('telegram_chat', ctx.token)
+          setting('telegram_chat', ctx.token),
+          db.one('elitetrade_crypto_health','id=eq.true&select=provider_ok,message,updated_at',ctx.token)
         ]);
         const emails = new Map(profiles.map(p => [p.id,p.email || '']));
         return json(res, {
@@ -599,6 +628,7 @@ export function createSupabaseApplication(options = {}) {
           rounds,
           priceCents:Number(price || 14000),
           telegramChat:telegramChat || '',
+          crypto:cryptoHealth(health),
           audit:auditRows.map(a => ({ ...a,email:emails.get(a.actor_id) || '' }))
         });
       }
@@ -613,8 +643,11 @@ export function createSupabaseApplication(options = {}) {
         const amount = cents(body.price);
         const chat = body.telegramChat ? string(body.telegramChat, 'Telegram chat', 1, 100) : '';
         if (chat && !/^-?\d+$/.test(chat)) fail(400, 'Enter a numeric Telegram chat ID.');
+        const key=body.tronGridApiKey ? string(body.tronGridApiKey,'TronGrid API key',16,256) : '';
+        if(key&&!/^[a-zA-Z0-9._-]{16,256}$/.test(key))fail(400,'Enter a valid TronGrid API key.');
+        if(key)await db.rpc('elitetrade_crypto_save_key',{p_key:key},ctx.token);
         await db.rpc('elitetrade_admin_set_settings', { p_price_cents:amount, p_telegram_chat:chat }, ctx.token);
-        await audit(ctx, 'settings.update', 'price,telegram');
+        await audit(ctx, 'settings.update', key?'price,telegram,USDT verification key':'price,telegram');
         return json(res, { ok:true });
       }
 
