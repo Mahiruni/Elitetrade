@@ -3,6 +3,46 @@ const provisioning = 'https://mt-provisioning-api-v1.agiliumtrade.agiliumtrade.a
 const idPattern = /^[a-zA-Z0-9_-]{1,128}$/;
 const error = (message, status = 503) => Object.assign(new Error(message), { status });
 const nameFor = id => `EliteTrade ${id}`;
+const providerErrors = new Map([
+  ['E_SRV_NOT_FOUND', 'MetaApi could not find this broker server for MT5. Copy the exact MT5 server from your broker account details. If it is correct, configure a provisioning profile in MetaApi.'],
+  ['E_AUTH', 'The broker rejected the MT5 login. Confirm this is an MT5 account, its exact assigned server, and its trading or investor password.'],
+  ['E_SERVER_TIMEZONE', 'MetaApi could not detect the broker settings. Retry later or configure a provisioning profile in MetaApi.'],
+  ['E_RESOURCE_SLOTS', 'This account needs more MetaApi resource slots. Review the required capacity and cost in MetaApi before connecting.'],
+  ['E_NO_SYMBOLS', 'The broker account has no configured trading symbols. Check the account with your broker.'],
+  ['ERR_OTP_REQUIRED', 'This broker account requires a one-time password that MetaApi cannot use. Review the account authentication settings with your broker.'],
+  ['E_PASSWORD_CHANGE_REQUIRED', 'The broker requires a trading-account password change. Change it with your broker, then update the saved account details.'],
+  ['E_TRADING_ACCOUNT_DISABLED', 'The broker reports this trading account is disabled. Contact the broker or use an active MT5 account.']
+]);
+const providerErrorNames = new Set(['ValidationError','UnauthorizedError','ForbiddenError','NotFoundError','TooManyRequestsError','QuotaExceededError','InternalError']);
+
+function requestOperation(path, method) {
+  const route = path.split('?')[0];
+  if (route === '/users/current/accounts') return method === 'POST' ? 'create-account' : 'list-accounts';
+  if (route.endsWith('/deploy')) return 'deploy-account';
+  if (route.endsWith('/account-information')) return 'account-information';
+  if (/^\/users\/current\/accounts\/[^/]+$/.test(route)) return method === 'DELETE' ? 'delete-account' : 'read-account';
+  return 'account-request';
+}
+
+async function providerFailure(response, path, method) {
+  let data;
+  try { data = await response.json(); } catch { /* Provider errors can also be non-JSON. */ }
+  const candidate = typeof data?.details === 'string' ? data.details : data?.details?.code;
+  const code = providerErrors.has(candidate) ? candidate : 'UNKNOWN';
+  const operation = requestOperation(path, method);
+  // Allowlisted codes only: never expose provider messages, details, URLs or credentials.
+  console.warn(JSON.stringify({event:'metaapi.response',operation,method,status:response.status,code,
+    name:providerErrorNames.has(data?.error) ? data.error : 'UNKNOWN'}));
+  let message;
+  if (response.status === 401) message = 'MetaApi rejected the API token. Replace METAAPI_TOKEN with a valid API token in Vercel Production, then redeploy.';
+  else if (response.status === 403) message = 'MetaApi access was denied. Check the server-side token permissions.';
+  else if (response.status === 429) message = 'MetaApi rate limit reached. Wait before retrying.';
+  else if (response.status === 400) {
+    if (operation === 'create-account' && providerErrors.has(code)) message = `${providerErrors.get(code)} (${code})`;
+    else message = `MetaApi rejected the ${operation.replaceAll('-',' ')} request (HTTP 400). Check the MetaApi dashboard; the server recorded a safe diagnostic. This response does not confirm that the password is wrong.`;
+  } else message = 'MetaApi could not complete the account request. Check the provider dashboard.';
+  return Object.assign(error(message),{providerCode:code,providerStatus:response.status,providerOperation:operation});
+}
 
 function normalizeToken(value) {
   const trim = text => text.replace(/^[\s\u200b\u200c\u200d\u2060\ufeff]+|[\s\u200b\u200c\u200d\u2060\ufeff]+$/gu, '');
@@ -54,12 +94,7 @@ export function createMetaApiGateway(env, fetchImpl = fetch) {
      }
     }
     if (response.status === 202) throw error('MetaApi is processing this connection. Retry approval later; the same request will be resumed.');
-    if (!response.ok) {
-      if ([401,403].includes(response.status)) throw error('MetaApi access was denied. Check the server-side token permissions.');
-      if (response.status === 429) throw error('MetaApi rate limit reached. Wait before retrying.');
-      if (response.status === 400) throw error('MetaApi could not verify these MT5 credentials or broker settings. Check the login, server and password.');
-      throw error('MetaApi could not complete the account request. Check the provider dashboard.');
-    }
+    if (!response.ok) throw await providerFailure(response,path,method);
     if (response.status === 204) return null;
     try { return await response.json(); } catch { throw error('MetaApi returned an invalid response.'); }
   };
@@ -100,7 +135,8 @@ export function createMetaApiGateway(env, fetchImpl = fetch) {
         const result = await call(provisioning,'/users/current/accounts','POST',{
           name:nameFor(localId), login:String(account.login), password:account.password, server:account.server,
           platform:'mt5',type:'cloud-g2',region,magic:0,manualTrades:true,
-          metadata:{elitetradeAccountId:localId}
+          metadata:{elitetradeAccountId:localId},
+          ...(typeof account.broker === 'string' && account.broker.trim() ? {keywords:[account.broker.trim()]} : {})
         },{'transaction-id':createHash('sha256').update(`elitetrade:${localId}`).digest('hex').slice(0,32)});
         remoteId = result?.id;
       }

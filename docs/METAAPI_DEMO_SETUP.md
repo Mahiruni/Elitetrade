@@ -31,6 +31,14 @@ The server removes surrounding whitespace, matched quotes and an optional `Beare
 
 The regional account-information endpoint is derived from each provider account's actual region. Broker server names are never used as API hosts. Provider errors are sanitized, tokens are not returned to the browser, and passwords are sent only to the fixed MetaApi provisioning host over HTTPS.
 
+### Diagnosing rejected connections
+
+Account creation includes the member's broker name as a search keyword to help MetaApi detect the server. The supplied MT5 login, server and password are preserved. Confirm the platform in the broker's account details: an MT4 account cannot connect as MT5, even if it is a real account. Copy the assigned server exactly; do not invent a replacement server name.
+
+The adapter distinguishes MetaApi API-token rejection (HTTP 401), token permissions (403), and provisioning error codes (400). `E_AUTH` means broker authentication failed; `E_SRV_NOT_FOUND` means the requested MT5 server could not be found; `E_SERVER_TIMEZONE` means automatic broker-settings detection failed. Capacity (`E_RESOURCE_SLOTS`), empty symbols, OTP requirements, required password changes, and disabled broker accounts have separate messages. Unknown HTTP 400 responses identify the failed request without asserting that credentials are wrong.
+
+Vercel runtime logs record only `metaapi.response`, the operation, HTTP method/status, and allowlisted provider error code/name. Raw provider messages, details, tokens, passwords and account identifiers are never logged. Failed writes are not automatically retried, passwords and servers are not rewritten, and resource-slot errors never automatically allocate paid capacity. If automatic detection fails for a correct MT5 server, a manually configured provisioning profile may be required. This adapter currently uses automatic detection; a manual profile must be explicitly bound in the connection implementation before it can be used. Creating a profile alone or retrying unchanged credentials is not a guaranteed fix.
+
 ## Pending requests and recovery
 
 MetaApi may return HTTP 202 before allocating an account ID. Retry approval for the same saved EliteTrade account after the provider's waiting period. Do not delete/recreate that local account while provisioning is processing. An administrator should inspect the MetaApi dashboard if provisioning fails, a database write fails after provider creation, or multiple bindings are detected. These external operations are not an atomic database transaction.

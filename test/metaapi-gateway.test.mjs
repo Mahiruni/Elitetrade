@@ -53,7 +53,7 @@ test('copy/paste wrappers and JWT line wraps send the exact original auth header
    // A denial proves formatting passed; no account creation or trade is simulated.
    return new Response('{}',{status:401});
   });
-  await assert.rejects(gateway.connect(supplied),/access was denied/);
+  await assert.rejects(gateway.connect(supplied),/rejected the API token/);
   assert.deepEqual(sent,[jwt]);
  }
 });
@@ -80,6 +80,67 @@ test('provisions distinct per-user demo and real connections; retries reuse acco
     assert.ok(f.calls.filter(c=>c.method==='GET').every(c=>!c.body));
     assert.equal(f.gateway.tradingEnabled,false);
   }
+});
+test('broker search keywords retain the exact customer MT5 credentials and account identity',async()=>{
+  const f=fixture();
+  await f.gateway.connect({...supplied,broker:'  Exness  '});
+  const body=JSON.parse(f.calls.find(c=>c.method==='POST').body);
+  assert.deepEqual(body.keywords,['Exness']);
+  assert.equal(body.platform,'mt5');assert.equal(body.login,supplied.login);
+  assert.equal(body.server,supplied.server);assert.equal(body.password,supplied.password);
+  assert.equal(body.metadata.elitetradeAccountId,supplied.accountId);
+});
+test('documented provisioning failures report specific actionable codes without leaking secrets',async()=>{
+  const cases=[
+    ['E_SRV_NOT_FOUND',/find this broker server for MT5/],['E_AUTH',/broker rejected the MT5 login/],
+    ['E_SERVER_TIMEZONE',/detect the broker settings/],['E_RESOURCE_SLOTS',/resource slots/],
+    ['E_NO_SYMBOLS',/no configured trading symbols/],['ERR_OTP_REQUIRED',/one-time password/],
+    ['E_PASSWORD_CHANGE_REQUIRED',/password change/],['E_TRADING_ACCOUNT_DISABLED',/account is disabled/]
+  ];
+  for(const [code,expected] of cases) for(const details of [code,{code,password:supplied.password,token:env.METAAPI_TOKEN}]) {
+    const logs=[],calls=[];
+    const gateway=createMetaApiGateway(env,async(url,options)=>{
+      calls.push(options.method);
+      return options.method==='GET'?Response.json([]):Response.json({error:'ValidationError',message:`private provider message ${supplied.password}`,details},{status:400});
+    });
+    const logger=test.mock.method(console,'warn',line=>logs.push(JSON.parse(line)));
+    try {
+      await assert.rejects(gateway.connect(supplied),failure=>{
+        assert.match(failure.message,expected);assert.match(failure.message,new RegExp(code));
+        assert.equal(failure.providerCode,code);assert.equal(failure.providerStatus,400);
+        assert.equal(failure.providerOperation,'create-account');
+        assert.ok(!failure.message.includes(supplied.password));assert.ok(!failure.message.includes('private provider message'));
+        return true;
+      });
+      assert.deepEqual(calls,['GET','POST']);
+      assert.deepEqual(logs,[{event:'metaapi.response',operation:'create-account',method:'POST',status:400,code,name:'ValidationError'}]);
+    } finally {logger.mock.restore();}
+  }
+});
+test('HTTP 400 on lookup and unknown create errors never blame credentials or log raw payloads',async()=>{
+  for(const lookup of [true,false]) for(const payload of [JSON.stringify({error:'untrusted-secret',message:supplied.password,details:{code:supplied.password,value:env.METAAPI_TOKEN}}),'non-JSON secret-password']) {
+    const logs=[],calls=[];
+    const gateway=createMetaApiGateway(env,async(url,options)=>{
+      calls.push(options.method);
+      return !lookup&&options.method==='GET'?Response.json([]):new Response(payload,{status:400});
+    });
+    const logger=test.mock.method(console,'warn',line=>logs.push(JSON.parse(line)));
+    try {
+      await assert.rejects(gateway.connect(supplied),failure=>{
+        assert.match(failure.message,/rejected the (list|create) accounts? request/);
+        assert.ok(!failure.message.includes(supplied.password));
+        assert.ok(!failure.message.includes('could not verify these MT5 credentials'));
+        assert.equal(failure.providerCode,'UNKNOWN');return true;
+      });
+      assert.deepEqual(calls,lookup?['GET']:['GET','POST']);
+      assert.deepEqual(logs,[{event:'metaapi.response',operation:lookup?'list-accounts':'create-account',method:lookup?'GET':'POST',status:400,code:'UNKNOWN',name:'UNKNOWN'}]);
+    } finally {logger.mock.restore();}
+  }
+  const logger=test.mock.method(console,'warn',()=>{});
+  try {
+    const gateway=createMetaApiGateway(env,async()=>Response.json({details:'E_AUTH'},{status:400}));
+    await assert.rejects(gateway.connect(supplied),/list accounts request/);
+  } finally {logger.mock.restore();}
 });
 test('delayed connection persists a pending binding and deploys without duplicate creation',async()=>{
   const f=fixture({account:{state:'UNDEPLOYED',connectionStatus:'DISCONNECTED'}});
