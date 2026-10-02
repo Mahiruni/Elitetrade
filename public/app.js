@@ -151,6 +151,7 @@ function publicShell(content) {
 function marketingPage() {
   const dashboardHref = state.user ? '/mt5' : '/signup';
   const dashboardLabel = state.user ? 'Open your terminal' : 'Create your account';
+  const trustItems = [['shield','access','Protected account access'],['terminal','connection','MT5 connection workflow'],['settings','risk','User-controlled risk settings']].map(([symbol,tone,label]) => `<li><span class="trust-icon trust-icon-${tone}">${icon(symbol)}</span><span>${label}</span></li>`).join('');
   return `
     <section class="marketing-hero hero-illustrated" aria-labelledby="hero-title">
       <div class="hero-copy">
@@ -158,7 +159,10 @@ function marketingPage() {
         <h1 id="hero-title"><span>Your strategy.</span> <span>Your limits.</span> <em>Your control.</em></h1>
         <p class="hero-lead">Bring your MT5 accounts, automation and risk settings into one focused workspace. Configure with intention. Stay in control.</p>
         <div class="hero-actions"><a class="marketing-cta" href="${dashboardHref}">${dashboardLabel}</a><a class="marketing-secondary" href="#platform">Explore the platform</a></div>
-        <div class="hero-trust"><span>${icon('shield')} Protected account access</span><span>${icon('terminal')} MT5 connection workflow</span><span>${icon('settings')} User-controlled risk settings</span></div>
+        <div class="hero-trust hero-trust-marquee" role="region" aria-label="Platform safeguards">
+          <div class="trust-marquee-window"><div class="hero-trust-track"><ul class="hero-trust-group">${trustItems}</ul><ul class="hero-trust-group" aria-hidden="true">${trustItems}</ul></div></div>
+          ${btn('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 5v14m6-14v14"/></svg>','trust-motion','','class="trust-motion-toggle" aria-label="Pause feature animation" aria-pressed="false" title="Pause feature animation"')}
+        </div>
       </div>
       <figure class="hero-visual">
         <picture><img src="/assets/hero-mt5-hd.webp" srcset="/assets/hero-mt5-640.webp 640w, /assets/hero-mt5-hd.webp 1254w" sizes="(max-width: 760px) 46vw, (max-width: 1320px) 44vw, 550px" width="1254" height="1254" alt="A man holding a phone displaying a MetaTrader 5 demo candlestick chart." fetchpriority="high" decoding="async"></picture>
@@ -459,6 +463,14 @@ function methodModal(id) { const m = state.data.admin.methods.find(m => m.id ===
 function localDate(value) { const d = new Date(value); return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,16); }
 function roundModal(id) { const r = state.data.admin.rounds.find(r => r.id === id) || { status:'open',starts_at:Date.now(),ends_at:Date.now()+7*86400000,goal_cents:100000,profit_cents:0 }; openModal(id ? 'Edit pool round' : 'Create pool round',form('round',field('Round name','name',r.name,'text','required minlength="2" maxlength="100"') + `<div class="form-grid">${field('Target · USD','goal',r.goal_cents/100,'number','required min="1" max="10000000" step="0.01"')}${field('Reported profit / loss · USD','profit',r.profit_cents/100,'number','required min="-10000000" max="10000000" step="0.01"')}${field('Starts','startsAt',localDate(r.starts_at),'datetime-local','required')}${field('Ends','endsAt',localDate(r.ends_at),'datetime-local','required')}</div>` + select('Status','status',r.status,[['open','Open for contributions'],['trading','Trading'],['closed','Closed']]),'Save pool round',id)); }
 const actions = {
+  'trust-motion': (_,button) => {
+    const paused = button.closest('.hero-trust-marquee').classList.toggle('is-paused');
+    const label = paused ? 'Resume feature animation' : 'Pause feature animation';
+    button.setAttribute('aria-pressed',String(paused));
+    button.setAttribute('aria-label',label);
+    button.title = label;
+    button.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="${paused ? 'm8 5 11 7-11 7Z' : 'M9 5v14m6-14v14'}"/></svg>`;
+  },
   'crypto-invoice': async methodId => {await api('/crypto-invoices','POST',{methodId});await render({quiet:true});toast('Invoice ready. Send the exact USDT amount shown.');},
   'resend-confirmation': async email => {
     await supabaseAuth(`resend?redirect_to=${encodeURIComponent(AUTH_REDIRECT_ORIGIN + '/login')}`,'POST',{ type:'signup', email });

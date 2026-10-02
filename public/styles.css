@@ -661,3 +661,37 @@ input:focus,select:focus,textarea:focus { box-shadow:0 0 0 4px color-mix(in srgb
 .manual-payment { margin-top: 2rem; }
 .manual-payment summary { cursor: pointer; color: var(--muted); padding-block: .6rem; }
 .manual-payment[open] summary { margin-bottom: .5rem; }
+
+/* One continuous right-to-left feature row, with an identical hidden copy. */
+.hero-illustrated .hero-trust.hero-trust-marquee {
+  display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center;
+  justify-items:stretch; gap:.5rem; width:100%; min-width:0;
+  font-size:.8125rem; line-height:1.5; color:var(--muted);
+}
+.trust-marquee-window { min-width:0; overflow:hidden; padding-block:.375rem; mask-image:linear-gradient(to right,transparent,#000 12px,#000 calc(100% - 12px),transparent) }
+.hero-trust-track { display:flex; width:max-content; animation:hero-trust-slide 28s linear infinite }
+.hero-trust-group { display:flex; align-items:center; flex:none; gap:1.75rem; padding:0 1.75rem 0 0; margin:0; list-style:none }
+.hero-trust-group li { display:flex; align-items:center; flex:none; gap:.625rem; white-space:nowrap }
+.hero-trust-group .trust-icon { display:grid; place-items:center; width:34px; height:34px; flex:none; border-radius:10px; background:color-mix(in srgb,currentColor 12%,transparent) }
+.hero-trust-group .trust-icon svg { width:22px; height:22px; stroke-width:1.9 }
+.trust-icon-access { color:#42d3a1 }
+.trust-icon-connection { color:#82adff }
+.trust-icon-risk { color:#f3b959 }
+body.light .trust-icon-access { color:#087b57 }
+body.light .trust-icon-connection { color:#2563eb }
+body.light .trust-icon-risk { color:#945008 }
+.trust-motion-toggle { display:grid; place-items:center; padding:0; width:32px; height:32px; min-height:32px; border:1px solid var(--control-border); border-radius:50%; background:transparent; color:var(--muted); cursor:pointer }
+.trust-motion-toggle svg { width:14px; height:14px }
+.trust-motion-toggle:hover { color:var(--text); background:var(--surface) }
+.trust-motion-toggle:focus-visible { outline:2px solid var(--accent); outline-offset:3px }
+.hero-trust-marquee.is-paused .hero-trust-track { animation-play-state:paused }
+@keyframes hero-trust-slide { from { transform:translateX(0) } to { transform:translateX(-50%) } }
+@media (prefers-reduced-motion:reduce) {
+  .hero-illustrated .hero-trust.hero-trust-marquee { grid-template-columns:minmax(0,1fr) }
+  .trust-marquee-window { overflow:visible; mask-image:none }
+  .hero-trust-track { width:100%; animation:none; transform:none }
+  .hero-trust-group { flex:1 1 100%; min-width:0; width:100%; flex-wrap:wrap; gap:.75rem 1.5rem; padding:0 }
+  .hero-trust-group li { min-width:0; max-width:100%; white-space:normal }
+  .hero-trust-group li>span:last-child { min-width:0; overflow-wrap:anywhere }
+  .hero-trust-group[aria-hidden="true"],.trust-motion-toggle { display:none }
+}
