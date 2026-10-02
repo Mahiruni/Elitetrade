@@ -66,9 +66,9 @@ hr { border:0; border-top:1px solid var(--border); margin:1.5rem 0 }
 .mono { font-family:ui-monospace,"SFMono-Regular",Consolas,monospace; font-variant-numeric:tabular-nums }
 .brand { display:flex; align-items:center; gap:.7rem; color:var(--text); font-size:1.125rem; font-weight:700; letter-spacing:-.025em; line-height:1.2 }
 .brand:hover { text-decoration:none }
-.brand img { width:38px; height:38px; object-fit:cover; border-radius:50% }
-.brand em { font-style:normal; color:var(--accent) }
-.wordmark-sub { font-size:.75rem; font-weight:500; letter-spacing:.09em; color:var(--muted); margin-top:5px }
+.brand-wordmark { display:flex; flex-direction:column; align-items:flex-start; gap:4px; white-space:nowrap }
+.brand-name { line-height:1.15 }
+.wordmark-sub { display:block; font-size:.625rem; font-weight:500; line-height:1.2; letter-spacing:.015em; color:var(--muted) }
 .skip { position:fixed; left:1rem; top:-5rem; z-index:100; background:var(--panel); padding:1rem; border:1px solid var(--accent); border-radius:8px }
 .skip:focus { top:1rem }
 [hidden] { display:none!important }
@@ -405,8 +405,7 @@ dialog .actions { margin-top:1.4rem }
   .menu-open .menu-scrim { display:block; position:fixed; inset:0; background:#080a0dbb; z-index:20 }
   .topbar { min-height:68px; padding:.7rem 1rem }
   .topbar .brand { display:flex; font-size:1rem }
-  .topbar .brand img { width:32px; height:32px }
-  .topbar .wordmark-sub,.account-name,.desktop-crumb { display:none }
+  .account-name,.desktop-crumb { display:none }
   .topbar-actions { gap:.4rem }
   .mobile-only { display:inline-flex }
   .content { padding:1.5rem 1rem }
@@ -439,7 +438,6 @@ dialog .actions { margin-top:1.4rem }
   .auth-form-side { min-height:100dvh; padding:5rem 1.5rem 2rem }
   .auth-form h1 { font-size:2rem }
   .marketing-nav { height:70px; padding:0 1rem }
-  .marketing-header .wordmark-sub { display:none }
   .marketing-actions>.marketing-cta { display:none }
   .marketing-actions { gap:.5rem }
   .marketing-hero { grid-template-columns:1fr; padding:6rem 1.5rem 3rem; gap:3rem }
@@ -506,9 +504,6 @@ dialog .actions { margin-top:1.4rem }
 }
 
 /* Terminal identity and shared interaction surfaces. */
-.brand-mark { width:36px; height:36px; flex:none; display:block; color:var(--text) }
-.brand em { color:var(--text) }
-.wordmark-sub { font-size:.625rem; letter-spacing:.08em }
 .sidebar nav a.active { background:color-mix(in srgb,var(--button) 16%,var(--panel)); color:var(--accent); font-weight:600 }
 .sidebar nav a.active:before { content:none }
 .topbar-actions .icon,.marketing-actions .icon { border-color:transparent; border-radius:50% }
@@ -585,7 +580,6 @@ input:focus,select:focus,textarea:focus { box-shadow:0 0 0 4px color-mix(in srgb
   .workspace-strip { padding:.5rem 1rem; gap:.5rem }
   .workspace-strip nav { gap:.8rem }
   .workspace-strip .connection-label { display:none }
-  .brand-mark { width:32px; height:32px }
   .marketing-hero { padding-top:3rem; gap:2rem }
   .hero-index { position:static }
   .hero-trust { justify-content:center }

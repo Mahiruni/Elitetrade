@@ -28,9 +28,6 @@ body.light .layout {
 .layout .sidebar { padding:30px 18px 18px; height:100dvh; top:0; background:color-mix(in srgb,var(--panel) 22%,var(--bg)); border:0; border-radius:0; box-shadow:none }
 .layout .sidebar-brand { margin:0 0 38px; min-height:44px }
 .layout .sidebar .brand { padding:0 10px; gap:10px; font-size:1.05rem }
-.layout .brand-mark { width:34px; height:34px }
-.layout .brand em { color:var(--text) }
-.layout .wordmark-sub { font-size:.56rem; letter-spacing:.11em; margin-top:6px }
 .layout .sidebar nav { display:flex; gap:28px; flex-direction:column; padding-bottom:24px }
 .layout .nav-group { display:flex; flex-direction:column; gap:5px }
 .layout .nav-label { padding:0 16px; margin:0 0 6px; font-size:.625rem; letter-spacing:.13em; text-transform:uppercase; font-weight:650; color:var(--muted) }
@@ -294,8 +291,7 @@ body.light .layout {
   .layout .sidebar .brand { padding-left:8px }
   .layout .topbar { min-height:74px; padding:12px 18px; gap:12px }
   .layout .topbar .brand { display:flex; font-size:.95rem; gap:9px }
-  .layout .topbar .brand-mark { width:30px; height:30px }
-  .layout .topbar .wordmark-sub,.layout .desktop-crumb,.layout .account-name,.layout .topbar-refresh { display:none }
+  .layout .desktop-crumb,.layout .account-name,.layout .topbar-refresh { display:none }
   .layout .topbar-actions { gap:5px }
   .layout .topbar button.icon { width:40px; min-height:44px }
   .layout .profile-link { padding:0; margin:0 3px; border:0 }
