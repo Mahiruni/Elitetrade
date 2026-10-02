@@ -42,6 +42,12 @@ Run this repository on an always-on Node 24 process host/VPS with these **privat
 
 Start command: `npm run worker:demo`. Install dependencies using `npm ci`. Configure restart-on-failure through the host. Every cycle evaluates up to 20 armed bots sequentially then waits 15 seconds; this is a polling baseline, not low-latency execution. Long provider requests can make heartbeat stale and disable new starts until the worker recovers. The worker must share the website's provider/database account access. Never commit these secrets.
 
+### Render deployment
+
+The repository includes `render.yaml` for a single Node 24 background worker. In Render, create a Blueprint from this repository and provide the prompted private Supabase service-role key, MetaApi token and provisioning region. Review the worker compute price before creating the service; this file does not provision a free web service or move the Vercel website. The Blueprint enables demo execution but does not arm any bot.
+
+After deployment, verify worker logs show completed cycles and the website reports a recent worker heartbeat. Then approve your demo account, preview the strategy and explicitly start the bot. A successful build alone does not establish broker connectivity or successful trade execution.
+
 For execution, use a verified broker **demo** account with its master password, not an investor password. Existing read-only MetaApi connections may need provider credential updates. Approve the connection in EliteTrade, save your exact broker symbol/settings, preview, then Start. No automatic account approval or existing bot start is performed during installation.
 
 ## Reconciliation

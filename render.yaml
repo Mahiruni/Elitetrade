@@ -1,0 +1,24 @@
+services:
+  - type: worker
+    name: elitetrade-demo-worker
+    runtime: node
+    repo: https://github.com/Mahiruni/Elitetrade
+    branch: main
+    numInstances: 1
+    autoDeployTrigger: commit
+    buildCommand: npm ci
+    startCommand: npm run worker:demo
+    maxShutdownDelaySeconds: 180
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: SUPABASE_URL
+        value: https://cgpvhayfwnpipktyltho.supabase.co
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: METAAPI_TOKEN
+        sync: false
+      - key: METAAPI_REGION
+        sync: false
+      - key: DEMO_EXECUTION_ENABLED
+        value: "true"
