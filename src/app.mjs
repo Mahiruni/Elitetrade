@@ -1,3 +1,4 @@
+import { renderBlogPage } from './blog.mjs';
 import { createServer } from 'node:http';
 import { randomUUID, randomBytes } from 'node:crypto';
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -531,10 +532,20 @@ export function createApplication(options = {}) {
         finally { if (locksTrading) tradingMutation = false; }
       }
       if (req.method !== 'GET' && req.method !== 'HEAD') fail(405, 'Method not allowed.');
+      if (url.pathname === '/blog' || url.pathname.startsWith('/blog/')) {
+        const blog = renderBlogPage(url.pathname);
+        res.statusCode = blog.status;
+        if (blog.location) { res.setHeader('Location', blog.location); res.end(); return; }
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.end(req.method === 'HEAD' ? '' : blog.html);
+        return;
+      }
       const files = { '/vendor/zxcvbn.js':['vendor/zxcvbn.js','text/javascript'], '/auth.js':['auth.js','text/javascript'], '/auth.css':['auth.css','text/css'], '/fonts/dm-sans.woff':['fonts/dm-sans.woff','font/woff'], '/fonts/instrument-serif.woff':['fonts/instrument-serif.woff','font/woff'], '/fonts/instrument-serif-italic.woff':['fonts/instrument-serif-italic.woff','font/woff'], '/app.js': ['app.js','text/javascript'], '/styles.css': ['styles.css','text/css'], '/dashboard.css':['dashboard.css','text/css'], '/favicon.svg': ['favicon.svg','image/svg+xml'], '/logo.jpg': ['logo.jpg','image/jpeg'], '/robots.txt':['robots.txt','text/plain; charset=utf-8'], '/sitemap.xml':['sitemap.xml','application/xml; charset=utf-8'], '/security.txt':['security.txt','text/plain; charset=utf-8'], '/.well-known/security.txt':['security.txt','text/plain; charset=utf-8'] };
       files['/assets/hero-mt5-hd.webp'] = ['assets/hero-mt5-hd.webp','image/webp'];
       files['/assets/hero-mt5-640.webp'] = ['assets/hero-mt5-640.webp','image/webp'];
       files['/hero-market.js'] = ['hero-market.js','text/javascript'];
+      files['/blog.js'] = ['blog.js','text/javascript'];
+      files['/blog.css'] = ['blog.css','text/css'];
       const entry = files[url.pathname] || (pages.has(url.pathname) ? ['index.html','text/html'] : null);
       if (!entry) fail(404, 'Page not found.');
       res.setHeader('Content-Type', entry[1]); res.end(req.method === 'HEAD' ? '' : readFileSync(join(publicPath, entry[0])));

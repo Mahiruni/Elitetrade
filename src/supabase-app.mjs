@@ -1,3 +1,4 @@
+import { renderBlogPage } from './blog.mjs';
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
@@ -786,6 +787,14 @@ export function createSupabaseApplication(options = {}) {
       }
 
       if (req.method !== 'GET' && req.method !== 'HEAD') fail(405, 'Method not allowed.');
+      if (url.pathname === '/blog' || url.pathname.startsWith('/blog/')) {
+        const blog = renderBlogPage(url.pathname);
+        res.statusCode = blog.status;
+        if (blog.location) { res.setHeader('Location', blog.location); res.end(); return; }
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.end(req.method === 'HEAD' ? '' : blog.html);
+        return;
+      }
       const files = {
         '/assets/hero-mt5-hd.webp':['assets/hero-mt5-hd.webp','image/webp'],
         '/assets/hero-mt5-640.webp':['assets/hero-mt5-640.webp','image/webp'],
@@ -805,6 +814,8 @@ export function createSupabaseApplication(options = {}) {
         '/security.txt':['security.txt','text/plain; charset=utf-8'],
         '/.well-known/security.txt':['security.txt','text/plain; charset=utf-8']
       };
+      files['/blog.js'] = ['blog.js','text/javascript'];
+      files['/blog.css'] = ['blog.css','text/css'];
       const entry = files[url.pathname] || (pages.has(url.pathname) ? ['index.html','text/html'] : null);
       if (!entry) fail(404, 'Page not found.');
       res.setHeader('Content-Type', entry[1]);
