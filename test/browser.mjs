@@ -173,6 +173,11 @@ try {
   await customer.getByRole('button',{name:'Close navigation',exact:true}).click();
   assert.equal(await customer.locator('.workspace').evaluate(el => el.inert),false);
   await customer.getByRole('button',{name:'Toggle light and dark theme',exact:true}).click();
+  await customer.evaluate(() => localStorage.setItem('elite-theme','light'));
+  await customer.goto(base+'/settings');
+  await customer.getByRole('heading',{name:'Account settings',exact:true}).waitFor();
+  await customer.locator('body.light').waitFor();
+  assert.equal(await customer.locator('.sidebar').isVisible(),false);
   await customer.screenshot({path:'test-results/settings-mobile-light.png',fullPage:true});
   await page.goto(base+'/mt5'); await ready('MT5 terminal');
   await page.screenshot({path:'test-results/terminal-desktop.png',fullPage:true});

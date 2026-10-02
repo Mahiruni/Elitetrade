@@ -1,10 +1,10 @@
-/* Elite Bot — graphite, gold and a precise operating grid. */
+/* Elite Bot — TradingView-inspired blue, neutral panels and terminal density. */
 :root {
   color-scheme:dark;
-  --bg:#111315; --panel:#191c1f; --surface:#22262a; --border:#34393e;
-  --control-border:#65707b; --text:#f2f3f3; --muted:#adb3b8; --accent:#e6be78; --green:#82d5b6; --red:#f99da3;
-  --accent-ink:#241a0a; --button:#e6be78; --button-hover:#f3cf93;
-  --shadow:0 20px 64px #0004; --radius:12px; --radius-sm:7px;
+  --bg:#131722; --panel:#1e222d; --surface:#2a2e39; --border:#363a45;
+  --control-border:#626b7c; --text:#f0f3fa; --muted:#a9b1c2; --accent:#82a7ff; --green:#4dd0b0; --red:#ff9299;
+  --accent-ink:#fff; --button:#2962ff; --button-hover:#1e53e5;
+  --shadow:0 16px 48px #0003; --radius:8px; --radius-sm:6px;
   --space-1:.5rem; --space-2:1rem; --space-3:1.5rem; --space-4:2rem;
   --ease:cubic-bezier(.2,.7,.2,1);
   font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
@@ -12,9 +12,9 @@
 }
 body.light {
   color-scheme:light;
-  --bg:#f5f6f7; --panel:#fff; --surface:#eceff1; --border:#cdd3d8;
-  --control-border:#77838e; --text:#202529; --muted:#54616b; --accent:#805314; --green:#187458; --red:#ac3142;
-  --button:#dfb16a; --button-hover:#e9bf80; --shadow:0 18px 60px #23313e12;
+  --bg:#f0f3fa; --panel:#fff; --surface:#f0f3fa; --border:#d8deea;
+  --control-border:#8993a5; --text:#131722; --muted:#566176; --accent:#2354d4; --green:#087f6b; --red:#c02b3a;
+  --button:#2962ff; --button-hover:#1e53e5; --shadow:0 16px 48px #13172210;
 }
 * { box-sizing:border-box }
 html { scroll-padding-top:6rem; scroll-behavior:smooth }
@@ -55,7 +55,7 @@ label { display:block; font-size:.875rem; font-weight:600; margin-bottom:.5rem }
 label.check { display:flex; align-items:center; gap:.65rem; font-weight:400 }
 small,.meta { font-size:.8125rem; color:var(--muted); line-height:1.65 }
 h1,h2,h3,p { margin:0 }
-h1 { font-size:clamp(1.75rem,3vw,2.5rem); font-weight:600; line-height:1.12; letter-spacing:-.045em; text-wrap:balance }
+h1 { font-size:clamp(1.75rem,3vw,2.5rem); font-weight:700; line-height:1.15; letter-spacing:-.035em; text-wrap:balance }
 h2 { font-size:1.125rem; font-weight:600; line-height:1.35; letter-spacing:-.025em }
 h3 { font-size:1rem; font-weight:600; line-height:1.4 }
 p { line-height:1.7 }
@@ -72,8 +72,8 @@ hr { border:0; border-top:1px solid var(--border); margin:1.5rem 0 }
 [hidden] { display:none!important }
 .loading { min-height:55vh; display:grid; place-content:center; gap:1rem; text-align:center; color:var(--muted) }
 .loading:before { content:''; display:block; margin:auto; width:26px; height:26px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 1s linear infinite }
-.layout { display:grid; grid-template-columns:240px minmax(0,1fr); min-height:100dvh }
-.sidebar { padding:1.7rem 1rem; display:flex; flex-direction:column; position:sticky; top:0; height:100dvh; overflow:auto; background:var(--bg); border-right:1px solid var(--border) }
+.layout { display:grid; grid-template-columns:224px minmax(0,1fr); min-height:100dvh }
+.sidebar { padding:1.15rem .75rem; display:flex; flex-direction:column; position:sticky; top:0; height:100dvh; overflow:auto; background:var(--panel); border-right:1px solid var(--border) }
 .sidebar-brand { display:flex; align-items:center; justify-content:space-between; gap:.5rem; margin-bottom:1.5rem }
 .sidebar .brand { padding:.25rem .65rem }
 .nav-label { font-size:.75rem; letter-spacing:.1em; color:var(--muted); padding:0 .75rem; margin:.5rem 0 .8rem }
@@ -87,7 +87,7 @@ hr { border:0; border-top:1px solid var(--border); margin:1.5rem 0 }
 .plan-label { display:flex; align-items:center; gap:.5rem; padding:.8rem 0 }
 .sidebar .logout { width:100%; justify-content:flex-start }
 .workspace { min-width:0; display:flex; flex-direction:column }
-.topbar { display:flex; align-items:center; justify-content:space-between; gap:1rem; min-height:76px; padding:.75rem 2.5rem; position:sticky; top:0; z-index:10; border-bottom:1px solid var(--border); background:color-mix(in srgb,var(--bg) 94%,transparent); backdrop-filter:blur(16px) }
+.topbar { display:flex; align-items:center; justify-content:space-between; gap:1rem; min-height:64px; padding:.5rem 1.75rem; position:sticky; top:0; z-index:10; border-bottom:1px solid var(--border); background:color-mix(in srgb,var(--panel) 96%,transparent); backdrop-filter:blur(16px) }
 .topbar .brand { display:none }
 .topbar-actions { display:flex; align-items:center; gap:1rem }
 .desktop-crumb { color:var(--muted); font-size:.875rem }
@@ -96,18 +96,18 @@ hr { border:0; border-top:1px solid var(--border); margin:1.5rem 0 }
 .account-name strong { display:block; font-size:.875rem; font-weight:500 }
 .account-name small { display:block; max-width:250px; overflow:hidden; text-overflow:ellipsis }
 .content:focus,.marketing-main:focus,.auth-wrap:focus { outline:none }
-.content { width:100%; max-width:1440px; margin:0 auto; padding:2.5rem; flex:1 }
-.page-heading { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:2rem; padding-bottom:1.8rem; border-bottom:1px solid var(--border) }
+.content { width:100%; max-width:1440px; margin:0 auto; padding:1.75rem; flex:1 }
+.page-heading { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1.5rem; padding-bottom:1.25rem; border-bottom:1px solid var(--border) }
 .page-heading p { color:var(--muted); font-size:1rem; margin-top:.65rem; max-width:650px }
 .eyebrow { text-transform:uppercase; font-size:.75rem; font-weight:600; color:var(--accent); letter-spacing:.1em; margin-bottom:.8rem }
-.card { padding:1.5rem; border:1px solid var(--border); border-radius:var(--radius); background:var(--panel); min-width:0 }
+.card { padding:1.25rem; border:1px solid var(--border); border-radius:var(--radius); background:var(--panel); min-width:0 }
 .card h2 { margin-bottom:1.2rem }
 .card-head { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1.5rem }
 .card-head h2 { margin-bottom:0 }
 .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1.25rem }
 .grid.three { grid-template-columns:repeat(3,minmax(0,1fr)) }
 .stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0; margin-bottom:1.5rem; border:1px solid var(--border); border-radius:var(--radius); background:var(--panel); overflow:hidden }
-.stat { padding:1.4rem 1.5rem; min-width:0; border-right:1px solid var(--border) }
+.stat { padding:1.15rem 1.25rem; min-width:0; border-right:1px solid var(--border) }
 .stat:last-child { border-right:0 }
 .stat small { font-size:.875rem }
 .stat .value { font-size:clamp(1.35rem,2vw,2rem); line-height:1.3; font-weight:500; letter-spacing:-.035em; font-variant-numeric:tabular-nums; margin-top:.7rem; overflow-wrap:anywhere }
@@ -133,7 +133,7 @@ hr { border:0; border-top:1px solid var(--border); margin:1.5rem 0 }
 .error:empty { display:none }
 .table-wrap { overflow:auto; max-width:100%; border:1px solid var(--border); border-radius:8px }
 table { width:100%; border-collapse:collapse; text-align:left; white-space:nowrap; font-size:.875rem; font-variant-numeric:tabular-nums }
-th,td { padding:1rem; border-bottom:1px solid var(--border) }
+th,td { padding:.85rem 1rem; border-bottom:1px solid var(--border) }
 th { background:var(--surface); color:var(--muted); font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.05em }
 tr:last-child td { border-bottom:0 }
 tbody tr:hover { background:color-mix(in srgb,var(--surface) 35%,transparent) }
@@ -202,7 +202,7 @@ body.menu-open { overflow:hidden }
 .auth-story { display:flex; flex-direction:column; padding:3rem clamp(2rem,5vw,5rem); border-right:1px solid var(--border); background:linear-gradient(150deg,color-mix(in srgb,var(--accent) 6%,var(--panel)),var(--bg) 75%) }
 .auth-story .brand { margin-bottom:clamp(4rem,10vh,8rem) }
 .auth-title { font-size:clamp(3rem,5vw,5rem); max-width:500px; letter-spacing:-.055em; line-height:1.03; font-weight:500; margin:1rem 0 1.5rem }
-.auth-title em { color:var(--accent); font-family:Georgia,"Times New Roman",serif; font-weight:400 }
+.auth-title em { color:var(--accent); font-style:normal; font-weight:750 }
 .auth-story>p { max-width:410px; color:var(--muted) }
 .auth-features { display:grid; gap:1.5rem; margin-top:3rem; padding-top:2rem; border-top:1px solid var(--border) }
 .auth-feature { display:flex; gap:1rem; align-items:flex-start }
@@ -237,8 +237,8 @@ dialog .actions { margin-top:1.4rem }
 .qr { display:block; width:min(240px,100%); height:auto; margin:1rem auto; border-radius:8px }
 .secret { overflow-wrap:anywhere; text-align:center; font-size:.875rem }
 /* Public site: editorial composition with a real product workflow. */
-.marketing-header { position:sticky; top:0; z-index:40; border-bottom:1px solid var(--border); background:color-mix(in srgb,var(--bg) 94%,transparent); backdrop-filter:blur(16px) }
-.marketing-nav { height:82px; max-width:1320px; padding:0 2.5rem; margin:auto; display:flex; align-items:center; justify-content:space-between; gap:1rem }
+.marketing-header { position:sticky; top:0; z-index:40; border-bottom:1px solid var(--border); background:color-mix(in srgb,var(--panel) 96%,transparent); backdrop-filter:blur(16px) }
+.marketing-nav { height:72px; max-width:1440px; padding:0 2.5rem; margin:auto; display:flex; align-items:center; justify-content:space-between; gap:1rem }
 .site-brand { flex:none }
 .marketing-links,.marketing-actions { display:flex; align-items:center; gap:1.5rem }
 .marketing-links a,.nav-login { color:var(--muted); font-size:.875rem; font-weight:500 }
@@ -258,18 +258,20 @@ dialog .actions { margin-top:1.4rem }
 .public-menu nav a { padding:.8rem 1rem; color:var(--text); font-size:.9375rem; border-radius:6px }
 .public-menu nav a:hover { background:var(--surface); text-decoration:none }
 .public-menu nav .marketing-cta { margin-top:.5rem }
-.marketing-hero { position:relative; display:grid; grid-template-columns:1.2fr .8fr; align-items:center; gap:4rem; max-width:1320px; padding:7rem 2.5rem 5rem; margin:auto }
-.hero-index { position:absolute; top:2rem; left:2.5rem; color:var(--muted); font-family:ui-monospace,monospace; font-size:.75rem; letter-spacing:.08em }
-.marketing-kicker { display:flex; align-items:center; gap:.7rem; font-size:.75rem; font-weight:600; letter-spacing:.09em; text-transform:uppercase; color:var(--accent); line-height:1.6; margin-bottom:1.4rem }
-.marketing-kicker>span { width:22px; height:1px; background:var(--accent); flex:none }
-.marketing-hero h1 { font-size:clamp(3.5rem,6.5vw,6.25rem); font-weight:500; line-height:1.02; letter-spacing:-.065em; text-wrap:initial }
-.marketing-hero h1 em { color:var(--accent); font-family:Georgia,"Times New Roman",serif; font-weight:400; letter-spacing:-.055em }
-.hero-lead { color:var(--muted); max-width:490px; font-size:1.0625rem; line-height:1.8; margin-top:1.8rem }
-.hero-actions { display:flex; gap:.8rem; flex-wrap:wrap; margin-top:2rem }
-.hero-trust { display:flex; flex-wrap:wrap; gap:.7rem 1.2rem; margin-top:2rem; font-size:.75rem; color:var(--muted) }
+ .marketing-hero { position:relative; display:grid; grid-template-columns:1fr; gap:3.5rem; max-width:1320px; padding:5.5rem 2.5rem 4rem; margin:auto; text-align:center }
+.hero-index { color:var(--muted); font-family:ui-monospace,monospace; font-size:.75rem; letter-spacing:.08em }
+.marketing-kicker { display:flex; align-items:center; gap:.7rem; font-size:.75rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); line-height:1.6; margin-bottom:1.25rem }
+.marketing-kicker>span { width:7px; height:7px; border-radius:50%; background:var(--accent); flex:none }
+.hero-copy { max-width:960px; margin:0 auto }
+.hero-copy .marketing-kicker { justify-content:center }
+.marketing-hero h1 { font-size:clamp(3.25rem,7vw,6.5rem); font-weight:800; line-height:1.04; letter-spacing:-.06em; text-wrap:balance }
+.marketing-hero h1 em { color:var(--accent); font-style:normal; font-weight:800 }
+.hero-lead { color:var(--muted); max-width:650px; font-size:1.125rem; line-height:1.7; margin:1.5rem auto 0 }
+.hero-actions { display:flex; justify-content:center; gap:.8rem; flex-wrap:wrap; margin-top:2rem }
+.hero-trust { display:flex; justify-content:center; flex-wrap:wrap; gap:.7rem 1.2rem; margin-top:2rem; font-size:.75rem; color:var(--muted) }
 .hero-trust>span { display:flex; align-items:center; gap:.45rem }
 .hero-trust svg { width:16px; height:16px; flex:none }
-.terminal-showcase { border:1px solid var(--border); border-top:2px solid var(--accent); border-radius:2px 2px 12px 12px; background:var(--panel); box-shadow:var(--shadow); min-width:0 }
+.terminal-showcase { border:1px solid var(--border); border-top:1px solid var(--border); border-radius:12px; background:var(--panel); box-shadow:var(--shadow); min-width:0 }
 .showcase-top { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1.2rem 1.5rem; border-bottom:1px solid var(--border); font-size:.75rem; color:var(--muted); letter-spacing:.07em }
 .showcase-top small { font-size:.75rem; text-align:right }
 .showcase-status { padding:2rem 1.5rem 1.5rem }
@@ -287,17 +289,17 @@ dialog .actions { margin-top:1.4rem }
 .trust-bar { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:.8rem 1.2rem; padding:1.3rem 2rem; border-block:1px solid var(--border); font-size:.75rem; color:var(--muted); letter-spacing:.08em }
 .marketing-section { max-width:1320px; margin:auto; padding:6rem 2.5rem; scroll-margin-top:1rem }
 .section-heading { max-width:800px; margin-bottom:3rem }
-.section-heading h2,.security-copy h2,.risk-panel h2,.final-cta h2 { font-size:clamp(2rem,3.5vw,3.5rem); font-weight:500; line-height:1.1; letter-spacing:-.045em; text-wrap:balance }
+.section-heading h2,.security-copy h2,.risk-panel h2,.final-cta h2 { font-size:clamp(2rem,3.5vw,3.5rem); font-weight:750; line-height:1.12; letter-spacing:-.04em; text-wrap:balance }
 .section-heading>p,.security-copy>p,.risk-panel p,.final-cta>p { margin-top:1.3rem; color:var(--muted); font-size:1rem; line-height:1.8; max-width:640px }
-.bento { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0; border-top:1px solid var(--border) }
-.bento-card { display:flex; flex-direction:column; gap:0; padding:2rem 2rem 2.5rem 0; border-bottom:1px solid var(--border); min-width:0 }
-.bento-card:nth-child(odd):not(.bento-wide) { padding-left:2rem; border-left:1px solid var(--border) }
-.bento-wide { grid-column:1/-1; display:grid; grid-template-columns:.18fr 1fr .75fr; gap:2rem; align-items:center; padding:2.5rem 0 }
+.bento { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem }
+.bento-card { display:flex; flex-direction:column; gap:0; padding:2rem; border:1px solid var(--border); border-radius:12px; background:var(--panel); min-width:0 }
+.bento-card:nth-child(odd):not(.bento-wide) { padding-left:2rem }
+.bento-wide { grid-column:1/-1; display:grid; grid-template-columns:.18fr 1fr .75fr; gap:2rem; align-items:center; padding:2rem }
 .bento-icon { display:grid; place-items:center; width:44px; height:44px; color:var(--accent); border:1px solid var(--border); border-radius:8px; margin-bottom:1.5rem }
 .bento-icon svg { width:21px; height:21px }
 .bento-wide .bento-icon { margin:0 }
 .card-label { display:block; color:var(--accent); font-size:.75rem; font-weight:600; letter-spacing:.09em; margin-bottom:.8rem }
-.bento-card h3,.pricing-card h3 { font-size:1.5rem; font-weight:500; letter-spacing:-.03em; margin-bottom:.8rem }
+.bento-card h3,.pricing-card h3 { font-size:1.5rem; font-weight:700; letter-spacing:-.03em; margin-bottom:.8rem }
 .bento-card p { color:var(--muted); font-size:1rem; max-width:470px }
 .bento-card>a { display:inline-flex; align-items:center; gap:.5rem; margin-top:1.2rem; min-height:44px; font-size:.875rem }
 .mini-terminal { padding:1.5rem; border-left:2px solid var(--accent); background:var(--panel) }
@@ -307,7 +309,7 @@ dialog .actions { margin-top:1.4rem }
 .workflow-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:0 }
 .workflow-grid article { padding:0 1.5rem; border-left:1px solid var(--border) }
 .workflow-grid article:first-child { padding-left:0; border:0 }
-.workflow-grid b { display:block; color:var(--accent); font-size:2rem; font-weight:400; font-family:Georgia,serif }
+.workflow-grid b { display:block; color:var(--accent); font-size:2rem; font-weight:400; font-family:ui-monospace,monospace }
 .workflow-grid h3 { font-size:1.125rem; margin:2rem 0 .8rem; letter-spacing:-.02em }
 .workflow-grid p { color:var(--muted); font-size:.9375rem }
 .security-section { display:grid; grid-template-columns:1fr .85fr; gap:5rem; border-top:1px solid var(--border); align-items:center }
@@ -323,10 +325,10 @@ dialog .actions { margin-top:1.4rem }
 .risk-panel { display:grid; grid-template-columns:.8fr 1.2fr; gap:5rem; border-block:1px solid var(--border) }
 .risk-panel>div:last-child { padding-top:2rem }
 .risk-panel a { display:inline-flex; align-items:center; gap:.6rem; min-height:44px; margin-top:1.2rem; font-size:.875rem }
-.pricing-card { display:grid; grid-template-columns:1fr .75fr; gap:3rem; padding:2.5rem; border:1px solid var(--border); border-top:2px solid var(--accent); border-radius:2px 2px 12px 12px; background:var(--panel) }
+.pricing-card { display:grid; grid-template-columns:1fr .75fr; gap:3rem; padding:2.5rem; border:1px solid var(--border); border-top:1px solid var(--border); border-radius:12px; background:var(--panel) }
 .pricing-card ul { list-style:none; padding:0; margin:1.5rem 0 0; color:var(--muted); font-size:.9375rem; line-height:2.25 }
 .pricing-card li:before { content:'✓'; color:var(--green); margin-right:.7rem }
-.pricing-action { display:flex; flex-direction:column; align-items:flex-start; justify-content:center; padding-left:2rem; border-left:1px solid var(--border) }
+.pricing-action { display:flex; flex-direction:column; align-items:flex-start; justify-content:center; padding-left:2rem }
 .pricing-action small { font-size:.875rem; margin-bottom:1rem }
 .pricing-action p { color:var(--muted); font-size:.8125rem; margin-top:1rem }
 .faq-section { display:grid; grid-template-columns:.75fr 1fr; gap:5rem; border-top:1px solid var(--border) }
@@ -497,4 +499,90 @@ dialog .actions { margin-top:1.4rem }
 @media (prefers-reduced-motion:reduce) {
   html { scroll-behavior:auto }
   *,*::before,*::after { animation:none!important; transition:none!important; scroll-behavior:auto!important }
+}
+
+/* Terminal identity and shared interaction surfaces. */
+.brand-mark { width:36px; height:36px; flex:none; display:block; color:var(--text) }
+.brand em { color:var(--text) }
+.wordmark-sub { font-size:.625rem; letter-spacing:.08em }
+.sidebar nav a.active { background:color-mix(in srgb,var(--button) 16%,var(--panel)); color:var(--accent); font-weight:600 }
+.sidebar nav a.active:before { width:3px; background:var(--button); top:10px; bottom:10px }
+.topbar-actions .icon,.marketing-actions .icon { border-color:transparent; border-radius:50% }
+.workspace-strip { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:.6rem 1.75rem; background:var(--panel); border-bottom:1px solid var(--border); font-size:.75rem; color:var(--muted) }
+.workspace-strip nav { display:flex; align-items:center; gap:1rem }
+.workspace-strip a { color:var(--muted); min-height:30px; display:inline-flex; align-items:center }
+.workspace-strip a[aria-current] { color:var(--accent); font-weight:600 }
+.connection-label { display:inline-flex; align-items:center; gap:.45rem; white-space:nowrap }
+.connection-label:before { content:''; width:6px; height:6px; border-radius:50%; background:var(--muted) }
+.page-heading h1 { font-size:clamp(1.65rem,2.5vw,2.2rem) }
+.page-heading p { font-size:.9375rem; margin-top:.45rem }
+.stat small { font-size:.75rem; text-transform:uppercase; letter-spacing:.035em }
+.stat .value { font-weight:650; margin-top:.5rem }
+.stat:before { content:''; display:block; width:22px; height:3px; background:var(--button); margin-bottom:.7rem; border-radius:2px }
+.badge { border-radius:20px; padding:.3rem .65rem; font-weight:550 }
+.empty { background:var(--panel); border-style:solid; padding:3.5rem 1.5rem }
+.empty:before { content:'+'; display:grid; place-items:center; width:40px; height:40px; margin:0 auto 1rem; border:1px solid var(--border); border-radius:10px; color:var(--accent); font-size:1.5rem; font-weight:300 }
+.notice { border-left-width:2px; border-radius:6px }
+.card .grid.three { border-block:1px solid var(--border); padding:1rem 0 }
+.bot-control { background:var(--bg); border-radius:6px }
+.tabs { gap:.75rem; border-bottom:1px solid var(--border); padding-bottom:0; margin-bottom:1.5rem }
+.tabs button { border-radius:0; border-bottom:2px solid transparent; padding:.65rem .4rem }
+.tabs button.selected { color:var(--accent); border-color:transparent; border-bottom-color:var(--button); background:transparent }
+.messages { background:var(--bg) }
+.message.admin { background:color-mix(in srgb,var(--button) 12%,var(--panel)); border-color:color-mix(in srgb,var(--button) 30%,var(--border)) }
+.auth-story { background:var(--panel); position:relative; overflow:hidden }
+.auth-story:after { content:''; width:380px; height:380px; position:absolute; right:-190px; bottom:-190px; border:60px solid color-mix(in srgb,var(--button) 7%,transparent); border-radius:50%; pointer-events:none }
+.auth-title { font-weight:750 }
+.auth-form { background:var(--panel); padding:2rem; max-width:460px; border:1px solid var(--border); border-radius:12px }
+.auth-form h1 { font-weight:750 }
+.terminal-showcase { text-align:left; background:var(--panel); width:100%; overflow:hidden; position:relative }
+.showcase-top { background:var(--surface); padding:.85rem 1.25rem; font-family:ui-monospace,monospace }
+.showcase-status { display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:1.5rem }
+.showcase-status h2 { font-size:1.7rem; font-weight:700; margin:0 }
+.operation-steps { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); padding:0; border-top:1px solid var(--border) }
+.operation-steps li { padding:1.5rem; border-top:0; border-right:1px solid var(--border); align-items:flex-start }
+.operation-steps li:last-child { border-right:0 }
+.operation-steps strong { font-weight:650 }
+.operations-foot { border-radius:0; align-items:center; padding:1rem 1.5rem }
+.operations-foot br { display:none }
+.operations-foot span { margin-left:.4rem }
+.trust-bar { letter-spacing:.035em; background:var(--panel) }
+.bento-accent { background:color-mix(in srgb,var(--button) 7%,var(--panel)) }
+.bento-icon { background:color-mix(in srgb,var(--button) 10%,var(--panel)); border:0; color:var(--accent) }
+.mini-terminal { border:1px solid var(--border); border-left:3px solid var(--button); border-radius:6px; background:var(--bg) }
+.workflow-grid b { font-weight:600; font-size:1.5rem }
+.workflow-grid h3 { margin-top:1.25rem; font-weight:700 }
+.final-cta { border:1px solid var(--border); border-radius:16px; background:color-mix(in srgb,var(--button) 6%,var(--panel)) }
+.legal-hero h1 { font-weight:750 }
+@media(min-width:761px) {
+  .marketing-hero { grid-template-columns:1fr; padding-top:4rem; gap:2.5rem }
+  .hero-trust { display:flex; justify-content:center }
+  .hero-index { position:static }
+  .marketing-hero h1 { font-size:clamp(3.75rem,7vw,6.5rem) }
+}
+@media(max-width:760px) {
+  .workspace-strip { padding:.5rem 1rem; gap:.5rem }
+  .workspace-strip nav { gap:.8rem }
+  .workspace-strip .connection-label { display:none }
+  .brand-mark { width:32px; height:32px }
+  .marketing-hero { padding-top:3rem; gap:2rem }
+  .hero-index { position:static }
+  .hero-trust { justify-content:center }
+  .terminal-showcase { max-width:none }
+  .showcase-status { display:block; padding:1.25rem }
+  .showcase-status h2 { margin-top:.65rem }
+  .operation-steps { grid-template-columns:1fr; padding:0 1.25rem }
+  .operation-steps li { border-right:0; border-top:1px solid var(--border); padding:1rem 0 }
+  .operation-steps li:first-child { border-top:0 }
+  .bento-card,.bento-card:nth-child(odd):not(.bento-wide) { padding:1.5rem; border:1px solid var(--border) }
+  .auth-form { padding:1.5rem; max-width:440px }
+  .marketing-hero h1 { font-size:clamp(2.75rem,10vw,4.5rem) }
+}
+@media(max-width:430px) {
+  .auth-form { border:0; padding:0; background:transparent }
+  .hero-trust { justify-items:center }
+  .showcase-top { flex-direction:row; font-size:.625rem; gap:.5rem }
+  .showcase-top small { font-size:.625rem }
+  .operations-foot span { margin-left:0 }
+  .operations-foot br { display:block }
 }
