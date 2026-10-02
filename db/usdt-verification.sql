@@ -99,5 +99,29 @@ do $$declare v public.elitetrade_crypto_invoices%rowtype;v_manual uuid;v_paid uu
  if (select active from public.elitetrade_profiles where id=v.user_id) then raise exception 'administrator revocation overridden';end if;
 end;$$;
 reset role;
-select 'PASS: ownership, permissions, exact amount, deadline, replay, activation, referrals, scan leases, manual reconciliation and revoked access; all test writes rolled back.' as verification;
+-- Exercise the real administrator Vault save/update path, including the PostgreSQL regex boundary.
+update public.elitetrade_profiles set role='admin' where id=(select user_id from crypto_test_ids);
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select user_id from crypto_test_ids),'role','authenticated','aal','aal1')::text,true);
+set local role authenticated;
+do $$declare v_key text;v_length integer;begin
+ foreach v_length in array array[16,36,255,256] loop
+  perform public.elitetrade_crypto_save_key(repeat('a',v_length));
+ end loop;
+ perform public.elitetrade_crypto_save_key('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-');
+ foreach v_key in array array[null::text,'',repeat('a',15),repeat('a',257),repeat('a',16)||'@',repeat('a',16)||chr(10),repeat('a',16)||' ',repeat('a',16)||'é'] loop
+  begin
+   perform public.elitetrade_crypto_save_key(v_key);
+   raise exception 'invalid key accepted';
+  exception when others then
+   if sqlerrm<>'invalid TronGrid API key' then raise;end if;
+  end;
+ end loop;
+ if has_function_privilege('authenticated','public.elitetrade_crypto_provider_key()','execute') then raise exception 'saved key exposed';end if;
+end;$$;
+reset role;
+do $$begin
+ if not exists(select 1 from vault.decrypted_secrets where name='elitetrade_trongrid_api_key' and decrypted_secret='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-') then raise exception 'saved key did not update Vault';end if;
+ if (select count(*) from vault.secrets where name='elitetrade_trongrid_api_key')<>1 then raise exception 'duplicate Vault keys created';end if;
+end;$$;
+select 'PASS: payment protections, admin key saving/updating, 16/36/255/256-character keys, invalid-key rejection and private Vault storage; all test writes rolled back.' as verification;
 rollback;

@@ -181,7 +181,8 @@ declare v_id uuid;
 begin
  if not elitetrade_private.is_admin() then raise exception 'administrator access required';end if;
  if exists(select 1 from auth.mfa_factors where user_id=(select auth.uid()) and status='verified') and coalesce(auth.jwt()->>'aal','')<>'aal2' then raise exception 'two-factor authentication required';end if;
- if p_key is null or p_key!~'^[a-zA-Z0-9._-]{16,256}$' then raise exception 'invalid TronGrid API key';end if;
+ -- PostgreSQL regex bounds stop at 255; enforce the 256-character limit separately.
+ if p_key is null or char_length(p_key) not between 16 and 256 or p_key ~ '[^a-zA-Z0-9._-]' then raise exception 'invalid TronGrid API key';end if;
  select id into v_id from vault.secrets where name='elitetrade_trongrid_api_key';
  if v_id is null then perform vault.create_secret(p_key,'elitetrade_trongrid_api_key');else perform vault.update_secret(v_id,p_key);end if;
  update public.elitetrade_crypto_health set provider_ok=false,message='TronGrid key saved. Waiting for verification check.' where id=true;
