@@ -534,6 +534,7 @@ export function createApplication(options = {}) {
       const files = { '/vendor/zxcvbn.js':['vendor/zxcvbn.js','text/javascript'], '/auth.js':['auth.js','text/javascript'], '/auth.css':['auth.css','text/css'], '/fonts/dm-sans.woff':['fonts/dm-sans.woff','font/woff'], '/fonts/instrument-serif.woff':['fonts/instrument-serif.woff','font/woff'], '/fonts/instrument-serif-italic.woff':['fonts/instrument-serif-italic.woff','font/woff'], '/app.js': ['app.js','text/javascript'], '/styles.css': ['styles.css','text/css'], '/dashboard.css':['dashboard.css','text/css'], '/favicon.svg': ['favicon.svg','image/svg+xml'], '/logo.jpg': ['logo.jpg','image/jpeg'], '/robots.txt':['robots.txt','text/plain; charset=utf-8'], '/sitemap.xml':['sitemap.xml','application/xml; charset=utf-8'], '/security.txt':['security.txt','text/plain; charset=utf-8'], '/.well-known/security.txt':['security.txt','text/plain; charset=utf-8'] };
       files['/assets/hero-mt5-hd.webp'] = ['assets/hero-mt5-hd.webp','image/webp'];
       files['/assets/hero-mt5-640.webp'] = ['assets/hero-mt5-640.webp','image/webp'];
+      files['/hero-market.js'] = ['hero-market.js','text/javascript'];
       const entry = files[url.pathname] || (pages.has(url.pathname) ? ['index.html','text/html'] : null);
       if (!entry) fail(404, 'Page not found.');
       res.setHeader('Content-Type', entry[1]); res.end(req.method === 'HEAD' ? '' : readFileSync(join(publicPath, entry[0])));

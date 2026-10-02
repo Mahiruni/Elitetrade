@@ -1,4 +1,6 @@
 import { createAuthExperience } from './auth.js';
+import { mountHeroMarket } from './hero-market.js';
+let stopHeroMarket = () => {};
 const root = document.querySelector('#app');
 const modal = document.querySelector('#modal');
 const AUTH_KEY = 'elite-supabase-session';
@@ -165,8 +167,8 @@ function marketingPage() {
         </div>
       </div>
       <figure class="hero-visual">
-        <picture><img src="/assets/hero-mt5-hd.webp" srcset="/assets/hero-mt5-640.webp 640w, /assets/hero-mt5-hd.webp 1254w" sizes="(max-width: 760px) 46vw, (max-width: 1320px) 44vw, 550px" width="1254" height="1254" alt="A man holding a phone displaying a MetaTrader 5 demo candlestick chart." fetchpriority="high" decoding="async"></picture>
-        <figcaption>MetaTrader 5 <span aria-hidden="true">·</span> Illustrative demo screen</figcaption>
+        <picture><img src="/assets/hero-mt5-hd.webp" srcset="/assets/hero-mt5-640.webp 640w, /assets/hero-mt5-hd.webp 1254w" sizes="(max-width: 760px) 46vw, (max-width: 1320px) 44vw, 550px" width="1254" height="1254" alt="A man holding a phone displaying a MetaTrader 5 demo candlestick chart." fetchpriority="high" decoding="async"><svg class="hero-market-screen" data-hero-market viewBox="0 0 1254 1254" aria-hidden="true" focusable="false"></svg></picture>
+        <figcaption>MetaTrader 5 <span aria-hidden="true">·</span> Market demo <button type="button" class="trust-motion-toggle hero-market-toggle" data-market-toggle aria-label="Pause market preview" aria-pressed="false" title="Pause market preview"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 5v14m6-14v14"/></svg></button></figcaption>
       </figure>
     </section>
     <section class="trust-bar"><span>SECURE IDENTITY</span><span>•</span><span>ROW-LEVEL ACCESS CONTROL</span><span>•</span><span>ENCRYPTED CREDENTIAL STORAGE</span><span>•</span><span>ADMIN REVIEW WORKFLOWS</span></section>
@@ -420,6 +422,7 @@ async function adminPage() {
   return heading('Administration','A focused view of members, payments, and connected services.') + `<div class="stats">${stat('Members',d.users.length,'Registered workspace members','referrals')}${stat('Pending payments',pending.payments,'Submissions awaiting verification','wallet')}${stat('Pending connections',pending.accounts,'MT5 accounts awaiting review','terminal')}</div><div class="admin-section-picker"><label for="admin-section-select">Administration section</label><select id="admin-section-select">${tabs.map(([id,label]) => `<option value="${id}" ${state.adminTab === id ? 'selected' : ''}>${label}${pending[id] ? ` · ${pending[id]} pending` : ''}</option>`).join('')}</select></div><div class="admin-layout"><div class="tabs admin-nav" role="tablist" aria-label="Administration sections" aria-orientation="vertical">${tabs.map(([id,label]) => btn(`${icon(sections[id][0])}<span>${label}</span>${pending[id] ? `<span class="tab-count" aria-hidden="true">${pending[id]}</span>` : ''}`,'admin-tab',id,`id="admin-tab-${id}" role="tab" aria-label="${label}" aria-controls="admin-panel" aria-selected="${state.adminTab === id}" tabindex="${state.adminTab === id ? '0' : '-1'}" class="${state.adminTab === id ? 'selected' : ''}"`)).join('')}</div><section class="card admin-panel" id="admin-panel" role="tabpanel" aria-labelledby="admin-panel-title"><div class="admin-panel-heading"><div><h2 id="admin-panel-title">${tabs.find(([id]) => id === state.adminTab)[1]}</h2><p>${sections[state.adminTab][1]}</p></div></div>${content}</section></div>`;
 }
 async function render({ quiet = false } = {}) {
+  stopHeroMarket(); stopHeroMarket = () => {};
   const version = ++state.version; let path = location.pathname;
   setWorkspaceMenu(false,false);
   if (path === '/dashboard') { path = state.user ? '/mt5' : '/login'; history.replaceState(null,'',path); }
@@ -436,6 +439,7 @@ async function render({ quiet = false } = {}) {
     const content = pages[path] ? await pages[path]() : empty('Page not found','<a href="/mt5">Return to your workspace</a>');
     if (version !== state.version) return;
     (state.user ? shell : publicShell)(content); connectEvents();
+    stopHeroMarket = mountHeroMarket(document.querySelector('[data-hero-market]'));
     const messages = document.querySelector('#messages'); if (messages) messages.scrollTop = messages.scrollHeight;
     const pageTitle = path === '/' ? 'Elite Bot · MT5 Trading Automation Platform' : `${document.querySelector('h1')?.textContent || 'Workspace'} · Elite Bot`;
     document.title = pageTitle;

@@ -790,6 +790,7 @@ export function createSupabaseApplication(options = {}) {
         '/assets/hero-mt5-hd.webp':['assets/hero-mt5-hd.webp','image/webp'],
         '/assets/hero-mt5-640.webp':['assets/hero-mt5-640.webp','image/webp'],
         '/app.js':['app.js','text/javascript'],
+        '/hero-market.js':['hero-market.js','text/javascript'],
         '/styles.css':['styles.css','text/css'],
         '/dashboard.css':['dashboard.css','text/css'],
         '/vendor/zxcvbn.js':['vendor/zxcvbn.js','text/javascript'], '/auth.js':['auth.js','text/javascript'],

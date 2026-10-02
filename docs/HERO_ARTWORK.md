@@ -9,6 +9,12 @@ The homepage pairs the existing headline and working account links with an origi
 
 Both versions retain the generated alpha channel. `srcset`, intrinsic dimensions, and high fetch priority keep the image sharp, avoid layout shift, and reduce mobile transfer size. The same artwork works in light and dark themes. The screen and caption explicitly identify illustrative demo data.
 
+## Animated market preview
+
+`public/hero-market.js` mounts an SVG chart over the phone display using coordinates in the source artwork's 1254px viewBox. The portrait, hand, phone frame, MT5 header, and bottom tabs remain in the original image. The overlay updates the active candle, high/low wick, dashed price line, and price label. A new simulated candle forms every six seconds and the chart slides to make room.
+
+This is a decorative market demo with no live price feed or trading actions. A caption control pauses and resumes the chart. Reduced-motion preference keeps the chart static. Animation stops when the illustration is offscreen or the browser tab is hidden, and its observer, frame, and listeners are removed when leaving the page.
+
 Generation mode: built-in image generation, followed by WebP packaging and responsive sizing. The original PNG is retained in the generation output.
 
 Verified at 320, 390, 768, 1024, 1440, and 1920px in both themes: no horizontal overflow or overlapping columns. The homepage reflows at 200% text size. Both image routes serve WebP successfully; account and platform links work; the hero has no axe WCAG A/AA violations or browser script errors. Browser verification uses an isolated local database and does not create production accounts or perform trading actions.
