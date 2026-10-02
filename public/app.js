@@ -170,7 +170,6 @@ function marketingPage() {
   return `
     <section class="marketing-hero hero-illustrated" aria-labelledby="hero-title">
       <div class="hero-copy">
-        <div class="marketing-kicker"><span></span> MT5 / AUTOMATION WORKSPACE</div>
         <h1 id="hero-title" class="hero-title-animated">${heroLine('Your strategy.')} ${heroLine('Your limits.')} ${heroLine('Your control.','em')}</h1>
         <p class="hero-lead">Bring your MT5 accounts, automation and risk settings into one focused workspace. Configure with intention. Stay in control.</p>
         <div class="hero-actions"><a class="marketing-cta" href="${dashboardHref}">${dashboardLabel}</a><a class="marketing-secondary" href="#platform">Explore the platform</a></div>
