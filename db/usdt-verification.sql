@@ -80,6 +80,24 @@ do $$declare v public.elitetrade_crypto_invoices%rowtype;begin
  exception when others then if sqlerrm<>'transaction already used' then raise;end if;end;
  perform public.elitetrade_crypto_finish_scan((select lease_id from crypto_test_ids),true,'Test complete.');
 end;$$;
+-- A matching manual submission is reconciled rather than recorded twice.
+do $$declare v public.elitetrade_crypto_invoices%rowtype;v_manual uuid;v_paid uuid;begin
+ select * into v from public.elitetrade_crypto_invoices where user_id=(select referrer_id from crypto_test_ids);
+ insert into public.elitetrade_payments(user_id,method_id,reference,amount_cents,kind,method_snapshot)
+ select v.user_id,v.method_id,repeat('b',64),v.price_cents,'subscription',to_jsonb(m) from public.elitetrade_payment_methods m where m.id=v.method_id returning id into v_manual;
+ v_paid:=public.elitetrade_crypto_complete(v.id,repeat('b',64),v.amount_units,123,v.created_at+1000);
+ if v_paid<>v_manual then raise exception 'manual submission was recorded twice';end if;
+ if (select count(*) from public.elitetrade_payments where user_id=v.user_id)<>1 then raise exception 'duplicate manual/automatic payment';end if;
+ if (select status from public.elitetrade_payments where id=v_manual)<>'approved' then raise exception 'manual submission not confirmed';end if;
+ -- An already approved manual payment attaches to the invoice without changing revoked access.
+ insert into public.elitetrade_crypto_invoices(user_id,method_id,destination,price_cents,amount_units,created_at,expires_at)
+ values(v.user_id,v.method_id,v.destination,v.price_cents,v.amount_units+1,v.created_at,v.expires_at) returning * into v;
+ insert into public.elitetrade_payments(user_id,method_id,reference,amount_cents,kind,method_snapshot,status)
+ select v.user_id,v.method_id,repeat('c',64),v.price_cents,'subscription',to_jsonb(m),'approved' from public.elitetrade_payment_methods m where m.id=v.method_id returning id into v_manual;
+ update public.elitetrade_profiles set active=false where id=v.user_id;
+ if public.elitetrade_crypto_complete(v.id,repeat('c',64),v.amount_units,123,v.created_at+1000)<>v_manual then raise exception 'approved manual payment duplicated';end if;
+ if (select active from public.elitetrade_profiles where id=v.user_id) then raise exception 'administrator revocation overridden';end if;
+end;$$;
 reset role;
-select 'PASS: ownership, permissions, exact amount, deadline, replay, activation, referral and lease checks; all test writes rolled back.' as verification;
+select 'PASS: ownership, permissions, exact amount, deadline, replay, activation, referrals, scan leases, manual reconciliation and revoked access; all test writes rolled back.' as verification;
 rollback;

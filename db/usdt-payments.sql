@@ -90,7 +90,7 @@ grant execute on function public.elitetrade_crypto_invoice(uuid) to authenticate
 
 create or replace function public.elitetrade_crypto_complete(p_invoice_id uuid,p_txid text,p_amount_units bigint,p_block_number bigint,p_block_timestamp bigint)
 returns uuid language plpgsql security invoker set search_path='' as $$
-declare v_invoice public.elitetrade_crypto_invoices%rowtype; v_payment uuid; v_referrer uuid; v_commission integer; v_active boolean;
+declare v_invoice public.elitetrade_crypto_invoices%rowtype; v_payment uuid; v_referrer uuid; v_commission integer; v_active boolean; v_manual_status text;
 begin
  if current_user<>'service_role' then raise exception 'verified payment service required';end if;
  select * into v_invoice from public.elitetrade_crypto_invoices where id=p_invoice_id for update;
@@ -99,11 +99,26 @@ begin
  if v_invoice.status<>'pending' then raise exception 'invoice already reviewed';end if;
  if p_txid is null or p_amount_units is null or p_block_number is null or p_block_timestamp is null or p_txid!~'^[a-f0-9]{64}$' or p_amount_units<>v_invoice.amount_units or p_block_number<=0 or p_block_timestamp<v_invoice.created_at or p_block_timestamp>v_invoice.expires_at then raise exception 'invalid verified payment';end if;
  if exists(select 1 from public.elitetrade_crypto_invoices where txid=p_txid) then raise exception 'transaction already used';end if;
+ -- Lock a matching manual submission before the profile, matching administrator review lock order.
+ select id,status into v_payment,v_manual_status from public.elitetrade_payments
+ where user_id=v_invoice.user_id and kind='subscription' and reference=p_txid and status in ('pending','approved')
+ and method_snapshot->>'details'=v_invoice.destination and method_snapshot->>'network'='TRC20' for update;
+ if v_manual_status='approved' then
+  -- Preserve any administrator decision to revoke access after manual approval.
+  update public.elitetrade_crypto_invoices set status='paid',txid=p_txid,payment_id=v_payment where id=v_invoice.id;
+  return v_payment;
+ end if;
  select active,referrer_id into v_active,v_referrer from public.elitetrade_profiles where id=v_invoice.user_id and disabled=false for update;
  if not found then raise exception 'account disabled';end if;
+ if v_manual_status='pending' then
+  update public.elitetrade_payments set method_id=v_invoice.method_id,reference='trc20:'||p_txid,amount_cents=v_invoice.price_cents,
+  method_snapshot=(select to_jsonb(m) from public.elitetrade_payment_methods m where m.id=v_invoice.method_id)||jsonb_build_object('details',v_invoice.destination,'network','TRC20','crypto_invoice_id',v_invoice.id),
+  status='approved',note='Confirmed USDT TRC20 transfer: '||p_amount_units::text||' micro-USDT; block '||p_block_number::text,reviewed_at=(extract(epoch from clock_timestamp())*1000)::bigint,reviewer_id=null where id=v_payment;
+ else
  insert into public.elitetrade_payments(user_id,method_id,reference,amount_cents,kind,method_snapshot,status,note,reviewed_at)
  select v_invoice.user_id,m.id,'trc20:'||p_txid,v_invoice.price_cents,'subscription',to_jsonb(m)||jsonb_build_object('details',v_invoice.destination,'network','TRC20','crypto_invoice_id',v_invoice.id),'approved','Confirmed USDT TRC20 transfer: '||p_amount_units::text||' micro-USDT; block '||p_block_number::text,(extract(epoch from clock_timestamp())*1000)::bigint
  from public.elitetrade_payment_methods m where m.id=v_invoice.method_id returning id into v_payment;
+ end if;
  update public.elitetrade_profiles set active=true,updated_at=now() where id=v_invoice.user_id;
  if not v_active and v_referrer is not null then
   select value::integer into v_commission from public.elitetrade_settings where key='commission_percent';
