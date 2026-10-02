@@ -1,5 +1,17 @@
 import { createAuthExperience } from './auth.js';
 import { mountHeroMarket } from './hero-market.js';
+const openingScreen = document.querySelector('#app-opening');
+if (openingScreen) {
+  const dismissOpening = () => {
+    openingScreen.remove();
+    document.removeEventListener('keydown',dismissOpening);
+  };
+  openingScreen.addEventListener('animationend',dismissOpening,{once:true});
+  openingScreen.addEventListener('pointerdown',dismissOpening,{once:true});
+  document.addEventListener('keydown',dismissOpening,{once:true});
+  // Keep startup unobstructed even if motion is disabled or loading is slow.
+  setTimeout(dismissOpening,1100);
+}
 let stopHeroMarket = () => {};
 const root = document.querySelector('#app');
 const modal = document.querySelector('#modal');

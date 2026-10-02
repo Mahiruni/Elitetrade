@@ -19,6 +19,11 @@ body.light {
 * { box-sizing:border-box }
 html { scroll-padding-top:6rem; scroll-behavior:smooth }
 body { margin:0; background:var(--bg); color:var(--text); line-height:1.5; -webkit-font-smoothing:antialiased; background-image:radial-gradient(ellipse at 75% 0%,color-mix(in srgb,var(--button) 6%,transparent),transparent 55%); background-repeat:no-repeat }
+.app-opening,.opening-placeholder { display:grid; place-items:center; min-height:100svh; padding:1.5rem; background:var(--bg); color:var(--text) }
+.app-opening { position:fixed; inset:0; z-index:10000; animation:app-opening-exit .24s ease-out .7s both }
+.app-opening-wordmark { font-family:"DM Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:clamp(2rem,6vw,3rem); font-weight:650; letter-spacing:-.055em; line-height:1.2 }
+@keyframes app-opening-exit { from { opacity:1; visibility:visible } to { opacity:0; visibility:hidden } }
+@media (prefers-reduced-motion:reduce) { .app-opening { display:none } }
 ::selection { background:var(--accent); color:var(--bg) }
 a { color:var(--accent); text-decoration:none; text-underline-offset:4px }
 a:hover { text-decoration:underline }
