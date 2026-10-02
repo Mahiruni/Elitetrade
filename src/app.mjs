@@ -531,7 +531,7 @@ export function createApplication(options = {}) {
         finally { if (locksTrading) tradingMutation = false; }
       }
       if (req.method !== 'GET' && req.method !== 'HEAD') fail(405, 'Method not allowed.');
-      const files = { '/app.js': ['app.js','text/javascript'], '/styles.css': ['styles.css','text/css'], '/favicon.svg': ['favicon.svg','image/svg+xml'], '/logo.jpg': ['logo.jpg','image/jpeg'], '/robots.txt':['robots.txt','text/plain; charset=utf-8'], '/sitemap.xml':['sitemap.xml','application/xml; charset=utf-8'], '/security.txt':['security.txt','text/plain; charset=utf-8'], '/.well-known/security.txt':['security.txt','text/plain; charset=utf-8'] };
+      const files = { '/app.js': ['app.js','text/javascript'], '/styles.css': ['styles.css','text/css'], '/dashboard.css':['dashboard.css','text/css'], '/favicon.svg': ['favicon.svg','image/svg+xml'], '/logo.jpg': ['logo.jpg','image/jpeg'], '/robots.txt':['robots.txt','text/plain; charset=utf-8'], '/sitemap.xml':['sitemap.xml','application/xml; charset=utf-8'], '/security.txt':['security.txt','text/plain; charset=utf-8'], '/.well-known/security.txt':['security.txt','text/plain; charset=utf-8'] };
       const entry = files[url.pathname] || (pages.has(url.pathname) ? ['index.html','text/html'] : null);
       if (!entry) fail(404, 'Page not found.');
       res.setHeader('Content-Type', entry[1]); res.end(req.method === 'HEAD' ? '' : readFileSync(join(publicPath, entry[0])));

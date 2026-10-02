@@ -61,7 +61,7 @@ try {
  await page.getByText('approved',{exact:true}).waitFor();
  admin=true;
  await page.goto('http://127.0.0.1:4390/admin');
- await page.getByRole('tab',{name:'Configuration',exact:true}).click();
+ await page.getByLabel('Administration section',{exact:true}).selectOption('settings');
  const key=page.getByLabel('TronGrid API key',{exact:true});assert.equal(await key.inputValue(),'');
  await key.fill('isolated-private-key-123456');
  await page.getByRole('button',{name:'Save changes',exact:true}).click();

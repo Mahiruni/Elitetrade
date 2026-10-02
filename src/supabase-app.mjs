@@ -789,6 +789,7 @@ export function createSupabaseApplication(options = {}) {
       const files = {
         '/app.js':['app.js','text/javascript'],
         '/styles.css':['styles.css','text/css'],
+        '/dashboard.css':['dashboard.css','text/css'],
         '/favicon.svg':['favicon.svg','image/svg+xml'],
         '/logo.jpg':['logo.jpg','image/jpeg'],
         '/robots.txt':['robots.txt','text/plain; charset=utf-8'],
