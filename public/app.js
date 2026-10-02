@@ -152,25 +152,18 @@ function marketingPage() {
   const dashboardHref = state.user ? '/mt5' : '/signup';
   const dashboardLabel = state.user ? 'Open your terminal' : 'Create your account';
   return `
-    <section class="marketing-hero">
-      <div class="hero-index" aria-hidden="true">01 / THE CONTROL LAYER</div>
+    <section class="marketing-hero hero-illustrated" aria-labelledby="hero-title">
       <div class="hero-copy">
         <div class="marketing-kicker"><span></span> MT5 / AUTOMATION WORKSPACE</div>
-        <h1>Your strategy. Your limits.<br><em>Your control.</em></h1>
+        <h1 id="hero-title"><span>Your strategy.</span> <span>Your limits.</span> <em>Your control.</em></h1>
         <p class="hero-lead">Bring your MT5 accounts, automation and risk settings into one focused workspace. Configure with intention. Stay in control.</p>
         <div class="hero-actions"><a class="marketing-cta" href="${dashboardHref}">${dashboardLabel}</a><a class="marketing-secondary" href="#platform">Explore the platform</a></div>
         <div class="hero-trust"><span>${icon('shield')} Protected account access</span><span>${icon('terminal')} MT5 connection workflow</span><span>${icon('settings')} User-controlled risk settings</span></div>
       </div>
-      <aside class="terminal-showcase" aria-label="Platform workflow">
-        <div class="showcase-top"><span>ELITE BOT / OPERATIONS</span><small>WORKFLOW OVERVIEW</small></div>
-        <div class="showcase-status"><small>Designed around one principle</small><h2>Control before<br>execution.</h2></div>
-        <ol class="operation-steps">
-          <li><span class="step-number">01</span><div><strong>Connect your account</strong><p>MT5 broker · Server · Account</p></div>${icon('terminal')}</li>
-          <li><span class="step-number">02</span><div><strong>Define your boundaries</strong><p>Position size · Loss limits · Drawdown</p></div>${icon('settings')}</li>
-          <li><span class="step-number">03</span><div><strong>Configure automation</strong><p>Strategy · Symbol · Start / stop</p></div>${icon('bots')}</li>
-        </ol>
-        <div class="operations-foot">${icon('shield')}<p>Your broker account stays with your broker.<br><span>You choose the configuration.</span></p></div>
-      </aside>
+      <figure class="hero-visual">
+        <picture><img src="/assets/hero-mt5-hd.webp" srcset="/assets/hero-mt5-640.webp 640w, /assets/hero-mt5-hd.webp 1254w" sizes="(max-width: 760px) calc(100vw - 48px), (max-width: 1320px) 44vw, 550px" width="1254" height="1254" alt="A man holding a phone displaying a MetaTrader 5 demo candlestick chart." fetchpriority="high" decoding="async"></picture>
+        <figcaption>MetaTrader 5 <span aria-hidden="true">·</span> Illustrative demo screen</figcaption>
+      </figure>
     </section>
     <section class="trust-bar"><span>SECURE IDENTITY</span><span>•</span><span>ROW-LEVEL ACCESS CONTROL</span><span>•</span><span>ENCRYPTED CREDENTIAL STORAGE</span><span>•</span><span>ADMIN REVIEW WORKFLOWS</span></section>
 

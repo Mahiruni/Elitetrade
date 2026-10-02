@@ -275,6 +275,53 @@ dialog .actions { margin-top:1.4rem }
 .hero-trust { display:flex; justify-content:center; flex-wrap:wrap; gap:.7rem 1.2rem; margin-top:2rem; font-size:.75rem; color:var(--muted) }
 .hero-trust>span { display:flex; align-items:center; gap:.45rem }
 .hero-trust svg { width:16px; height:16px; flex:none }
+/* A large, readable headline beside the original transparent MT5 artwork. */
+.marketing-hero.hero-illustrated {
+  grid-template-columns:minmax(0,1.08fr) minmax(0,1fr); align-items:center;
+  gap:2.5rem; min-height:min(760px,calc(100svh - 86px)); padding:3.5rem 2.5rem 4rem;
+  text-align:left; isolation:isolate;
+}
+.hero-illustrated .hero-copy { min-width:0; max-width:640px; margin:0; padding-block:1.5rem }
+.hero-illustrated .marketing-kicker { justify-content:flex-start; margin-bottom:1.5rem; font-size:.6875rem; letter-spacing:.1em }
+.marketing-hero.hero-illustrated h1 {
+  font-family:"DM Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-optical-sizing:auto; font-size:clamp(3.25rem,5.7vw,5.625rem);
+  font-weight:650; line-height:1.05; letter-spacing:-.055em; text-wrap:initial;
+}
+.hero-illustrated h1>span,.hero-illustrated h1>em { display:block }
+.hero-illustrated h1 em { font-weight:650 }
+.hero-illustrated .hero-lead { max-width:460px; margin:1.5rem 0 0; font-size:1rem; line-height:1.8 }
+.hero-illustrated .hero-actions { justify-content:flex-start; gap:.75rem; margin-top:2rem }
+.hero-illustrated .marketing-secondary { background:transparent; color:var(--text); border-color:var(--control-border) }
+.hero-illustrated .marketing-secondary:hover { background:var(--panel); border-color:var(--muted) }
+.hero-illustrated .hero-trust { display:flex; justify-content:flex-start; justify-items:start; gap:.625rem 1.25rem; margin-top:1.5rem; font-size:.6875rem }
+.hero-illustrated .hero-visual { position:relative; min-width:0; width:100%; margin:0; text-align:center; align-self:center }
+.hero-visual::before {
+  content:""; position:absolute; z-index:-1; inset:11% 4% 13%; border-radius:50%;
+  background:color-mix(in srgb,var(--panel) 65%,transparent);
+  border:1px solid color-mix(in srgb,var(--accent) 10%,transparent);
+}
+.hero-visual picture { display:block; aspect-ratio:1; width:100% }
+.hero-visual img { display:block; width:100%; height:auto; aspect-ratio:1; object-fit:contain; mask-image:linear-gradient(#000 93%,transparent) }
+.hero-visual figcaption { margin-top:.875rem; color:var(--muted); font-size:.6875rem; letter-spacing:.015em; line-height:1.6 }
+.hero-visual figcaption span { margin-inline:.35rem }
+@media(max-width:1100px) {
+  .marketing-hero.hero-illustrated { gap:1.5rem; padding:3rem 1.5rem 3.5rem; min-height:620px }
+}
+@media(max-width:760px) {
+  .marketing-hero.hero-illustrated { grid-template-columns:minmax(0,1fr); min-height:0; gap:2rem; padding:2.5rem 1.5rem 2.5rem }
+  .hero-illustrated .hero-copy { max-width:560px; width:100%; padding:0; margin-inline:auto }
+  .marketing-hero.hero-illustrated h1 { font-size:clamp(2.625rem,11.5vw,4.5rem); line-height:1.06 }
+  .hero-illustrated .marketing-kicker { margin-bottom:1.25rem }
+  .hero-illustrated .hero-lead { margin-top:1.25rem; line-height:1.7 }
+  .hero-illustrated .hero-actions { margin-top:1.5rem }
+  .hero-illustrated .hero-visual { max-width:480px; margin-inline:auto }
+}
+@media(max-width:430px) {
+  .marketing-hero.hero-illustrated { padding-inline:1rem }
+  .hero-illustrated .hero-trust { flex-direction:column; gap:.625rem }
+  .hero-illustrated .hero-actions a { min-height:48px }
+}
 .terminal-showcase { border:0; border-radius:32px; background:transparent; box-shadow:none; min-width:0 }
 .showcase-top { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1.2rem 1.5rem; border-bottom:1px solid var(--border); font-size:.75rem; color:var(--muted); letter-spacing:.07em }
 .showcase-top small { font-size:.75rem; text-align:right }
@@ -292,6 +339,7 @@ dialog .actions { margin-top:1.4rem }
 .operations-foot span { color:var(--muted) }
 .trust-bar { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:.8rem 1.2rem; padding:1.3rem 2rem; border:0; font-size:.75rem; color:var(--muted); letter-spacing:.08em }
 .marketing-section { max-width:1320px; margin:auto; padding:6rem 2.5rem; scroll-margin-top:1rem }
+.marketing-section>div,.pricing-card>div { min-width:0; overflow-wrap:anywhere }
 .section-heading { max-width:800px; margin-bottom:3rem }
 .section-heading h2,.security-copy h2,.risk-panel h2,.final-cta h2 { font-size:clamp(2rem,3.5vw,3.5rem); font-weight:750; line-height:1.12; letter-spacing:-.04em; text-wrap:balance }
 .section-heading>p,.security-copy>p,.risk-panel p,.final-cta>p { margin-top:1.3rem; color:var(--muted); font-size:1rem; line-height:1.8; max-width:640px }

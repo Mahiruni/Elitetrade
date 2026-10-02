@@ -787,6 +787,8 @@ export function createSupabaseApplication(options = {}) {
 
       if (req.method !== 'GET' && req.method !== 'HEAD') fail(405, 'Method not allowed.');
       const files = {
+        '/assets/hero-mt5-hd.webp':['assets/hero-mt5-hd.webp','image/webp'],
+        '/assets/hero-mt5-640.webp':['assets/hero-mt5-640.webp','image/webp'],
         '/app.js':['app.js','text/javascript'],
         '/styles.css':['styles.css','text/css'],
         '/dashboard.css':['dashboard.css','text/css'],
