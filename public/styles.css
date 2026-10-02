@@ -309,18 +309,19 @@ dialog .actions { margin-top:1.4rem }
   .marketing-hero.hero-illustrated { gap:1.5rem; padding:3rem 1.5rem 3.5rem; min-height:620px }
 }
 @media(max-width:760px) {
-  .marketing-hero.hero-illustrated { grid-template-columns:minmax(0,1fr); min-height:0; gap:2rem; padding:2.5rem 1.5rem 2.5rem }
-  .hero-illustrated .hero-copy { max-width:560px; width:100%; padding:0; margin-inline:auto }
-  .marketing-hero.hero-illustrated h1 { font-size:clamp(2.625rem,11.5vw,4.5rem); line-height:1.06 }
-  .hero-illustrated .marketing-kicker { margin-bottom:1.25rem }
-  .hero-illustrated .hero-lead { margin-top:1.25rem; line-height:1.7 }
-  .hero-illustrated .hero-actions { margin-top:1.5rem }
-  .hero-illustrated .hero-visual { max-width:480px; margin-inline:auto }
-}
-@media(max-width:430px) {
-  .marketing-hero.hero-illustrated { padding-inline:1rem }
-  .hero-illustrated .hero-trust { flex-direction:column; gap:.625rem }
-  .hero-illustrated .hero-actions a { min-height:48px }
+  .marketing-hero.hero-illustrated {
+    grid-template-columns:minmax(0,1.08fr) minmax(0,1fr); min-height:0;
+    column-gap:.5rem; row-gap:1.25rem; padding:2rem 1rem 2.5rem;
+  }
+  .hero-illustrated .hero-copy { display:contents }
+  .hero-illustrated .marketing-kicker { grid-column:1; grid-row:1; align-self:end; margin:0; font-size:.625rem; letter-spacing:.04em; min-width:0 }
+  .marketing-hero.hero-illustrated h1 { grid-column:1; grid-row:2; align-self:start; min-width:0; font-size:clamp(1.5rem,7.2vw,3.375rem); line-height:1.08; overflow-wrap:anywhere }
+  .hero-illustrated .hero-visual { grid-column:2; grid-row:1 / span 2; max-width:none; margin:0; align-self:center }
+  .hero-visual figcaption { margin-top:.5rem; font-size:.625rem; line-height:1.5 }
+  .hero-illustrated .hero-lead { grid-column:1 / -1; grid-row:3; max-width:none; margin:0; line-height:1.7 }
+  .hero-illustrated .hero-actions { grid-column:1 / -1; grid-row:4; flex-direction:row; gap:.5rem; margin:0 }
+  .hero-illustrated .hero-actions a { flex:1 1 8rem; width:auto; min-width:0; min-height:48px; padding:.75rem; font-size:.75rem }
+  .hero-illustrated .hero-trust { grid-column:1 / -1; grid-row:5; flex-direction:row; gap:.625rem 1rem; margin:0 }
 }
 .terminal-showcase { border:0; border-radius:32px; background:transparent; box-shadow:none; min-width:0 }
 .showcase-top { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1.2rem 1.5rem; border-bottom:1px solid var(--border); font-size:.75rem; color:var(--muted); letter-spacing:.07em }

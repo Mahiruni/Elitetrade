@@ -1,6 +1,6 @@
 # EliteBot homepage artwork
 
-The homepage pairs the existing headline and working account links with an original transparent image of a man presenting a phone with an MT5 demo chart. The headline remains selectable HTML, with one semantic H1. On desktop the text and artwork sit side by side; below 761px they stack with the text first. The existing platform, workflow, pricing, and security content remains below the hero.
+The homepage pairs the existing headline and working account links with an original transparent image of a man presenting a phone with an MT5 demo chart. The headline remains selectable HTML, with one semantic H1. The headline and artwork sit side by side on desktop and mobile. Below 761px, the supporting description, account links, and proof use the available width below that pair, keeping the text readable and touch targets at least 48px tall. The existing platform, workflow, pricing, and security content remains below the hero.
 
 ## Assets
 

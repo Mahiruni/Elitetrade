@@ -161,7 +161,7 @@ function marketingPage() {
         <div class="hero-trust"><span>${icon('shield')} Protected account access</span><span>${icon('terminal')} MT5 connection workflow</span><span>${icon('settings')} User-controlled risk settings</span></div>
       </div>
       <figure class="hero-visual">
-        <picture><img src="/assets/hero-mt5-hd.webp" srcset="/assets/hero-mt5-640.webp 640w, /assets/hero-mt5-hd.webp 1254w" sizes="(max-width: 760px) calc(100vw - 48px), (max-width: 1320px) 44vw, 550px" width="1254" height="1254" alt="A man holding a phone displaying a MetaTrader 5 demo candlestick chart." fetchpriority="high" decoding="async"></picture>
+        <picture><img src="/assets/hero-mt5-hd.webp" srcset="/assets/hero-mt5-640.webp 640w, /assets/hero-mt5-hd.webp 1254w" sizes="(max-width: 760px) 46vw, (max-width: 1320px) 44vw, 550px" width="1254" height="1254" alt="A man holding a phone displaying a MetaTrader 5 demo candlestick chart." fetchpriority="high" decoding="async"></picture>
         <figcaption>MetaTrader 5 <span aria-hidden="true">·</span> Illustrative demo screen</figcaption>
       </figure>
     </section>
