@@ -758,7 +758,7 @@ export function createSupabaseApplication(options = {}) {
   }
 
   const publicPath = resolve(options.publicPath || new URL('../public/', import.meta.url).pathname);
-  const pages = new Set(['/', '/login', '/signup', '/forgot-password', '/reset-password', '/logout', '/mt5', '/dashboard', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
+  const pages = new Set(['/', '/login', '/signup', '/forgot-password', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/dashboard', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
   const server = createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -790,6 +790,11 @@ export function createSupabaseApplication(options = {}) {
         '/app.js':['app.js','text/javascript'],
         '/styles.css':['styles.css','text/css'],
         '/dashboard.css':['dashboard.css','text/css'],
+        '/vendor/zxcvbn.js':['vendor/zxcvbn.js','text/javascript'], '/auth.js':['auth.js','text/javascript'],
+        '/auth.css':['auth.css','text/css'],
+        '/fonts/dm-sans.woff':['fonts/dm-sans.woff','font/woff'],
+        '/fonts/instrument-serif.woff':['fonts/instrument-serif.woff','font/woff'],
+        '/fonts/instrument-serif-italic.woff':['fonts/instrument-serif-italic.woff','font/woff'],
         '/favicon.svg':['favicon.svg','image/svg+xml'],
         '/logo.jpg':['logo.jpg','image/jpeg'],
         '/robots.txt':['robots.txt','text/plain; charset=utf-8'],

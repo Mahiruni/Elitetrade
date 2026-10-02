@@ -1,3 +1,4 @@
+import { createAuthExperience } from './auth.js';
 const root = document.querySelector('#app');
 const modal = document.querySelector('#modal');
 const AUTH_KEY = 'elite-supabase-session';
@@ -83,10 +84,17 @@ async function supabaseAuth(path, method = 'POST', body, accessToken = '') {
       Authorization: `Bearer ${accessToken || state.config.supabasePublishableKey}`,
       'Content-Type':'application/json'
     },
+    signal:AbortSignal.timeout(20000),
     body: body === undefined ? undefined : JSON.stringify(body)
   });
   const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result.msg || result.message || result.error_description || result.error || 'Authentication failed.');
+  if (!response.ok) {
+    const error = new Error(result.msg || result.message || result.error_description || result.error || 'Authentication failed.');
+    error.status = response.status;error.code = result.error_code || result.code || '';
+    const retry = response.headers.get('retry-after');
+    error.retryAfter = retry && /^\d+$/.test(retry) ? Number(retry) : retry ? Math.max(1,Math.ceil((Date.parse(retry)-Date.now())/1000)) : 0;
+    throw error;
+  }
   return result;
 }
 async function ensureAccessToken() {
@@ -275,19 +283,53 @@ function legalPage(path) {
   const doc = legalDocuments[path];
   return `<section class="legal-hero"><div class="marketing-kicker"><span></span> ${doc.kicker}</div><h1>${doc.title}</h1><p>${doc.intro}</p><small>Last updated: October 1, 2026</small></section><section class="legal-layout"><aside><strong>Legal center</strong><a class="${path==='/terms'?'active':''}" href="/terms">Terms of Service</a><a class="${path==='/privacy'?'active':''}" href="/privacy">Privacy Policy</a><a class="${path==='/risk-disclosure'?'active':''}" href="/risk-disclosure">Risk Disclosure</a><a class="${path==='/refund-policy'?'active':''}" href="/refund-policy">Refund Policy</a><a class="${path==='/cookies'?'active':''}" href="/cookies">Cookie Policy</a></aside><article class="legal-document">${doc.sections.map(([title,body])=>`<section><h2>${title}</h2><p>${body}</p></section>`).join('')}<div class="legal-note">This policy is intended to describe the platform’s operating terms and practices. Specific legal rights can vary by jurisdiction.</div></article></section>`;
 }
-function authPage(path) {
-  const mfa = state.requiresMfa && path === '/login';
-  const title = mfa ? 'Verify your sign-in' : ({ '/login':'Welcome back.', '/signup':'Create your account.', '/resend-confirmation':'Resend confirmation.', '/forgot-password':'Reset your password.', '/reset-password':'Choose a new password.' })[path];
-  document.title = `${title} · Elite Bot`;
-  let contents;
-  if (mfa) contents = form('mfa-login', field('Authenticator code','code','','text','required inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code" maxlength="6"'), 'Verify and sign in') + `<div class="auth-bottom">${btn('Use a different account','logout','','class="ghost"')}</div>`;
-  else if (path === '/login') contents = form('login', field('Email address','email','','email','required autocomplete="email"') + password('Password','password') + '<div class="auth-links"><a href="/forgot-password">Forgot password?</a><a href="/support">Need help?</a></div>', 'Sign in') + '<div class="auth-bottom">New to Elite Bot? <a href="/signup">Create an account</a></div>' + (state.config.demoMode ? '<div class="auth-bottom"><button type="button" class="ghost" data-action="demo">Continue as Demo</button></div>' : '');
-  else if (path === '/signup') contents = form('signup', field('Full name','name','','text','required minlength="2" maxlength="64" autocomplete="name"') + field('Email address','email','','email','required autocomplete="email"') + password('Password','password','new-password') + '<small>Use at least 12 characters.</small>' + field('Referral code · optional','referral',new URLSearchParams(location.search).get('ref') || '', 'text','maxlength="30"') + '<label class="check legal-consent"><input type="checkbox" name="terms" required> <span>I agree to the <a href="/terms">Terms</a>, <a href="/privacy">Privacy Policy</a>, and <a href="/risk-disclosure">Risk Disclosure</a>.</span></label>', 'Create account') + '<div class="auth-bottom">Already registered? <a href="/login">Sign in</a> · <a href="/resend-confirmation">Resend confirmation</a></div>';
-  else if (path === '/resend-confirmation') contents = form('resend-confirmation-form', field('Email address','email',new URLSearchParams(location.search).get('email') || '','email','required autocomplete="email"'), 'Resend confirmation email') + '<div class="auth-bottom"><a href="/login">Back to sign in</a></div>';
-  else if (path === '/forgot-password') contents = form('forgot', field('Email address','email','','email','required autocomplete="email"'), 'Send recovery link') + '<div class="auth-bottom"><a href="/login">Back to sign in</a></div>';
-  else contents = form('reset', password('New password','password','new-password') + password('Confirm password','confirm','new-password'), 'Reset password') + '<div class="auth-bottom"><a href="/login">Back to sign in</a></div>';
-  root.innerHTML = `<main id="main" class="auth-wrap" tabindex="-1"><section class="auth-story">${publicBrand}<div class="eyebrow">Built for your next move</div><h2 class="auth-title">Your trading.<br><em>In focus.</em></h2><p>A clear view of your accounts, trading bots, and everything that keeps you connected.</p><div class="auth-features"><div class="auth-feature">${icon('terminal')}<div><strong>One connected workspace</strong><p>Keep your MT5 accounts and bot controls together.</p></div></div><div class="auth-feature">${icon('shield')}<div><strong>Stay in control</strong><p>Manage risk settings, account access, and security.</p></div></div></div><footer><small>Trading involves risk. Performance is not guaranteed.</small></footer></section><section class="auth-form-side"><div class="auth-theme">${themeButton()}</div><div class="auth-form"><a class="brand auth-home" href="/">${wordmark}</a><div class="eyebrow">ELITE BOT / ACCOUNT</div><h1>${title}</h1><p>${mfa ? 'Enter the six-digit code from your authenticator app.' : path === '/signup' ? 'Your trading workspace starts here.' : path === '/resend-confirmation' ? 'Request a fresh verification link for an unconfirmed account.' : path === '/login' ? 'Sign in to continue to your workspace.' : 'Secure access to your trading workspace.'}</p>${contents}</div></section></main>`;
+async function finishAuth(auth, destination = '/mt5') {
+  if (auth?.access_token) {
+    const response = await supabaseAuth('factors','GET',undefined,auth.access_token);
+    const factors = Array.isArray(response) ? response : [...(response?.totp || []), ...(response?.phone || [])];
+    const factor = factors.find(item => item.status === 'verified' && (!item.factor_type || item.factor_type === 'totp'));
+    if (factor && decodeJwt(auth.access_token).aal !== 'aal2') {
+      const challenge = await supabaseAuth(`factors/${encodeURIComponent(factor.id)}/challenge`,'POST',{},auth.access_token);
+      state.pendingMfa = { auth, factorId:factor.id, challengeId:challenge.id, destination };
+      state.requiresMfa = true;
+      history.replaceState(null,'','/login');
+      authPage('/login');
+      return;
+    }
+    saveAuth(auth);
+    await identity();
+    if (state.requiresMfa) throw new Error('Complete two-factor authentication to continue.');
+  }
+  await authUI.fadeOut();
+  navigate(destination,true);
 }
+const authUI = createAuthExperience({
+  root, request:supabaseAuth, onSession:finishAuth, getSession:ensureAccessToken,
+  legal:path => legalDocuments[path],
+  onTheme:() => actions.theme(),
+  onDemo:() => actions.demo(),
+  onCancelMfa:() => { clearAuth();state.user = null;state.requiresMfa = false; },
+  onMfa:async code => {
+    const pending = state.pendingMfa;
+    if (!pending) throw new Error('This sign-in request expired. Start again.');
+    const auth = await supabaseAuth(`factors/${encodeURIComponent(pending.factorId)}/verify`,'POST',{
+      challenge_id:pending.challengeId, code
+    },pending.auth.access_token);
+    saveAuth(auth);state.pendingMfa = null;state.requiresMfa = false;
+    await identity();await authUI.fadeOut();navigate(pending.destination || '/mt5',true);
+  },
+  onReset:async password => {
+    const accessToken = new URLSearchParams(location.hash.slice(1)).get('access_token') || '';
+    if (!accessToken) throw new Error('This recovery link is invalid or expired. Request a new one.');
+    await supabaseAuth('user','PUT',{password},accessToken);
+    clearAuth();state.user = null;state.csrf = null;
+    await authUI.fadeOut();toast('Password reset. Sign in with your new password.');navigate('/login',true);
+  }
+});
+function authPage(path) {
+  authUI.mount({path,wordmark,config:state.config,mfa:state.requiresMfa});
+}
+
 const activation = () => state.user.active || state.user.role === 'admin' ? '' : '<div class="notice">Activate your subscription to connect an MT5 account and start trading bots. <a href="/subscription">View subscription</a></div>';
 async function terminalPage() {
   const data = await api('/accounts'); state.data.accounts = data.accounts;
@@ -385,10 +427,11 @@ async function render({ quiet = false } = {}) {
   setWorkspaceMenu(false,false);
   if (path === '/dashboard') { path = state.user ? '/mt5' : '/login'; history.replaceState(null,'',path); }
   if (path === '/logout') { await logout(); return; }
-  const auth = ['/login','/signup','/resend-confirmation','/forgot-password','/reset-password'].includes(path);
+  const auth = ['/login','/signup','/resend-confirmation','/forgot-password','/reset-password','/passkey-setup'].includes(path);
+  if (!auth) authUI.dispose();
   const publicRoutes = ['/','/support','/terms','/privacy','/risk-disclosure','/refund-policy','/cookies'];
   if (!state.user && !auth && !publicRoutes.includes(path)) { history.replaceState(null,'','/login'); authPage('/login'); return; }
-  if (auth) { if (state.user && ['/login','/signup'].includes(path)) { navigate('/mt5',true); return; } authPage(path); return; }
+  if (auth) { if (path === '/passkey-setup' && !state.user) { navigate('/signup',true); return; } if (state.user && !state.requiresMfa && ['/login','/signup'].includes(path)) { navigate('/mt5',true); return; } authPage(path); return; }
   if (path.startsWith('/admin') && state.user?.role !== 'admin') { shell(empty('Administrator access required','This page is available to administrators only.')); return; }
   if (!quiet) (state.user ? shell : publicShell)('<div class="loading" aria-busy="true">Loading your workspace…</div>');
   try {
@@ -466,7 +509,7 @@ document.addEventListener('click',async event => {
   const link = event.target.closest('a[href]');
   if (link) document.querySelectorAll('.public-menu[open]').forEach(menu => menu.removeAttribute('open'));
   if (!event.target.closest('.public-menu')) document.querySelectorAll('.public-menu[open]').forEach(menu => menu.removeAttribute('open'));
-  if (link && link.origin === location.origin && !link.hash && !event.metaKey && !event.ctrlKey && event.button === 0) { event.preventDefault(); navigate(link.pathname + link.search); return; }
+  if (!event.defaultPrevented && link && link.origin === location.origin && !link.hash && !event.metaKey && !event.ctrlKey && event.button === 0) { event.preventDefault(); navigate(link.pathname + link.search); return; }
   const button = event.target.closest('[data-action]'); if (!button || button.disabled) return;
   const action = actions[button.dataset.action]; if (!action) return;
   button.disabled = true;
@@ -655,7 +698,8 @@ try {
         refresh_token:callback.get('refresh_token') || '',
         expires_in:Number(callback.get('expires_in') || 3600)
       });
-      history.replaceState(null,'','/subscription');
+      const intent = new URLSearchParams(location.search).get('intent');
+      history.replaceState(null,'',intent === 'passkey' ? '/passkey-setup' : intent === 'signin' ? '/mt5' : '/subscription');
     } else if (callback.get('error_description')) {
       const message = callback.get('error_description') || 'Email confirmation failed.';
       history.replaceState(null,'','/login');
@@ -663,7 +707,10 @@ try {
     }
   }
   await identity();
-  await render();
+  if (state.requiresMfa && state.auth?.access_token) {
+    const destination = location.pathname === '/passkey-setup' ? '/passkey-setup' : '/mt5';
+    await finishAuth(state.auth,destination);
+  } else await render();
 } catch (error) {
   root.innerHTML = `<main id="main" class="public-content">${empty('Unable to connect',esc(error.message),'<a href="/">Try again</a>')}</main>`;
 }

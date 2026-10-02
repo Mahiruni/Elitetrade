@@ -503,7 +503,7 @@ export function createApplication(options = {}) {
   }
 
   const publicPath = resolve(options.publicPath || new URL('../public/', import.meta.url).pathname);
-  const pages = new Set(['/', '/login', '/signup', '/forgot-password', '/reset-password', '/logout', '/mt5', '/dashboard', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
+  const pages = new Set(['/', '/login', '/signup', '/forgot-password', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/dashboard', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
   const server = createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Referrer-Policy', 'no-referrer'); res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
@@ -531,7 +531,7 @@ export function createApplication(options = {}) {
         finally { if (locksTrading) tradingMutation = false; }
       }
       if (req.method !== 'GET' && req.method !== 'HEAD') fail(405, 'Method not allowed.');
-      const files = { '/app.js': ['app.js','text/javascript'], '/styles.css': ['styles.css','text/css'], '/dashboard.css':['dashboard.css','text/css'], '/favicon.svg': ['favicon.svg','image/svg+xml'], '/logo.jpg': ['logo.jpg','image/jpeg'], '/robots.txt':['robots.txt','text/plain; charset=utf-8'], '/sitemap.xml':['sitemap.xml','application/xml; charset=utf-8'], '/security.txt':['security.txt','text/plain; charset=utf-8'], '/.well-known/security.txt':['security.txt','text/plain; charset=utf-8'] };
+      const files = { '/vendor/zxcvbn.js':['vendor/zxcvbn.js','text/javascript'], '/auth.js':['auth.js','text/javascript'], '/auth.css':['auth.css','text/css'], '/fonts/dm-sans.woff':['fonts/dm-sans.woff','font/woff'], '/fonts/instrument-serif.woff':['fonts/instrument-serif.woff','font/woff'], '/fonts/instrument-serif-italic.woff':['fonts/instrument-serif-italic.woff','font/woff'], '/app.js': ['app.js','text/javascript'], '/styles.css': ['styles.css','text/css'], '/dashboard.css':['dashboard.css','text/css'], '/favicon.svg': ['favicon.svg','image/svg+xml'], '/logo.jpg': ['logo.jpg','image/jpeg'], '/robots.txt':['robots.txt','text/plain; charset=utf-8'], '/sitemap.xml':['sitemap.xml','application/xml; charset=utf-8'], '/security.txt':['security.txt','text/plain; charset=utf-8'], '/.well-known/security.txt':['security.txt','text/plain; charset=utf-8'] };
       const entry = files[url.pathname] || (pages.has(url.pathname) ? ['index.html','text/html'] : null);
       if (!entry) fail(404, 'Page not found.');
       res.setHeader('Content-Type', entry[1]); res.end(req.method === 'HEAD' ? '' : readFileSync(join(publicPath, entry[0])));
