@@ -45,6 +45,12 @@ page.on('console',e => { if (e.type() === 'error' && !e.text().includes('503')) 
 mkdirSync('test-results',{recursive:true});
 const ready = async title => { await page.getByRole('heading',{name:title,exact:true}).waitFor(); };
 const navigate = async path => { await page.goto(base+path); await page.locator('h1').waitFor(); };
+const capture = async (target,options) => {
+  await target.evaluate(async () => {
+    await Promise.all(document.getAnimations().filter(animation => animation.effect?.getTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => {})));
+  });
+  await target.screenshot(options);
+};
 try {
   // Check public content and authentication at every target width in both themes.
   for (const width of [320,360,390,430,768,1024,1280,1440,1728]) {
@@ -67,13 +73,13 @@ try {
   await page.getByLabel('Navigation menu',{exact:true}).click();
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('.public-menu').getAttribute('open'),null);
-  await page.screenshot({path:'test-results/home-mobile.png',fullPage:true});
+  await capture(page,{path:'test-results/home-mobile.png',fullPage:true});
   await page.setViewportSize({width:1440,height:1000});
   await navigate('/');
   await page.getByRole('button',{name:'Toggle light and dark theme',exact:true}).click();
-  await page.screenshot({path:'test-results/home-desktop.png',fullPage:true});
+  await capture(page,{path:'test-results/home-desktop.png',fullPage:true});
   await navigate('/login'); await ready('Welcome back.');
-  await page.screenshot({path:'test-results/login-desktop.png',fullPage:true});
+  await capture(page,{path:'test-results/login-desktop.png',fullPage:true});
   await page.getByRole('link',{name:'Create an account',exact:true}).click();
   await page.getByLabel('Full name',{exact:true}).fill('Browser Member');
   await page.getByLabel('Email address',{exact:true}).fill('browser@example.test');
@@ -105,7 +111,7 @@ try {
     await page.getByRole('tab',{name:tab,exact:true}).filter({has:page.locator(':scope[aria-selected="true"]')}).count();
     await page.locator('[role="tabpanel"]').waitFor();
   }
-  await page.screenshot({path:'test-results/admin-desktop.png',fullPage:true});
+  await capture(page,{path:'test-results/admin-desktop.png',fullPage:true});
   await page.getByRole('link',{name:'MT5 terminal',exact:true}).click(); await ready('MT5 terminal');
   await page.getByRole('button',{name:'Add account',exact:true}).click();
   await dialog.getByLabel('Broker',{exact:true}).fill('Test Broker');
@@ -120,7 +126,7 @@ try {
   await dialog.getByLabel('MT5 account',{exact:true}).selectOption({label:'Test Broker · 123456'});
   await dialog.getByRole('button',{name:'Save configuration',exact:true}).click();
   await page.getByRole('heading',{name:'My gold bot',exact:true}).waitFor();
-  await page.screenshot({path:'test-results/bots-desktop.png',fullPage:true});
+  await capture(page,{path:'test-results/bots-desktop.png',fullPage:true});
   const customerContext = await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
   await isolateAuth(customerContext);
   const customer = await customerContext.newPage(); customer.on('pageerror',e => errors.push(e.message));
@@ -141,7 +147,7 @@ try {
   await dialog.getByRole('button',{name:'Confirm review',exact:true}).click();
   await page.getByText('approved',{exact:true}).waitFor();
   await customer.reload(); await customer.getByText('Your lifetime subscription is active.',{exact:true}).waitFor();
-  await customer.screenshot({path:'test-results/subscription-mobile.png',fullPage:true});
+  await capture(customer,{path:'test-results/subscription-mobile.png',fullPage:true});
   await customer.getByRole('button',{name:'Open navigation',exact:true}).click();
   await customer.getByRole('link',{name:'Support',exact:true}).click();
   await customer.getByRole('button',{name:'New conversation',exact:true}).click();
@@ -153,7 +159,7 @@ try {
   await page.getByRole('textbox',{name:'Your message',exact:true}).fill('Your account is active.');
   await page.getByRole('button',{name:'Send',exact:true}).click();
   await customer.getByText('Your account is active.',{exact:true}).waitFor({timeout:20000});
-  await customer.screenshot({path:'test-results/support-mobile.png',fullPage:true});
+  await capture(customer,{path:'test-results/support-mobile.png',fullPage:true});
   for (const width of [320,360,390,430,768,1024,1280,1440,1728]) {
     await customer.setViewportSize({width,height:900});
     for (const theme of ['dark','light']) {
@@ -178,9 +184,9 @@ try {
   await customer.getByRole('heading',{name:'Account settings',exact:true}).waitFor();
   await customer.locator('body.light').waitFor();
   assert.equal(await customer.locator('.sidebar').isVisible(),false);
-  await customer.screenshot({path:'test-results/settings-mobile-light.png',fullPage:true});
+  await capture(customer,{path:'test-results/settings-mobile-light.png',fullPage:true});
   await page.goto(base+'/mt5'); await ready('MT5 terminal');
-  await page.screenshot({path:'test-results/terminal-desktop.png',fullPage:true});
+  await capture(page,{path:'test-results/terminal-desktop.png',fullPage:true});
   assert.deepEqual(errors,[]);
   console.log('PASS: desktop and mobile registration, profile persistence, administration, payment activation, MT5 details, bot settings, live support replies, navigation, theme, layout, and console checks.');
 } finally { await browser.close(); await app.close(); db.close(); }
