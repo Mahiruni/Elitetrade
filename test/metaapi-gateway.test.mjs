@@ -41,6 +41,32 @@ test('normalizes pasted tokens, rejects invalid headers, retries only safe reads
  const write=createMetaApiGateway(env,async(url,options)=>{calls++;if(options.method==='POST')throw Object.assign(new Error('secret-password'),{name:'TimeoutError'});return Response.json([]);});
  await assert.rejects(write.connect(supplied),/timed out/);assert.equal(calls,2);
 });
+test('copy/paste wrappers and JWT line wraps send the exact original auth header',async()=>{
+ const encode=value=>Buffer.from(JSON.stringify(value)).toString('base64url');
+ const jwt=`${encode({alg:'HS256',typ:'JWT'})}.${encode({sub:'isolated-metaapi-fixture'})}.${Buffer.from('synthetic-signature').toString('base64url')}`;
+ const wrapped=jwt.match(/.{1,19}/g).join('\r\n');
+ const pasted=[jwt,`  "${jwt}"\n`,`'${jwt}'`,`\`${jwt}\``,`“${jwt}”`,`‘${jwt}’`,`"Bearer ${jwt}"`,`Bearer "${jwt}"`,wrapped,`Bearer “${wrapped}”`,jwt.replaceAll('.', ' .\t'),jwt.replaceAll('.', '\u200b.\u2060'),`\u200b Bearer ${jwt}\u200b`];
+ for(const value of pasted){
+  const sent=[];
+  const gateway=createMetaApiGateway({...env,METAAPI_TOKEN:value},async(url,options)=>{
+   sent.push(new Headers(options.headers).get('auth-token'));
+   // A denial proves formatting passed; no account creation or trade is simulated.
+   return new Response('{}',{status:401});
+  });
+  await assert.rejects(gateway.connect(supplied),/access was denied/);
+  assert.deepEqual(sent,[jwt]);
+ }
+});
+test('malformed pasted values and header injection never reach the provider',async()=>{
+ const encode=value=>Buffer.from(JSON.stringify(value)).toString('base64url');
+ const jwt=`${encode({alg:'HS256'})}.${encode({sub:'isolated'})}.c2ln`;
+ for(const value of ['bad\ntoken','first second','not-json . e30.c2ln','e30. e30.c2ln',`${jwt}\r\nX-Test: injected`,`${jwt}\u0000`,`${jwt}\u202e`,`${jwt} ${jwt}`,`"${jwt} Token: trailing text"`,JSON.stringify({token:jwt},null,2)]){
+  let calls=0;
+  const gateway=createMetaApiGateway({...env,METAAPI_TOKEN:value},async()=>{calls++;return Response.json([]);});
+  await assert.rejects(gateway.connect(supplied),/invalid characters/);
+  assert.equal(calls,0);
+ }
+});
 test('provisions distinct per-user demo and real connections; retries reuse account',async()=>{
   for(const type of ['ACCOUNT_TRADE_MODE_REAL','ACCOUNT_TRADE_MODE_DEMO']) {
     const f=fixture({info:{type}}); const first=await f.gateway.connect(supplied);

@@ -4,9 +4,30 @@ const idPattern = /^[a-zA-Z0-9_-]{1,128}$/;
 const error = (message, status = 503) => Object.assign(new Error(message), { status });
 const nameFor = id => `EliteTrade ${id}`;
 
+function normalizeToken(value) {
+  const trim = text => text.replace(/^[\s\u200b\u200c\u200d\u2060\ufeff]+|[\s\u200b\u200c\u200d\u2060\ufeff]+$/gu, '');
+  const quotes = new Map([['"','"'],["'","'"],['`','`'],['“','”'],['‘','’']]);
+  let token = trim(String(value));
+  for (let pass = 0; pass < 3; pass++) {
+    const closing = quotes.get(token[0]);
+    if (token.length >= 2 && closing && token.endsWith(closing)) token = trim(token.slice(1,-1));
+    token = trim(token.replace(/^Bearer\s+/i, ''));
+  }
+  // Only a structurally valid JWT can safely recover internal copy/paste wraps.
+  // Opaque tokens with internal whitespace remain invalid; never join arbitrary text.
+  const compact = token.replace(/[\s\u200b\u200c\u200d\u2060\ufeff]/gu, '');
+  if (compact !== token && /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(compact)) {
+    try {
+      const [header,payload] = compact.split('.').slice(0,2).map(part => JSON.parse(Buffer.from(part,'base64url').toString('utf8')));
+      if (header && !Array.isArray(header) && typeof header.alg === 'string' && header.alg && payload && typeof payload === 'object' && !Array.isArray(payload)) return compact;
+    } catch { /* Preserve the original invalid value for the request-time guard. */ }
+  }
+  return token;
+}
+
 export function createMetaApiGateway(env, fetchImpl = fetch) {
   if (!env.METAAPI_TOKEN) return null;
-  const token = String(env.METAAPI_TOKEN).trim().replace(/^Bearer\s+/i,'').trim();
+  const token = normalizeToken(env.METAAPI_TOKEN);
   const region = env.METAAPI_REGION || 'new-york';
   if (!/^[a-z][a-z0-9-]{0,40}$/.test(region)) throw error('Invalid MetaApi region.');
   const call = async (base, path, method = 'GET', body, extra = {}) => {

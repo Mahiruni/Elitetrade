@@ -14,6 +14,12 @@ Open Vercel → elitetradee → Settings → Environment Variables. Add these fo
 
 Remove the old `METAAPI_ACCOUNT_ID` and `METAAPI_LOCAL_ACCOUNT_ID` variables: they are no longer used. Keep the token server-side; never use a public frontend variable. The token needs account list/read/create/deploy/delete permissions and account-information access. A reader-only token cannot provision members. Configure provider capacity and review https://metaapi.cloud/#pricing before approving accounts; every provisioned connection can incur charges.
 
+### Token formatting
+
+Copy the complete API access token from the MetaApi dashboard into the **value** of `METAAPI_TOKEN` for Production. Do not use the MT5 password, account ID, TronGrid key, a JSON object, or an entire `METAAPI_TOKEN=...` assignment. Save and redeploy after changing the value; existing deployments retain their previous environment variables.
+
+The server removes surrounding whitespace, matched quotes and an optional `Bearer` prefix. For JWT tokens with valid JSON header and payload segments, it also removes copy/paste line wraps, spaces and zero-width separators before sending the token. This preserves the encoded token characters; it does not validate the token signature or provider permissions. Internal whitespace in an opaque value, malformed JWT wraps and header-control characters still fail before any provider request. An unrelated or incomplete value must be replaced with the correct token. No normalization logs or returns the token.
+
 ## Existing website flow
 
 1. An active member opens MT5 terminal → Add account and supplies their broker, numeric MT5 login, exact broker server, and password. Demo and real broker servers are supported. An investor password is recommended because this integration only reads account data.
