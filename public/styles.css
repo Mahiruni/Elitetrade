@@ -1,5 +1,6 @@
 /* Elite Bot — open layouts, soft curves and a shared blue identity. */
 :root {
+  --brand-gradient:radial-gradient(ellipse at 52% 0%,#4274c532,transparent 64%),linear-gradient(110deg,#071226 0%,#102441 58%,#152e50 100%);
   --font-ui:"DM Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   --type-body:.9375rem; --type-small:.8125rem; --type-caption:.75rem;
   --type-control:.875rem; --type-label:.8125rem; --type-input:1rem;
@@ -259,11 +260,11 @@ dialog .actions { margin-top:1.4rem }
 .qr { display:block; width:min(240px,100%); height:auto; margin:1rem auto; border-radius:24px; padding:12px; background:white }
 .secret { overflow-wrap:anywhere; text-align:center; font-size:var(--type-control)}
 /* Public site: editorial composition with a real product workflow. */
-.marketing-header,.marketing-footer {
+.marketing-header,.marketing-footer,.auth-brand-panel,.auth-mobile-top {
   --bg:#0a1428; --panel:#111f38; --surface:#192f50;
   --text:#f5f8ff; --muted:#cedaf0; --accent:#a8c5ff; --control-border:#7790b3;
   --border:#8bb3ff30; color:var(--text);
-  background:radial-gradient(ellipse at 52% 0%,#4274c532,transparent 64%),linear-gradient(110deg,#071226 0%,#102441 58%,#152e50 100%);
+  background:var(--brand-gradient);
 }
 .marketing-header {
   position:sticky; top:0; z-index:40;
@@ -389,7 +390,23 @@ dialog .actions { margin-top:1.4rem }
 .operations-foot svg { width:18px; height:18px; color:var(--accent); flex:none; margin-top:.25rem }
 .operations-foot p { font-size:var(--type-small); line-height:1.6 }
 .operations-foot span { color:var(--muted) }
-.trust-bar { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:.8rem 1.2rem; padding:1.3rem 2rem; border:0; font-size:var(--type-caption); color:var(--muted); letter-spacing:.08em }
+.trust-bar { max-width:1240px; margin:auto; padding:1.25rem 2.5rem 2.5rem; color:var(--text) }
+.security-proof-list { list-style:none; margin:0; padding:1.5rem 0; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1.5rem; border-block:1px solid var(--border) }
+.security-proof-list li { min-width:0; display:flex; align-items:center; gap:.75rem; font-size:var(--type-control); font-weight:600; line-height:1.5; letter-spacing:-.01em; animation:security-proof-enter .55s ease-out both }
+.security-proof-list li:nth-child(2) { animation-delay:.07s }
+.security-proof-list li:nth-child(3) { animation-delay:.14s }
+.security-proof-list li:nth-child(4) { animation-delay:.21s }
+.security-proof-list li>span:last-child { min-width:0; overflow-wrap:anywhere }
+.security-proof-icon { --proof-tone:var(--accent); display:grid; place-items:center; width:36px; height:36px; flex:none; border-radius:12px; color:var(--proof-tone); background:color-mix(in srgb,var(--proof-tone) 12%,transparent); transition:transform .2s var(--ease),background .2s var(--ease) }
+.security-proof-icon svg { width:20px; height:20px }
+.proof-access { --proof-tone:#4dd0b0 }
+.proof-encryption { --proof-tone:#b6a4ff }
+.proof-review { --proof-tone:#f3b959 }
+body.light .proof-access { --proof-tone:#087f6b }
+body.light .proof-encryption { --proof-tone:#6750b3 }
+body.light .proof-review { --proof-tone:#945008 }
+.security-proof-list li:hover .security-proof-icon { transform:translateY(-2px); background:color-mix(in srgb,var(--proof-tone) 18%,transparent) }
+@keyframes security-proof-enter { from { opacity:0; transform:translateY(6px) } to { opacity:1; transform:translateY(0) } }
 .marketing-section { max-width:1320px; margin:auto; padding:6rem 2.5rem; scroll-margin-top:1rem }
 .marketing-section>div,.pricing-card>div { min-width:0; overflow-wrap:anywhere }
 .section-heading { max-width:800px; margin-bottom:3rem }
@@ -550,8 +567,9 @@ dialog .actions { margin-top:1.4rem }
   .hero-trust { display:flex }
   .showcase-top { flex-direction:row; align-items:center }
   .terminal-showcase { max-width:560px; width:100% }
-  .trust-bar { justify-content:flex-start; padding:1.2rem 1.5rem }
-  .trust-bar>span:nth-child(even) { display:none }
+  .trust-bar { padding:1.2rem 1.5rem 2rem }
+  .security-proof-list { grid-template-columns:repeat(2,minmax(0,1fr)); gap:1.25rem }
+  .security-proof-list li { flex-direction:column; align-items:flex-start; gap:.625rem }
   .marketing-section { padding:4rem 1.5rem }
   .bento { grid-template-columns:1fr }
   .bento-card,.bento-card:nth-child(odd):not(.bento-wide) { border-left:0; padding:2rem 0 }
@@ -647,7 +665,7 @@ dialog .actions { margin-top:1.4rem }
 .operations-foot { border:0; border-radius:24px; align-items:center; padding:1rem 1.5rem; background:color-mix(in srgb,var(--accent) 6%,transparent); margin:.5rem 1.5rem 0 }
 .operations-foot br { display:none }
 .operations-foot span { margin-left:.4rem }
-.trust-bar { letter-spacing:.035em; background:transparent }
+.trust-bar { background:transparent }
 .bento-accent { background:transparent }
 .bento-icon { background:color-mix(in srgb,var(--button) 10%,var(--panel)); border:0; color:var(--accent) }
 .mini-terminal { border:0; border-radius:24px; background:transparent; padding:1.5rem 0 }
@@ -749,3 +767,41 @@ body.light .trust-icon-risk { color:#945008 }
   .hero-trust-group li>span:last-child { min-width:0; overflow-wrap:anywhere }
   .hero-trust-group[aria-hidden="true"],.trust-motion-toggle { display:none }
 }
+
+/* Support uses the same page width, type scale and blue controls as the public site. */
+.support-public { max-width:1240px; margin:auto; padding:3.5rem 2.5rem 4rem }
+.support-public .page-heading { margin-bottom:2rem }
+.support-public .page-heading h1 { font-size:var(--type-title); line-height:1.2; letter-spacing:-.035em }
+.support-public .page-heading .actions { max-width:100%; margin:0 }
+.support-public .page-heading .actions button { max-width:100%; min-width:0; overflow-wrap:anywhere }
+.support-public .card { background:var(--panel); padding:1.75rem; border-radius:var(--radius); box-shadow:inset 0 0 0 1px var(--border) }
+.support-page .chat-layout,.support-page #chat-panel { min-width:0 }
+.support-page .chat-layout.is-empty { grid-template-columns:minmax(0,1fr) }
+.support-page .chat-list[hidden] { display:none }
+.support-page .chat-list button { white-space:normal; overflow-wrap:anywhere }
+.support-page .chat-list strong { font-size:var(--type-control); line-height:1.5 }
+.support-page .chat-list small { font-size:var(--type-caption); line-height:1.6 }
+.support-public .chat-list { border-right:1px solid var(--border); padding-right:1.25rem }
+.support-public .chat-list button { background:transparent; border-radius:18px }
+.support-public .chat-list button.selected { background:color-mix(in srgb,var(--button) 10%,transparent); color:var(--accent); border-color:transparent }
+.support-page .card-head { flex-wrap:wrap }
+.support-public .messages { padding:1.25rem; background:var(--surface); border-radius:20px }
+.support-page .chat-form { align-items:flex-end }
+.support-page .chat-form textarea { flex:1; min-width:0; min-height:72px; height:auto; max-height:240px; resize:vertical }
+.support-page .chat-form button { flex:none }
+.support-empty { min-height:260px; padding:2rem 1rem; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1rem; text-align:center }
+.support-empty-icon { width:52px; height:52px; display:grid; place-items:center; background:color-mix(in srgb,var(--button) 12%,transparent); color:var(--accent); border-radius:18px }
+.support-empty-icon svg { width:26px; height:26px }
+.support-page .support-empty h2 { margin:0; font-size:var(--type-subtitle); line-height:1.3 }
+.support-empty p { margin:0; max-width:440px; color:var(--muted); font-size:var(--type-body); line-height:1.7 }
+.support-public .support-faq h2 { font-size:var(--type-card) }
+.support-public .help-list p { margin-top:.75rem; color:var(--muted); font-size:var(--type-body); line-height:1.7 }
+@media(max-width:760px) {
+  .support-public { padding:2rem 1rem 3rem }
+  .support-public .card { padding:1.25rem }
+  .support-public .chat-layout { grid-template-columns:minmax(0,1fr) }
+  .support-public .chat-list { display:flex; gap:.5rem; padding:0 0 1rem; border-right:0; border-bottom:1px solid var(--border); overflow:auto }
+  .support-public .chat-list button { flex:none; width:180px; margin:0 }
+  .support-empty { min-height:240px; padding:1.5rem 0 }
+}
+@media(prefers-reduced-motion:reduce) { .security-proof-list li { animation:none } .security-proof-icon { transition:none } }

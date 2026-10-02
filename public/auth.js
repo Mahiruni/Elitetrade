@@ -324,10 +324,10 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,getSe
    root.innerHTML=`<main id="main" class="auth-experience" tabindex="-1">
     <aside class="auth-brand-panel" aria-label="About EliteBot">
      <a href="/" class="brand">${wordmark}</a>
-     <div class="auth-brand-copy"><div class="auth-overline">A little less noise</div><h2>Your trading.<br><em>In focus.</em></h2><p>One considered workspace for your accounts, automation, and risk controls.</p></div>
+     <div class="auth-brand-copy"><h2>Your strategy.<br>Your limits.<br><em>Your control.</em></h2><p>Your MT5 accounts, automation, and risk settings in one focused workspace.</p></div>
      ${geometry()}
      <div class="auth-proof"><span class="auth-proof-symbol">${svg('shield')}</span><div><strong>Your strategy. Your control.</strong><small>Built around your MT5 workflow.</small></div></div>
-     <div class="auth-brand-foot"><span>EliteBot / 01</span><span>Trading involves risk.<br>Performance is not guaranteed.</span></div>
+     <div class="auth-brand-foot"><span>Your Trading Bot</span><span>Trading involves risk.<br>Performance is not guaranteed.</span></div>
     </aside>
     <header class="auth-mobile-top"><a href="/" class="brand">${wordmark}</a>${themeToggle()}</header>
     <div class="auth-mobile-proof">Your strategy. Your control. Built for MT5.</div>

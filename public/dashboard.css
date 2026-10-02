@@ -224,8 +224,8 @@ body.light .layout {
 .layout .chat-form button { min-height:48px }
 .layout .support-faq { margin-top:24px }
 .layout .help-list details { padding:18px 0 }
-.layout .help-list summary { font-size:var(--type-small)}
-.layout .help-list p { font-size:var(--type-caption); line-height:1.9 }
+.layout .help-list summary { font-size:var(--type-control)}
+.layout .help-list p { font-size:var(--type-body); line-height:1.7 }
 .layout .workspace-footer { margin:0 clamp(24px,3.2vw,48px); padding:22px 0; font-size:var(--type-caption); border-top:1px solid var(--border); gap:16px }
 .footer-dot { margin:0 6px; opacity:.5 }
 #modal { padding:0; width:calc(100% - 32px); max-width:580px; max-height:calc(100dvh - 40px); border:1px solid color-mix(in srgb,var(--border) 60%,transparent); border-radius:28px; box-shadow:0 36px 100px #0005 }
