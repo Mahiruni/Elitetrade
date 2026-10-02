@@ -67,3 +67,19 @@ test('rejects trading and removes only the verified provider binding',async()=>{
   assert.deepEqual(await f.gateway.disconnect(first.accountId),{disconnected:true});
   assert.equal(f.accounts.size,1);assert.equal((await f.gateway.snapshot(second.accountId)).balance,100);
 });
+
+test('provider demo order is explicitly gated, protects SL/TP and verifies broker acknowledgement',async()=>{
+ for(const [type,enabled,code] of [['ACCOUNT_TRADE_MODE_REAL','true',10009],['ACCOUNT_TRADE_MODE_DEMO','false',10009],['ACCOUNT_TRADE_MODE_DEMO','true',10008],['ACCOUNT_TRADE_MODE_DEMO','true',10009]]) {
+  const calls=[];const g=createMetaApiGateway({...env,DEMO_EXECUTION_ENABLED:enabled},async(url,options)=>{
+   calls.push({url:String(url),options});
+   if(String(url).endsWith('/trade'))return Response.json({numericCode:code,stringCode:code===10009?'TRADE_RETCODE_DONE':'TRADE_RETCODE_PLACED',orderId:'123'});
+   if(String(url).includes('/account-information'))return Response.json({platform:'mt5',type,login:12345,server:'Broker-Live',balance:1000,equity:1000,currency:'USD',tradeAllowed:true,investorMode:false});
+   return Response.json({_id:'remote',name:'EliteTrade local',metadata:{elitetradeAccountId:'local'},login:'12345',server:'Broker-Live',region:'new-york',state:'DEPLOYED',connectionStatus:'CONNECTED'});
+  });
+  const execute=()=>g.demoOrder('metaapi:local:remote',{actionType:'ORDER_TYPE_BUY',symbol:'XAUUSDm',volume:.01,stopLoss:1900,takeProfit:2100},'receipt-id');
+  if(type==='ACCOUNT_TRADE_MODE_DEMO'&&enabled==='true'&&code===10009)assert.equal((await execute()).orderId,'123');else await assert.rejects(execute);
+  const trades=calls.filter(c=>c.url.endsWith('/trade'));
+  if(type==='ACCOUNT_TRADE_MODE_REAL'||enabled==='false')assert.equal(trades.length,0);
+  else {assert.equal(trades.length,1);const body=JSON.parse(trades[0].options.body);assert.equal(body.stopLoss,1900);assert.equal(body.takeProfit,2100);assert.equal(body.symbol,'XAUUSDm');assert.ok(trades[0].url.startsWith('https://mt-client-api-v1.new-york.agiliumtrade.ai/'));}
+ }
+});

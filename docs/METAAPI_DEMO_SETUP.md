@@ -1,6 +1,6 @@
 # MetaApi setup for EliteTrade
 
-The hosted adapter supports separate MT5 demo and real account connections for every member. It provides verified account data; automated trading is not implemented.
+The hosted adapter supports separate MT5 demo and real account connections for every member. It provides verified account data. Optional demo-only strategy execution is documented in [DEMO_ENGINE.md](DEMO_ENGINE.md); real-account trading remains disabled.
 
 ## Configure once in Vercel
 
@@ -35,7 +35,7 @@ MetaApi may return HTTP 202 before allocating an account ID. Retry approval for 
 
 Tests simulate provider responses for separate accounts, demo/real identity, retries, delayed deployment, ownership mismatches, deletion and trading rejection. Live provider validation requires the token and account credentials; no paid connections were created during development. MT4, contest and unknown account types are rejected.
 
-Bot controls remain disabled on the page and rejected by the backend. Connecting a real account does not implement or start a strategy.
+Bot controls remain disabled until the persistent demo worker reports a recent heartbeat. The optional worker implements the existing Trend, Scalping and Breakout presets for verified trade-enabled demo accounts only. See [DEMO_ENGINE.md](DEMO_ENGINE.md). Real accounts cannot be armed.
 
 ## Official references
 

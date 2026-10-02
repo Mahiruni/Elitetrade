@@ -4,6 +4,8 @@ import { resolve, join } from 'node:path';
 import { digest, token, cookies } from './security.mjs';
 import { createGateway, createTelegram } from './services.mjs';
 import { createSupabaseData } from './supabase-data.mjs';
+import { engineReady } from './demo-engine.mjs';
+import { STRATEGIES,evaluateStrategy,planTrade } from './trading-strategies.mjs';
 
 const now = () => Date.now();
 class HttpError extends Error { constructor(status, message) { super(message); this.status = status; } }
@@ -51,7 +53,7 @@ export function createSupabaseApplication(options = {}) {
   const origin = new URL(env.APP_ORIGIN || (env.VERCEL_URL ? `https://${env.VERCEL_URL}` : 'http://localhost:3000')).origin;
   const supabaseUrl = String(env.SUPABASE_URL || 'https://cgpvhayfwnpipktyltho.supabase.co').replace(/\/$/, '');
   const supabaseKey = env.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_SNPQ5m9R3hv3Y7Uw-icxEQ_WSng7M8W';
-  const db = createSupabaseData({ url:supabaseUrl, key:supabaseKey });
+  const db = options.db || createSupabaseData({ url:supabaseUrl, key:supabaseKey });
 
 
   const gateway = options.gateway === undefined ? createGateway(env) : options.gateway;
@@ -146,7 +148,7 @@ export function createSupabaseApplication(options = {}) {
     if (error instanceof HttpError) return error;
     const message = String(error?.message || '').toLowerCase();
     if (error?.status === 401 || error?.status === 403) return new HttpError(error.status, error.message);
-    if (/duplicate|already|unique|reviewed|awaiting|not open|cannot remove|must stop/.test(message)) return new HttpError(409, error.message);
+    if (/duplicate|already|unique|reviewed|awaiting|not open|cannot remove|must stop|in progress|reconciliation/.test(message)) return new HttpError(409, error.message);
     if (/not found/.test(message)) return new HttpError(404, error.message);
     if (/invalid|choose|activate|unavailable|required|sign in/.test(message)) return new HttpError(400, error.message);
     return error;
@@ -166,7 +168,8 @@ export function createSupabaseApplication(options = {}) {
         emailConfigured:true,
         gatewayConfigured:!!gateway,
         connectionMode:gateway?.mode || (gateway ? 'execution' : 'unconfigured'),
-        tradingEnabled:!!gateway && gateway.tradingEnabled !== false,
+        tradingEnabled:!!gateway && (gateway.mode === 'account-data' ? await engineReady(db) : gateway.tradingEnabled !== false),
+        strategyPresets:STRATEGIES,
         telegramConfigured:!!telegram,
         demoMode:false,
         supabaseUrl,
@@ -368,6 +371,7 @@ export function createSupabaseApplication(options = {}) {
       const running = await db.one('elitetrade_bots',
         `account_id=eq.${q(account.id)}&user_id=eq.${q(ctx.user.id)}&status=neq.stopped&select=id`, ctx.token);
       if (running) fail(409, 'Confirm that every bot is stopped before removing this account.');
+      if(gateway?.mode === 'account-data') await db.rpc('elitetrade_engine_forget_account',{p_account_id:account.id},ctx.token);
       if (account.gateway_id) {
         if (!gateway) fail(503, 'Reconnect the gateway before removing this account.');
         const ack = await gateway.disconnect(account.gateway_id);
@@ -381,7 +385,17 @@ export function createSupabaseApplication(options = {}) {
     if (path === '/api/bots' && method === 'GET') {
       const ctx = await needUser(req);
       const bots = await db.query('elitetrade_bots', `user_id=eq.${q(ctx.user.id)}&select=*&order=created_at.asc`, ctx.token);
+      let engineRuns=[];
+      if(gateway?.mode === 'account-data') engineRuns=await db.query('elitetrade_engine_runs',`user_id=eq.${q(ctx.user.id)}&select=bot_id,enabled,updated_at,message`,ctx.token).catch(()=>[]);
+      const ready=gateway?.mode === 'account-data' ? await engineReady(db,ctx.token) : false;
       for (const bot of bots) {
+        if(gateway?.mode === 'account-data') {
+          const run=engineRuns.find(r=>r.bot_id===bot.id);
+          bot.engineMessage=run?.message || 'Configure an account, preview the strategy, then start demo monitoring.';
+          bot.engineUpdatedAt=run?.updated_at || null;
+          if(run?.enabled)bot.status=ready?'running':'unknown';
+          continue;
+        }
         if (bot.status === 'stopped' || !bot.account_id || !gateway?.botState) continue;
         const account = await db.one('elitetrade_accounts', `id=eq.${q(bot.account_id)}&user_id=eq.${q(ctx.user.id)}&select=gateway_id`, ctx.token);
         try {
@@ -391,7 +405,7 @@ export function createSupabaseApplication(options = {}) {
           bot.status = status.running ? 'running' : 'stopped';
         } catch { bot.status = 'unknown'; }
       }
-      return json(res, { bots });
+      return json(res, { bots, ...(gateway?.mode === 'account-data' ? {engineReady:ready} : {}) });
     }
 
     const botSave = path.match(/^\/api\/bots\/([^/]+)$/);
@@ -408,8 +422,8 @@ export function createSupabaseApplication(options = {}) {
       }
       const name = string(body.name, 'Bot name', 2, 64);
       const strategy = choice(body.strategy, ['trend','scalping','breakout'], 'strategy');
-      const symbol = string(body.symbol, 'Symbol', 3, 30).toUpperCase();
-      if (!/^[A-Z0-9._-]+$/.test(symbol)) fail(400, 'Enter a valid broker symbol.');
+      const symbol = string(body.symbol, 'Symbol', 3, 30);
+      if (!/^[A-Za-z0-9._-]+$/.test(symbol)) fail(400, 'Enter a valid broker symbol.');
       const patch = {
         account_id:accountId,
         name,
@@ -427,6 +441,23 @@ export function createSupabaseApplication(options = {}) {
       return json(res, { ok:true });
     }
 
+    const botPreview=path.match(/^\/api\/bots\/([^/]+)\/preview$/);
+    if(botPreview && method==='POST') {
+      const ctx=await activeUser(req);
+      const bot=await db.one('elitetrade_bots',`id=eq.${q(botPreview[1])}&user_id=eq.${q(ctx.user.id)}&select=*`,ctx.token);
+      if(!bot)fail(404,'Record not found.');
+      if(!gateway?.market)fail(503,'Configure MetaApi before previewing broker data.');
+      const account=await db.one('elitetrade_accounts',`id=eq.${q(bot.account_id)}&user_id=eq.${q(ctx.user.id)}&select=gateway_id,status`,ctx.token);
+      if(!account?.gateway_id||account.status!=='connected')fail(409,'Confirm the MT5 connection first.');
+      const preset=STRATEGIES[bot.strategy];
+      const market=await gateway.market(account.gateway_id,bot.symbol,preset.timeframe);
+      const signal=evaluateStrategy(bot.strategy,market.candles);
+      let order=null,riskMessage='No current entry signal.';
+      if(signal.side)try {order=planTrade({bot,...market,side:signal.side});riskMessage='Preliminary risk check passed. Worker rechecks risk, exposure and margin before execution.';}
+      catch(error){riskMessage=error.message;}
+      return json(res,{signal,order,riskMessage,accountType:market.info.type==='ACCOUNT_TRADE_MODE_DEMO'?'demo':'real',message:'Preview only. No order sent.'});
+    }
+
     const botControl = path.match(/^\/api\/bots\/([^/]+)\/control$/);
     if (botControl && method === 'POST') {
       const ctx = body.running ? await activeUser(req) : await needUser(req);
@@ -434,7 +465,20 @@ export function createSupabaseApplication(options = {}) {
       const bot = await db.one('elitetrade_bots', `id=eq.${q(botControl[1])}&user_id=eq.${q(ctx.user.id)}&select=*`, ctx.token);
       if (!bot) fail(404, 'Record not found.');
       if (!gateway) fail(503, 'Live trading requires a configured MT5 gateway.');
-      if (gateway.tradingEnabled === false) fail(503, 'Automatic trading is not implemented. No order or bot command was sent.');
+      if (gateway.mode === 'account-data') {
+        if(body.running) {
+          if(!await engineReady(db,ctx.token))fail(503,'Demo worker is offline. Start the persistent worker before arming a bot.');
+          const selected=await db.one('elitetrade_accounts',`id=eq.${q(bot.account_id)}&user_id=eq.${q(ctx.user.id)}&select=gateway_id,status`,ctx.token);
+          if(!selected?.gateway_id||selected.status!=='connected')fail(409,'Confirm the MT5 connection first.');
+          const market=await gateway.market(selected.gateway_id,bot.symbol,STRATEGIES[bot.strategy].timeframe);
+          if(market.info.type!=='ACCOUNT_TRADE_MODE_DEMO'||market.info.tradeAllowed!==true||market.info.investorMode!==false)fail(409,'Starting requires a trade-enabled demo account. Real-account execution remains disabled.');
+          evaluateStrategy(bot.strategy,market.candles);
+        }
+        await db.rpc('elitetrade_engine_control',{p_bot_id:bot.id,p_running:body.running},ctx.token);
+        await audit(ctx,body.running?'demo.arm':'demo.stop',bot.id);
+        return json(res,{ok:true,message:body.running?'Demo monitoring armed. Orders require a qualifying signal and worker risk checks.':'New entries stopped. Existing broker positions remain protected by their SL/TP.'});
+      }
+      if (gateway.tradingEnabled === false) fail(503, 'Automatic trading is unavailable.');
       if (!bot.account_id) fail(409, 'Select an MT5 account in the bot configuration first.');
       const account = await db.one('elitetrade_accounts',
         `id=eq.${q(bot.account_id)}&user_id=eq.${q(ctx.user.id)}&select=id,gateway_id,status`, ctx.token);

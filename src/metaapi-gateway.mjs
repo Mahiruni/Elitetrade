@@ -81,6 +81,38 @@ export function createMetaApiGateway(env, fetchImpl = fetch) {
       const info = await figures(id);
       return {connected:true,currency:info.currency,balance:info.balance,equity:info.equity,accountType:info.type === 'ACCOUNT_TRADE_MODE_REAL' ? 'real' : 'demo',history:[]};
     },
+    async market(id,symbol,timeframe) {
+      if (!/^[A-Za-z0-9._-]{3,30}$/.test(symbol) || !['5m','15m'].includes(timeframe)) throw error('Invalid strategy market request.',400);
+      const account=await metadata(id),info=await figures(id,account);
+      const {remoteId}=parse(id),base=`https://mt-client-api-v1.${account.region}.agiliumtrade.ai`,path=`/users/current/accounts/${remoteId}`;
+      const [quote,spec,positions,orders,candles]=await Promise.all([
+        call(base,`${path}/symbols/${encodeURIComponent(symbol)}/current-price`),
+        call(base,`${path}/symbols/${encodeURIComponent(symbol)}/specification`),
+        call(base,`${path}/positions?refreshTerminalState=true`),
+        call(base,`${path}/orders?refreshTerminalState=true`),
+        call(`https://mt-market-data-client-api-v1.${account.region}.agiliumtrade.ai`,`${path}/historical-market-data/symbols/${encodeURIComponent(symbol)}/timeframes/${timeframe}/candles?limit=120`)
+      ]);
+      if(!Array.isArray(positions)||!Array.isArray(orders))throw error('Invalid broker positions or orders.');
+      return {info,quote,spec,positions,orders,candles};
+    },
+    async margin(id,plan) {
+      const a=await metadata(id);
+      return call(`https://mt-client-api-v1.${a.region}.agiliumtrade.ai`,`/users/current/accounts/${parse(id).remoteId}/calculate-margin`,'POST',{
+        symbol:plan.symbol,type:plan.actionType,volume:plan.volume,openPrice:plan.openPrice
+      });
+    },
+    async demoOrder(id,plan,receiptId) {
+      if(env.DEMO_EXECUTION_ENABLED!=='true')throw error('Demo execution is disabled on this worker.');
+      const a=await metadata(id),info=await figures(id,a);
+      if(info.type!=='ACCOUNT_TRADE_MODE_DEMO'||info.tradeAllowed!==true||info.investorMode!==false)throw error('Only trade-enabled demo accounts can receive engine orders.',403);
+      if(!['ORDER_TYPE_BUY','ORDER_TYPE_SELL'].includes(plan.actionType)||!Number.isFinite(plan.volume)||plan.volume<=0||!Number.isFinite(plan.stopLoss)||plan.stopLoss<=0||!Number.isFinite(plan.takeProfit)||plan.takeProfit<=0||!idPattern.test(receiptId||''))throw error('Invalid protected demo order.',400);
+      const result=await call(`https://mt-client-api-v1.${a.region}.agiliumtrade.ai`,`/users/current/accounts/${parse(id).remoteId}/trade`,'POST',{
+        actionType:plan.actionType,symbol:plan.symbol,volume:plan.volume,stopLoss:plan.stopLoss,takeProfit:plan.takeProfit,
+        comment:'ET',clientId:`ET_D_${receiptId.replaceAll('-','').slice(0,16)}`
+      });
+      if(result?.numericCode!==10009||result?.stringCode!=='TRADE_RETCODE_DONE'||!(result.orderId||result.positionId))throw error('Demo order outcome requires reconciliation in MetaApi.');
+      return {orderId:result.orderId||null,positionId:result.positionId||null,numericCode:result.numericCode,stringCode:result.stringCode};
+    },
     async botState() { throw error('No strategy execution state is available.'); },
     async control() { throw error('Automatic trading is not implemented. No order or bot command was sent.'); },
     async disconnect(id) {

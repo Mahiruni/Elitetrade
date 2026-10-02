@@ -9,6 +9,7 @@
     "dev": "node --env-file-if-exists=.env --watch src/server.mjs",
     "test": "node --test test/*.test.mjs",
     "check": "node scripts/check.mjs",
+    "worker:demo": "node --env-file-if-exists=.env scripts/demo-worker.mjs",
     "admin": "node --env-file-if-exists=.env scripts/admin.mjs",
     "backup": "node --env-file-if-exists=.env scripts/backup.mjs"
   },
