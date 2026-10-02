@@ -26,22 +26,30 @@ function requestOperation(path, method) {
 
 async function providerFailure(response, path, method) {
   let data;
-  try { data = await response.json(); } catch { /* Provider errors can also be non-JSON. */ }
+  try {
+    const raw = await response.text();
+    try { data = JSON.parse(raw); } catch { data = {message:raw}; }
+  } catch { /* A response body can be unavailable after a transport failure. */ }
   const candidate = typeof data?.details === 'string' ? data.details : data?.details?.code;
   const code = providerErrors.has(candidate) ? candidate : 'UNKNOWN';
   const operation = requestOperation(path, method);
+  const balanceBlocked = code === 'UNKNOWN' && ['create-account','deploy-account'].includes(operation) && [400,402,403].includes(response.status)
+    && typeof data?.message === 'string' && /\binsufficient\s+balance\b/i.test(data.message);
   // Allowlisted codes only: never expose provider messages, details, URLs or credentials.
   console.warn(JSON.stringify({event:'metaapi.response',operation,method,status:response.status,code,
-    name:providerErrorNames.has(data?.error) ? data.error : 'UNKNOWN'}));
+    name:providerErrorNames.has(data?.error) ? data.error : 'UNKNOWN',
+    ...(balanceBlocked ? {reason:'insufficient-provider-balance'} : {})}));
   let message;
-  if (response.status === 401) message = 'MetaApi rejected the API token. Replace METAAPI_TOKEN with a valid API token in Vercel Production, then redeploy.';
-  else if (response.status === 403) message = 'MetaApi access was denied. Check the server-side token permissions.';
+  if (balanceBlocked) message = 'MetaApi hosting balance is insufficient. The website administrator must add funds in MetaApi Billing, then retry approval.';
+  else if (response.status === 401) message = 'MetaApi rejected the API token. Replace METAAPI_TOKEN with a valid API token in Vercel Production, then redeploy.';
+  else if (response.status === 403) message = 'MetaApi access was denied. Check the server-side token permissions and provider account restrictions in the MetaApi dashboard.';
   else if (response.status === 429) message = 'MetaApi rate limit reached. Wait before retrying.';
   else if (response.status === 400) {
     if (operation === 'create-account' && providerErrors.has(code)) message = `${providerErrors.get(code)} (${code})`;
     else message = `MetaApi rejected the ${operation.replaceAll('-',' ')} request (HTTP 400). Check the MetaApi dashboard; the server recorded a safe diagnostic. This response does not confirm that the password is wrong.`;
   } else message = 'MetaApi could not complete the account request. Check the provider dashboard.';
-  return Object.assign(error(message),{providerCode:code,providerStatus:response.status,providerOperation:operation});
+  return Object.assign(error(message),{providerCode:code,providerStatus:response.status,providerOperation:operation,
+    ...(balanceBlocked ? {providerReason:'insufficient-provider-balance'} : {})});
 }
 
 function normalizeToken(value) {

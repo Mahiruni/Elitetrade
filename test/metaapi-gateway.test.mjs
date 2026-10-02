@@ -149,6 +149,74 @@ test('delayed connection persists a pending binding and deploys without duplicat
   const a=[...f.accounts.values()][0];a.connectionStatus='CONNECTED';
   assert.equal((await f.gateway.connect(supplied)).connected,true);assert.equal(f.creations,1);
 });
+test('insufficient MetaApi hosting balance blocks deployment, keeps the binding and resumes after funding',async()=>{
+ for(const status of [400,402,403]) for(const json of [true,false]) {
+  const remote={...supplied,_id:'remote-1',name:'EliteTrade local-1',metadata:{elitetradeAccountId:'local-1'},region:'new-york',state:'UNDEPLOYED',connectionStatus:'DISCONNECTED'};
+  const calls=[],logs=[];let funded=false;
+  const raw=`Insufficient balance. Private provider diagnostic ${supplied.password} ${env.METAAPI_TOKEN}`;
+  const gateway=createMetaApiGateway(env,async(url,options)=>{
+   const u=new URL(url);calls.push({path:u.pathname,method:options.method});
+   if(u.searchParams.has('query'))return Response.json([remote]);
+   if(u.pathname.endsWith('/deploy')){
+    if(!funded)return json?Response.json({error:'ForbiddenError',message:raw,details:{password:supplied.password}},{status}):new Response(raw,{status});
+    remote.state='DEPLOYED';remote.connectionStatus='CONNECTED';return new Response(null,{status:204});
+   }
+   if(u.pathname.endsWith('/account-information'))return Response.json({platform:'mt5',type:'ACCOUNT_TRADE_MODE_DEMO',login:12345,server:supplied.server,balance:100,equity:100,currency:'USD'});
+   return Response.json(remote);
+  });
+  const logger=test.mock.method(console,'warn',line=>logs.push(JSON.parse(line)));
+  try {
+   await assert.rejects(gateway.connect(supplied),failure=>{
+    assert.match(failure.message,/MetaApi hosting balance is insufficient/);
+    assert.match(failure.message,/website administrator/);
+    assert.equal(failure.providerReason,'insufficient-provider-balance');
+    assert.equal(failure.providerStatus,status);assert.equal(failure.providerOperation,'deploy-account');
+    assert.ok(!failure.message.includes(supplied.password));assert.ok(!failure.message.includes('Private provider diagnostic'));return true;
+   });
+   assert.equal(calls.filter(c=>c.path.endsWith('/deploy')).length,1);
+   assert.deepEqual(logs,[{event:'metaapi.response',operation:'deploy-account',method:'POST',status,code:'UNKNOWN',name:json?'ForbiddenError':'UNKNOWN',reason:'insufficient-provider-balance'}]);
+   funded=true;
+   const pending=await gateway.connect(supplied);
+   assert.equal(pending.accountId,'metaapi:local-1:remote-1');assert.equal(pending.pending,true);
+   const connected=await gateway.connect(supplied);assert.equal(connected.connected,true);assert.equal(connected.accountId,pending.accountId);
+   assert.equal(calls.filter(c=>c.method==='POST').length,2);
+   assert.ok(calls.filter(c=>c.method==='POST').every(c=>c.path.endsWith('/deploy')));
+  } finally {logger.mock.restore();}
+ }
+});
+test('explicit hosting balance errors on creation are classified without retrying the write',async()=>{
+ const logs=[],calls=[];
+ const gateway=createMetaApiGateway(env,async(url,options)=>{
+  calls.push(options.method);
+  return options.method==='GET'?Response.json([]):Response.json({error:'ForbiddenError',message:'INSUFFICIENT BALANCE',details:{token:env.METAAPI_TOKEN}},{status:403});
+ });
+ const logger=test.mock.method(console,'warn',line=>logs.push(JSON.parse(line)));
+ try {
+  await assert.rejects(gateway.connect(supplied),/MetaApi hosting balance is insufficient/);
+  assert.deepEqual(calls,['GET','POST']);assert.equal(logs[0].reason,'insufficient-provider-balance');
+ } finally {logger.mock.restore();}
+});
+test('unknown authorization errors and unrelated balance errors do not request MetaApi funding',async()=>{
+ const logger=test.mock.method(console,'warn',()=>{});
+ try {
+  for(const [status,message,details] of [[403,'Missing deployment permission',null],[401,'Insufficient balance',null],[400,'Insufficient balance','E_AUTH']]) {
+   const gateway=createMetaApiGateway(env,async(url,options)=>options.method==='GET'?Response.json([]):Response.json({error:'ForbiddenError',message,details},{status}));
+   await assert.rejects(gateway.connect(supplied),failure=>{
+    assert.equal(failure.providerReason,undefined);assert.ok(!failure.message.includes('MetaApi hosting balance'));return true;
+   });
+  }
+  const gateway=createMetaApiGateway(env,async()=>Response.json({error:'ForbiddenError',message:'Insufficient balance'},{status:403}));
+  await assert.rejects(gateway.connect(supplied),failure=>{assert.equal(failure.providerReason,undefined);assert.match(failure.message,/access was denied/);return true;});
+  const trade=createMetaApiGateway({...env,DEMO_EXECUTION_ENABLED:'true'},async(url)=>{
+   if(String(url).endsWith('/trade'))return Response.json({error:'ForbiddenError',message:'Insufficient balance'},{status:403});
+   if(String(url).includes('/account-information'))return Response.json({platform:'mt5',type:'ACCOUNT_TRADE_MODE_DEMO',login:12345,server:supplied.server,balance:100,equity:100,currency:'USD',tradeAllowed:true,investorMode:false});
+   return Response.json({_id:'remote-1',name:'EliteTrade local-1',metadata:{elitetradeAccountId:'local-1'},login:supplied.login,server:supplied.server,region:'new-york',state:'DEPLOYED',connectionStatus:'CONNECTED'});
+  });
+  await assert.rejects(trade.demoOrder('metaapi:local-1:remote-1',{actionType:'ORDER_TYPE_BUY',symbol:'XAUUSD',volume:.01,stopLoss:1900,takeProfit:2100},'receipt-id'),failure=>{
+   assert.equal(failure.providerReason,undefined);assert.match(failure.message,/access was denied/);return true;
+  });
+ } finally {logger.mock.restore();}
+});
 test('rejects wrong ownership, identity, platform, contest and incomplete balances',async()=>{
   for(const setup of [{metadata:{metadata:{elitetradeAccountId:'another'}}},{metadata:{login:'999'}},{info:{platform:'mt4'}},{info:{type:'ACCOUNT_TRADE_MODE_CONTEST'}},{info:{balance:'100'}},{status:401}]) await assert.rejects(fixture(setup).gateway.connect(supplied));
   await assert.rejects(fixture().gateway.snapshot('https://evil.test'));
