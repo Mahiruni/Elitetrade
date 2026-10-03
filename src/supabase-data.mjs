@@ -1,4 +1,4 @@
-export function createSupabaseData({ url, key }) {
+export function createSupabaseData({ url, key, getDeviceToken = () => '' }) {
   const base = String(url || '').replace(/\/$/, '');
   if (!base || !key) throw new Error('Supabase configuration is missing.');
 
@@ -12,7 +12,7 @@ export function createSupabaseData({ url, key }) {
   async function request(path, { method = 'GET', token = '', body, extraHeaders = {} } = {}) {
     const response = await fetch(base + path, {
       method,
-      headers: headers(token, extraHeaders),
+      headers: headers(token, { ...(path.startsWith('/rest/v1/') && getDeviceToken() ? {'X-Elite-Device':getDeviceToken()} : {}), ...extraHeaders }),
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(15000)
     });

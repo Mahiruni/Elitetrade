@@ -19,8 +19,8 @@ const google = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
 const themeToggle = () => `<button type="button" class="auth-theme-toggle" data-auth-action="theme" aria-label="Switch to ${document.body.classList.contains('light') ? 'dark' : 'light'} theme">${svg(document.body.classList.contains('light') ? 'moon' : 'sun')}</button>`;
 const field = (name,label,type,attributes='') => `<div class="auth-field" data-auth-field="${name}"><label for="a-${name}">${label}</label>${type === 'password' ? '<div class="auth-password-control">' : ''}<input id="a-${name}" name="${name}" type="${type}" aria-describedby="a-${name}-error${name==='password' ? ' a-password-hint' : ''}" ${attributes}>${type === 'password' ? `<button type="button" class="auth-show-password" data-auth-action="show" data-field="${name}" aria-label="Show ${label.toLowerCase()}" aria-pressed="false">${svg('eye')}</button></div>` : ''}<p class="auth-field-error" id="a-${name}-error" aria-live="polite" aria-atomic="true"></p></div>`;
 const geometry = () => `<svg class="auth-geometry" viewBox="0 0 560 260" aria-hidden="true"><g class="drift">${Array.from({length:13},(_,i) => `<path d="M${-55+i*10} ${155+i*6} C ${92+i*6} ${-68+i*18},${385-i*4} ${332-i*11},${610-i*3} ${22+i*10}"/>`).join('')}${Array.from({length:9},(_,i) => `<path d="M${45+i*50} -10 C ${110+i*35} 85,${280+i*15} 160,${165+i*48} 290"/>`).join('')}<path class="axis" d="M-20 200C120-15 310 296 580 86"/></g></svg>`;
-const titles = {login:'Welcome back.',signup:'Make your next move.',forgot:'A fresh start.',reset:'A new password.',resend:'Verify your email.',mfa:'One last check.',enroll:'Your device. Your key.'};
-const descriptions = {login:'Pick up where you left off.',signup:'A clearer trading day starts here.',forgot:'We’ll send you a secure recovery link.',reset:'Choose a password you haven’t used before.',resend:'Request a fresh confirmation link.',mfa:'Enter the code from your authenticator.',enroll:'Save a passkey for faster, safer sign-ins.'};
+const titles = {login:'Welcome back.',signup:'Make your next move.',forgot:'A fresh start.',emailhelp:'Find your sign-in email.',device:'Confirm this browser.',reset:'A new password.',resend:'Verify your email.',mfa:'One last check.',enroll:'Your device. Your key.'};
+const descriptions = {login:'Pick up where you left off.',signup:'A clearer trading day starts here.',forgot:'We’ll send you a secure recovery link.',emailhelp:'Get help recovering access to your account.',device:'One email check for an unfamiliar browser or device.',reset:'Choose a password you haven’t used before.',resend:'Request a fresh confirmation link.',mfa:'Enter the code from your authenticator.',enroll:'Save a passkey for faster, safer sign-ins.'};
 
 function decode64(value) {
  const raw=atob(value.replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(raw,c=>c.charCodeAt(0));
@@ -44,12 +44,12 @@ function serializeCredential(credential) {
  return result;
 }
 
-export function createAuthExperience({root,request,onSession,onMfa,onReset,getSession,legal,onTheme,onDemo,onCancelMfa,returnTo}) {
+export function createAuthExperience({root,request,onSession,onMfa,onReset,onSendDevice,onVerifyDevice,onCancelDevice,getSession,legal,onTheme,onDemo,onCancelMfa,returnTo}) {
  let screen=null,mode='login',method='password',busy=false,confirmed=false,previousPath='',cooldownUntil=0,cooldownTimer=null,abort=null;
  let providers=null,config={},lastEmail='',returnFocus=null,controller=null;
  const mobile=window.matchMedia('(max-width:760px)');
  const $=selector=>screen?.querySelector(selector);
- const modePath=path=>({'/signup':'signup','/forgot-password':'forgot','/reset-password':'reset','/resend-confirmation':'resend','/passkey-setup':'enroll'})[path] || 'login';
+ const modePath=path=>({'/signup':'signup','/forgot-email':'emailhelp','/verify-device':'device','/forgot-password':'forgot','/reset-password':'reset','/resend-confirmation':'resend','/passkey-setup':'enroll'})[path] || 'login';
  const setError=(input,message)=>{
   input.setAttribute('aria-invalid',String(Boolean(message)));
   const box=$(`#a-${input.name}-error`);
@@ -109,7 +109,10 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,getSe
   $('.auth-methods').hidden=!normal;
   $('.auth-password-path').hidden=!normal;
   $('.auth-secondary-zone').hidden=!normal;
-  $('.auth-fields').hidden=mode==='enroll';
+  $('.auth-fields').hidden=mode==='enroll' || mode==='emailhelp';
+  $('.auth-email-help').hidden=mode!=='emailhelp';
+  $('.auth-device-controls').hidden=mode!=='device';
+  $('.auth-device-copy').textContent=config.deviceEmail ? `Enter the six-digit code sent to ${config.deviceEmail}, or open the verification link in this browser. We’ll remember this browser for 90 days.` : 'Enter the code from your verification email, or open its link in this browser.';
   $('.auth-mode-tab[data-mode="login"]').setAttribute('aria-selected',String(mode==='login'));
   $('.auth-mode-tab[data-mode="login"]').tabIndex=mode==='login' ? 0 : -1;
   $('.auth-mode-tab[data-mode="signup"]').setAttribute('aria-selected',String(mode==='signup'));
@@ -117,9 +120,10 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,getSe
   screen.querySelectorAll('.auth-method').forEach(button=>button.setAttribute('aria-pressed',String(method===button.dataset.method)));
   $('.auth-password-fallback').textContent=method==='password' || method==='sso' ? 'Use an email link instead' : 'Use a password instead';
   showField('name',mode==='signup');
-  showField('email',!['reset','mfa','enroll'].includes(mode) && !(mode==='login' && method==='passkey'));
+  showField('email',!['reset','mfa','enroll','device','emailhelp'].includes(mode) && !(mode==='login' && method==='passkey'));
   showField('password',mode==='reset' || normal && method==='password');
-  showField('confirm',mode==='reset');showField('code',mode==='mfa');
+  showField('confirm',mode==='reset');showField('code',mode==='mfa' || mode==='device');
+  $('label[for="a-code"]').textContent=mode==='device' ? 'Email verification code' : 'Authenticator code';
   $('#a-password').autocomplete=mode==='login' ? 'current-password' : 'new-password';
   $('.auth-password-hint').hidden=!(mode==='signup' && method==='password');
   $('.auth-forgot-row').hidden=!(mode==='login' && method==='password');
@@ -131,7 +135,8 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,getSe
   $('.auth-skip-enroll').hidden=mode!=='enroll';
   $('.auth-legal').innerHTML=mode==='signup' ? 'By continuing, you agree to our <a href="/terms" data-legal="/terms">Terms</a>, <a href="/privacy" data-legal="/privacy">Privacy</a> & <a href="/risk-disclosure" data-legal="/risk-disclosure">Risk Disclosure</a>.' : 'Protected account access. <a href="/privacy" data-legal="/privacy">Privacy policy</a>';
   const button=$('.auth-primary');
-  button.dataset.label=({forgot:'Send recovery link',reset:'Save password',resend:'Send confirmation link',mfa:'Verify and continue',enroll:'Create passkey'})[mode] || 'Continue';
+  button.hidden=mode==='emailhelp';
+  button.dataset.label=({forgot:'Send recovery link',device:'Verify and continue',reset:'Save password',resend:'Send confirmation link',mfa:'Verify and continue',enroll:'Create passkey'})[mode] || 'Continue';
   if(!busy)button.textContent=button.dataset.label;
   $('.auth-success-panel').hidden=!confirmed;$('form[data-auth-form]').hidden=confirmed;
   if(animate){$('.auth-fields').classList.remove('auth-reveal');void $('.auth-fields').offsetWidth;$('.auth-fields').classList.add('auth-reveal');}
@@ -145,7 +150,7 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,getSe
   mode=next;confirmed=false;message('');
   if(!['login','signup'].includes(mode))method='email';
   else if(!wasNormal)method='password';
-  if(url){const path=({signup:'/signup',forgot:'/forgot-password',reset:'/reset-password',resend:'/resend-confirmation',enroll:'/passkey-setup'})[mode] || '/login';history.pushState(null,'',path);previousPath=path;}
+  if(url){const path=({signup:'/signup',emailhelp:'/forgot-email',device:'/verify-device',forgot:'/forgot-password',reset:'/reset-password',resend:'/resend-confirmation',enroll:'/passkey-setup'})[mode] || '/login';history.pushState(null,'',path);previousPath=path;}
   for(const input of $('form[data-auth-form]').querySelectorAll('input'))setError(input,'');
   updateUI({focusField});announce(`${titles[mode]} ${descriptions[mode]}`);
  }
@@ -191,7 +196,7 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,getSe
   if(/invalid.login|invalid.credentials|not found|user.*exist|already.*registered|email.not.confirmed/i.test(error.message+' '+error.code))return mode==='signup' ? 'We couldn’t continue. Check your details or try signing in.' : 'We couldn’t sign you in. Check your details or reset your password.';
   if(/sso_provider|sso.*domain/i.test(error.message+' '+error.code))return 'Work sign-in isn’t available for this domain. Use email.';
   if(/failed to fetch|network|load failed/i.test(error.message))return 'Connection lost. Check your internet and try again.';
-  if(/password|recovery link|request expired|two-factor/i.test(error.message))return error.message;
+  if(/password|recovery link|request expired|two-factor|verification|verify this browser/i.test(error.message))return error.message;
   if(error.name==='TimeoutError')return 'That request took too long. Please try again.';
   return 'We couldn’t complete that request. Please try again.';
  }
@@ -238,6 +243,7 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,getSe
     cooldownUntil=Date.now()+60000;showConfirmation('Confirmation requested.','If this address is awaiting confirmation, a fresh link is on its way to {email}.',email);return;
    }
    if(current==='reset'){if(stillHere())await onReset(password);return;}
+   if(current==='device'){if(stillHere())await onVerifyDevice($('#a-code').value);return;}
    if(current==='mfa'){if(stillHere())await onMfa($('#a-code').value);return;}
    if(current==='enroll'){await passkey(true);if(stillHere())await onSession(null,'/subscription');return;}
    if(currentMethod==='sso'){
@@ -297,7 +303,14 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,getSe
    if(action==='show'){const input=$(`#a-${button.dataset.field}`),visible=input.type==='password';input.type=visible ? 'text' : 'password';button.setAttribute('aria-label',`${visible ? 'Hide' : 'Show'} ${button.dataset.field==='confirm' ? 'confirm password' : 'password'}`);button.setAttribute('aria-pressed',String(visible));button.innerHTML=svg(visible ? 'eyeOff' : 'eye');}
    if(action==='fallback')setMethod(method==='password' || method==='sso' ? 'email' : 'password');
    if(action==='forgot')setMode('forgot',{focusField:true});
-   if(action==='back'){if(mode==='mfa')onCancelMfa?.();setMode('login');$('#auth-title').focus({preventScroll:true});}
+   if(action==='forgot-email')setMode('emailhelp');
+   if(action==='device-send'){
+    setBusy(true,'Requesting verification email');message('');
+    try{await onSendDevice();$('.auth-device-status').textContent='Verification email requested. Check your inbox and spam folder.';announce('Verification email requested.');}
+    catch(error){message(errorCopy(error));}
+    finally{if(screen?.isConnected)setBusy(false);}
+   }
+   if(action==='back'){if(mode==='mfa')onCancelMfa?.();if(mode==='device')onCancelDevice?.();setMode('login');$('#auth-title').focus({preventScroll:true});}
    if(action==='social')await social(button.dataset.provider,button);
    if(action==='close-sheet')$('.auth-sheet').close();
    if(action==='change-email'){confirmed=false;updateUI({focusField:true});}
@@ -314,8 +327,8 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,getSe
   $('.auth-sheet').addEventListener('close',()=>returnFocus?.isConnected && returnFocus.focus({preventScroll:true}),{signal});
  }
  return {
-  mount({path,wordmark,config:nextConfig,mfa=false}) {
-   config=nextConfig;
+  mount({path,wordmark,config:nextConfig,mfa=false,deviceEmail=''}) {
+   config={...nextConfig,deviceEmail};
    const next=mfa && path==='/login' ? 'mfa' : modePath(path);
    if(screen?.isConnected){
     if(path!==previousPath || next!==mode){previousPath=path;setMode(next,{url:false,force:true});}
@@ -348,7 +361,9 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,getSe
         ${field('confirm','Confirm password','password','autocomplete="new-password" maxlength="128"')}
         ${field('code','Authenticator code','text','autocomplete="one-time-code" inputmode="numeric" maxlength="6"')}
        </div>
-       <div class="auth-forgot-row"><button class="auth-text-button" type="button" data-auth-action="forgot">Forgot password?</button></div>
+       <div class="auth-forgot-row"><button class="auth-text-button" type="button" data-auth-action="forgot-email">Forgot email?</button><button class="auth-text-button" type="button" data-auth-action="forgot">Forgot password?</button></div>
+       <div class="auth-email-help"><p>Check the email address used for your registration or payment. If you cannot find it or no longer have access to that inbox, contact support. We’ll verify account ownership before helping you change your sign-in email.</p><a href="/support">Get account recovery help</a></div>
+       <div class="auth-device-controls"><p class="auth-device-copy"></p><p class="auth-device-status" role="status"></p><button type="button" class="auth-text-button" data-auth-action="device-send">Send a fresh verification email</button></div>
        <div class="auth-passkey-copy"><span>${svg('fingerprint')}</span><div><strong>Your device is your key.</strong><p>Use a fingerprint, face recognition, or your device PIN.</p></div></div>
        <p class="auth-method-note"></p>
        <p class="auth-error-summary" role="alert" aria-atomic="true"></p>
@@ -366,6 +381,7 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,getSe
    if(!screen?.isConnected)return;announce('You’re signed in. Opening your workspace.');screen.classList.add('exiting');
    if(!window.matchMedia('(prefers-reduced-motion:reduce)').matches)await new Promise(resolve=>setTimeout(resolve,200));
   },
+  deviceNotice(copy){if(screen?.isConnected && mode==='device'){$('.auth-device-status').textContent=copy;announce(copy);}},
   dispose(){controller?.abort();abort?.abort();clearTimeout(cooldownTimer);screen=null;}
  };
 }

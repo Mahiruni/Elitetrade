@@ -12,7 +12,7 @@ async function fixture(t){
   if(table==='elitetrade_crypto_health')return {provider_ok:true,updated_at:new Date().toISOString(),message:'Ready.'};
   if(table==='elitetrade_settings')return {value:'14000'};
  },query:async(table,search,token)=>{calls.push([table,search,token]);return table==='elitetrade_payment_methods'?[method]:table==='elitetrade_crypto_invoices'?[invoice]:[];},rpc:async(name,args,token)=>{calls.push([name,args,token]);return name==='elitetrade_crypto_invoice'?invoice:null;}};
- const app=createSupabaseApplication({db,gateway:null,telegram:null,env:{APP_ORIGIN:'http://localhost:3000'}});
+ const app=createSupabaseApplication({db,deviceVerification:false,gateway:null,telegram:null,env:{APP_ORIGIN:'http://localhost:3000'}});
  await new Promise(r=>app.server.listen(0,'127.0.0.1',r));t.after(()=>app.close());
  const base=`http://127.0.0.1:${app.server.address().port}`;
  const call=async(path,body,token='member')=>{const r=await fetch(base+'/api'+path,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},...(body?{body:JSON.stringify(body)}:{})});return {status:r.status,data:await r.json()};};

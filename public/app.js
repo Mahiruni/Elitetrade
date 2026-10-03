@@ -22,7 +22,7 @@ const readStoredAuth = () => {
   try { return JSON.parse(localStorage.getItem(AUTH_KEY) || 'null'); }
   catch { return null; }
 };
-const state = { user: null, csrf: null, config: {}, data: {}, chat: null, adminTab: 'payments', version: 0, stream: null, auth: readStoredAuth(), pendingMfa: null };
+const state = { user: null, csrf: null, config: {}, data: {}, chat: null, adminTab: 'payments', version: 0, stream: null, auth: readStoredAuth(), pendingMfa: null, requiresDeviceVerification:false,deviceEmail:'',deviceDestination:'/mt5',deviceEmailSession:'' };
 function saveAuth(session) {
   if (!session?.access_token) return;
   const expiresAt = Number(session.expires_at || (Date.now() / 1000 + Number(session.expires_in || 3600)));
@@ -32,6 +32,9 @@ function saveAuth(session) {
 function clearAuth() {
   state.auth = null;
   state.pendingMfa = null;
+  state.requiresDeviceVerification = false;
+  state.deviceEmail = '';
+  state.deviceEmailSession = '';
   try { localStorage.removeItem(AUTH_KEY); } catch {}
 }
 function decodeJwt(jwt) {
@@ -86,6 +89,7 @@ async function api(path, method = 'GET', body) {
     }
     const error = new Error(result.error || 'Request failed. Please try again.');
     error.status = response.status;
+    error.code = result.code || '';
     throw error;
   }
   return result;
@@ -129,6 +133,8 @@ async function identity() {
   const me = await api('/me');
   state.user = me.user;
   state.requiresMfa = me.requiresMfa;
+  state.requiresDeviceVerification = !!me.requiresDeviceVerification;
+  state.deviceEmail = me.deviceEmail || me.user?.email || '';
   return me;
 }
 function connectEvents() {
@@ -307,6 +313,21 @@ function ebookAuthReturn() {
 async function finishAuth(auth, destination = '/mt5') {
   destination = ebookAuthReturn() || destination;
   if (auth?.access_token) {
+    saveAuth(auth);
+    await identity();
+    if (state.requiresDeviceVerification) {
+      state.deviceDestination = ['/ebook','/subscription'].includes(destination) ? destination : '/mt5';
+      try { sessionStorage.setItem('elite-device-return',state.deviceDestination); } catch {}
+      history.replaceState(null,'','/verify-device');
+      authPage('/verify-device');
+      const sessionId=decodeJwt(auth.access_token).session_id || auth.access_token;
+      if (state.deviceEmailSession!==sessionId) {
+        state.deviceEmailSession=sessionId;
+        try { await sendDeviceEmail(); }
+        catch(error){authUI.deviceNotice(error.message);}
+      }
+      return;
+    }
     const response = await supabaseAuth('factors','GET',undefined,auth.access_token);
     const factors = Array.isArray(response) ? response : [...(response?.totp || []), ...(response?.phone || [])];
     const factor = factors.find(item => item.status === 'verified' && (!item.factor_type || item.factor_type === 'totp'));
@@ -318,13 +339,16 @@ async function finishAuth(auth, destination = '/mt5') {
       authPage('/login');
       return;
     }
-    saveAuth(auth);
-    await identity();
     if (state.requiresMfa) throw new Error('Complete two-factor authentication to continue.');
+    if (!state.user) throw new Error('Your sign-in session has expired. Sign in again.');
   }
   await authUI.fadeOut();
-  try { sessionStorage.removeItem('elite-auth-return'); } catch {}
+  try { sessionStorage.removeItem('elite-auth-return');sessionStorage.removeItem('elite-device-return'); } catch {}
   navigate(destination,true);
+}
+async function sendDeviceEmail() {
+  const result=await api('/auth/device/email','POST',{next:state.deviceDestination});
+  authUI.deviceNotice(result.alreadyVerified ? 'This browser is already verified. Sign in to continue.' : 'Verification email requested. Check your inbox and spam folder.');
 }
 const authUI = createAuthExperience({
   root, request:supabaseAuth, onSession:finishAuth, getSession:ensureAccessToken, returnTo:ebookAuthReturn,
@@ -332,16 +356,20 @@ const authUI = createAuthExperience({
   onTheme:() => actions.theme(),
   onDemo:() => actions.demo(),
   onCancelMfa:() => { clearAuth();state.user = null;state.requiresMfa = false; },
+  onCancelDevice:() => { clearAuth();state.user=null;state.requiresMfa=false; },
+  onSendDevice:sendDeviceEmail,
+  onVerifyDevice:async code => {
+    const result=await api('/auth/device/verify','POST',{code});
+    await finishAuth(result.session,state.deviceDestination);
+  },
   onMfa:async code => {
     const pending = state.pendingMfa;
     if (!pending) throw new Error('This sign-in request expired. Start again.');
     const auth = await supabaseAuth(`factors/${encodeURIComponent(pending.factorId)}/verify`,'POST',{
       challenge_id:pending.challengeId, code
     },pending.auth.access_token);
-    saveAuth(auth);state.pendingMfa = null;state.requiresMfa = false;
-    await identity();await authUI.fadeOut();
-    try { sessionStorage.removeItem('elite-auth-return'); } catch {}
-    navigate(pending.destination || '/mt5',true);
+    state.pendingMfa = null;state.requiresMfa = false;
+    await finishAuth(auth,pending.destination || '/mt5');
   },
   onReset:async password => {
     const accessToken = new URLSearchParams(location.hash.slice(1)).get('access_token') || '';
@@ -353,7 +381,7 @@ const authUI = createAuthExperience({
 });
 function authPage(path) {
   ebookAuthReturn();
-  authUI.mount({path,wordmark,config:state.config,mfa:state.requiresMfa});
+  authUI.mount({path,wordmark,config:state.config,mfa:state.requiresMfa,deviceEmail:state.deviceEmail});
 }
 
 const activation = () => state.user.active || state.user.role === 'admin' ? '' : '<div class="notice">Activate your subscription to connect an MT5 account and start trading bots. <a href="/subscription">View subscription</a></div>';
@@ -454,13 +482,14 @@ async function render({ quiet = false } = {}) {
   setWorkspaceMenu(false,false);
   if (path === '/dashboard') { path = state.user ? '/mt5' : '/login'; history.replaceState(null,'',path); }
   if (path === '/logout') { await logout(); return; }
-  const auth = ['/login','/signup','/resend-confirmation','/forgot-password','/reset-password','/passkey-setup'].includes(path);
+  const auth = ['/login','/signup','/forgot-email','/verify-device','/resend-confirmation','/forgot-password','/reset-password','/passkey-setup'].includes(path);
   if (!auth) authUI.dispose();
   const publicRoutes = ['/','/ebook','/support','/terms','/privacy','/risk-disclosure','/refund-policy','/cookies'];
-  if (!state.user && !auth && !publicRoutes.includes(path)) { history.replaceState(null,'','/login'); authPage('/login'); return; }
+  if (!state.user && !auth && !publicRoutes.includes(path)) { const next=state.requiresDeviceVerification ? '/verify-device' : '/login';history.replaceState(null,'',next);authPage(next);return; }
+  if (path==='/verify-device' && !state.requiresDeviceVerification) {navigate(state.user ? state.deviceDestination : '/login',true);return;}
   if (auth) { if (path === '/passkey-setup' && !state.user) { navigate('/signup',true); return; } if (state.user && !state.requiresMfa && ['/login','/signup'].includes(path)) { navigate(ebookAuthReturn() || '/mt5',true); return; } authPage(path); return; }
   if (path.startsWith('/admin') && state.user?.role !== 'admin') { shell(empty('Administrator access required','This page is available to administrators only.')); return; }
-  if (path === '/ebook' && state.requiresMfa) { navigate('/login?next=/ebook',true); return; }
+  if (path === '/ebook' && (state.requiresMfa || state.requiresDeviceVerification)) {state.deviceDestination='/ebook';navigate(state.requiresDeviceVerification ? '/verify-device' : '/login?next=/ebook',true);return;}
   const pageShell = ['/', '/ebook'].includes(path) ? publicShell : state.user ? shell : publicShell;
   if (!quiet) pageShell('<div class="loading" aria-busy="true">Loading your workspace…</div>');
   try {
@@ -473,7 +502,7 @@ async function render({ quiet = false } = {}) {
     const messages = document.querySelector('#messages'); if (messages) messages.scrollTop = messages.scrollHeight;
     const pageTitle = path === '/' ? 'Elite Bot · MT5 Trading Automation Platform' : `${document.querySelector('h1')?.textContent || 'Workspace'} · Elite Bot`;
     document.title = pageTitle;
-  } catch (error) { if (version !== state.version) return; if (error.status === 401) { state.user = null; navigate('/login',true); } else pageShell(empty('Unable to load this page',esc(error.message),btn('Try again','refresh'))); }
+  } catch (error) { if (version !== state.version) return; if (error.code==='browser_verification_required' && state.auth) {await finishAuth(state.auth,path);} else if (error.status === 401) { state.user = null; navigate('/login',true); } else pageShell(empty('Unable to load this page',esc(error.message),btn('Try again','refresh'))); }
 }
 function navigate(path, replace = false) { if (modal.open) modal.close(); history[replace ? 'replaceState' : 'pushState'](null,'',path); window.scrollTo(0,0); render().then(() => document.querySelector('#main')?.focus({preventScroll:true})); }
 async function logout() {
@@ -742,7 +771,9 @@ try {
       });
       const intent = new URLSearchParams(location.search).get('intent');
       const returnTo = ebookAuthReturn();
-      history.replaceState(null,'',returnTo || (intent === 'passkey' ? '/passkey-setup' : intent === 'signin' ? '/mt5' : '/subscription'));
+      const requested=new URLSearchParams(location.search).get('next');
+      const deviceReturn=['/ebook','/subscription','/mt5'].includes(requested) ? requested : '/mt5';
+      history.replaceState(null,'',returnTo || (intent === 'device' ? deviceReturn : intent === 'passkey' ? '/passkey-setup' : intent === 'signin' ? '/mt5' : '/subscription'));
     } else if (callback.get('error_description')) {
       const message = callback.get('error_description') || 'Email confirmation failed.';
       history.replaceState(null,'','/login');
@@ -750,8 +781,10 @@ try {
     }
   }
   await identity();
-  if (state.requiresMfa && state.auth?.access_token) {
-    const destination = location.pathname === '/passkey-setup' ? '/passkey-setup' : '/mt5';
+  if ((state.requiresMfa || state.requiresDeviceVerification) && state.auth?.access_token) {
+    let rememberedDevice='';
+    try { rememberedDevice=sessionStorage.getItem('elite-device-return') || ''; } catch {}
+    const destination = ['/ebook','/subscription'].includes(rememberedDevice) ? rememberedDevice : location.pathname === '/passkey-setup' ? '/passkey-setup' : '/mt5';
     await finishAuth(state.auth,destination);
   } else await render();
 } catch (error) {

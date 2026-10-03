@@ -86,7 +86,7 @@
 .auth-strength-bars span{height:3px;flex:1;background:color-mix(in srgb,var(--auth-ink) 20%,transparent);border-radius:2px}
 .auth-strength-bars span.filled{background:var(--auth-ink)}
 .auth-strength-text{font-size:var(--type-caption);color:var(--auth-muted)}
-.auth-forgot-row{display:flex;justify-content:flex-end;margin-top:-4px}
+.auth-forgot-row{display:flex;justify-content:space-between;gap:16px;margin-top:-4px}
 .auth-experience .auth-forgot-row button{padding:4px 0}
 .auth-passkey-copy{display:flex;gap:16px;align-items:center;padding:24px 0;min-height:124px}
 .auth-passkey-copy>span{width:48px;height:48px;border:1px solid var(--auth-line);border-radius:50%;display:grid;place-items:center;flex:none}
@@ -94,6 +94,9 @@
 .auth-passkey-copy strong{font-weight:500;font-size:var(--type-body);display:block;margin-bottom:4px}
 .auth-passkey-copy p{font-size:var(--type-control);color:var(--auth-muted);line-height:1.6}
 .auth-method-note{font-size:var(--type-control);color:var(--auth-muted);line-height:1.6;min-height:24px;margin:0 0 8px}
+.auth-device-controls,.auth-email-help{font-size:var(--type-control);color:var(--auth-muted);line-height:1.6;margin:0 0 16px}
+.auth-device-controls p,.auth-email-help p{margin:0 0 12px}
+.auth-device-status{color:var(--auth-accent)}
 .auth-error-summary{font-size:var(--type-control);line-height:1.5;color:var(--auth-error);min-height:64px;margin:8px 0;display:flex;align-items:center;gap:8px}
 .auth-error-summary:empty{visibility:hidden}
 .auth-error-summary svg{width:18px;height:18px;flex:none}

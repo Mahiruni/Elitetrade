@@ -2,7 +2,30 @@
 
 The authentication surface uses Instrument Serif for display text and the variable DM Sans face for labels, input text, and controls. Fonts are self-hosted, with DM Sans optical sizing enabled. The EliteBot text wordmark and small Your Trading Bot tagline are preserved.
 
-Email and password are the default on both /login and /signup. Both fields appear immediately, including when returning from password recovery or confirmation screens. Password sign-in uses the password grant and opens the workspace directly after any required MFA; it does not send an email link. Email-link access remains an explicit alternative. New-account confirmation is controlled separately by the Supabase Auth provider setting.
+Email and password are the default on both /login and /signup. Both fields appear immediately, including when returning from password recovery or confirmation screens. Recognized browsers open the workspace after password sign-in and any required MFA. Email-link access remains an explicit alternative. One-time new-account confirmation stays enabled in Supabase.
+
+## Recovery and unfamiliar browsers
+
+- Forgot password sends the existing single-use recovery link. Successful reset clears the application session and returns to password sign-in.
+- Forgot email opens /forgot-email with a public support link. Support must verify ownership before changing the sign-in email; this flow never reveals whether another person's address has an account.
+- With browser enforcement active, a password session from an unfamiliar browser opens /verify-device and requests an email to the authenticated account address. A secure email link or the six-digit code approves the browser. The return destination is limited to /mt5, /subscription, or /ebook.
+- A random 256-bit browser secret lives in a Secure, HttpOnly, SameSite=Lax cookie with the __Host- prefix on HTTPS. Only its SHA-256 digest is stored in private database tables. Browser approval lasts 90 days. Clearing cookies or using another browser/device requires verification again.
+- Password and email changes revoke every remembered browser and session approval. Expired or deleted Auth sessions cannot obtain approval. Signed, recent Auth AMR evidence is required to approve a new browser; editable user_metadata is never evidence.
+- MFA remains required wherever it was previously enabled. An email check cannot authorize a session that still needs MFA.
+- The server forwards the secret to PostgREST from its cookie, ignoring device headers supplied by clients. Restrictive RLS and member/admin RPC wrappers enforce the same approval, including access to the purchased ebook.
+
+### Activation status — October 3, 2026
+
+The trusted-browser migration is applied. Its rollout switch is **off** because the live project has no custom SMTP sender. Supabase's default sender is limited to project-team addresses and the dashboard does not permit template edits without a sender or paid email service. Ordinary password access therefore remains available while email delivery is prepared.
+
+Before activation:
+
+1. Connect a production SMTP sender in Authentication → Emails → SMTP Settings. Enter provider credentials through the provider's secure settings UI; never put them in the repository or chat.
+2. Update the Magic link or OTP template to include both `{{ .ConfirmationURL }}` and `{{ .Token }}`, with the provider's email OTP length set to six digits. The proposed template is in docs/DEVICE_VERIFICATION_EMAIL.html.
+3. Confirm the production /login and /reset-password callbacks are allowed, and verify delivery to a controlled address outside the project team as part of an explicitly authorized email test.
+4. After the matching deployment is ready and delivery works, enable `elitetrade_private.browser_auth_config.enforced`. No setting that disables signup email confirmation is needed.
+
+Current validation: 74 Node tests passed, syntax/entrypoint checks passed for 37 JavaScript files, and transactional SQL checks passed for RLS/RPC guards, fresh/stale email evidence, metadata isolation, remembered/different browsers, MFA, expiry, password/email changes, and revoked sessions. All SQL fixtures rolled back and email-provider tests used an isolated HTTP service. These checks do not certify live email delivery. Older browser results below describe prior validation, not a rerun of this rollout.
 
 ## Frames and layout
 

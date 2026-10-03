@@ -16,7 +16,7 @@ async function fixture(t){
   const at=Math.floor(Date.now()/900000)*900000;
   return {info:{type,platform:'mt5',tradeAllowed:true,investorMode:false,equity:10000,balance:10000,freeMargin:9000},candles:Array.from({length:26},(_,i)=>({time:new Date(at-(26-i)*900000).toISOString(),open:100,high:101,low:99,close:100}))};
  },demoOrder:async()=>{orders++;}};
- const app=createSupabaseApplication({db,gateway,telegram:null,env:{APP_ORIGIN:'http://localhost:3000'}});
+ const app=createSupabaseApplication({db,deviceVerification:false,gateway,telegram:null,env:{APP_ORIGIN:'http://localhost:3000'}});
  await new Promise(resolve=>app.server.listen(0,'127.0.0.1',resolve));t.after(()=>app.close());
  const base=`http://127.0.0.1:${app.server.address().port}`;
  const call=async(path,body)=>{const r=await fetch(base+path,{method:body?'POST':'GET',headers:{Authorization:'Bearer test','Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});return {status:r.status,data:await r.json()};};

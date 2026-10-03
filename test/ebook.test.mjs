@@ -108,7 +108,7 @@ test('Supabase ebook API uses caller authority and never accepts client price, p
       return null;
     }
   };
-  const base = await listen(t, createSupabaseApplication({ db, gateway:null, telegram:null, env:{ APP_ORIGIN:'http://localhost:3000', SUPABASE_URL:'https://example.supabase.co', SUPABASE_PUBLISHABLE_KEY:'test' } }));
+  const base = await listen(t, createSupabaseApplication({ db, deviceVerification:false, gateway:null, telegram:null, env:{ APP_ORIGIN:'http://localhost:3000', SUPABASE_URL:'https://example.supabase.co', SUPABASE_PUBLISHABLE_KEY:'test' } }));
   const headers = { Authorization:'Bearer buyer', 'Content-Type':'application/json' };
   assert.equal((await fetch(base + '/api/ebook')).status, 401);
   assert.equal((await fetch(base + '/api/ebook/download', { headers })).status, 403);

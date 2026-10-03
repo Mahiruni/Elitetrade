@@ -1,5 +1,6 @@
 import { renderBlogPage } from './blog.mjs';
 import { createServer } from 'node:http';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { readFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { digest, token, cookies } from './security.mjs';
@@ -12,7 +13,7 @@ import { EBOOK, sendEbook } from './ebook.mjs';
 
 const now = () => Date.now();
 class HttpError extends Error { constructor(status, message) { super(message); this.status = status; } }
-const fail = (status, message) => { throw new HttpError(status, message); };
+const fail = (status, message, code = '') => { const error=new HttpError(status, message);error.code=code;throw error; };
 const string = (value, label, min = 1, max = 300) => {
   if (typeof value !== 'string' || value.trim().length < min || value.trim().length > max) fail(400, `${label} must be ${min}–${max} characters.`);
   return value.trim();
@@ -62,7 +63,10 @@ export function createSupabaseApplication(options = {}) {
   const origin = new URL(env.APP_ORIGIN || (env.VERCEL_URL ? `https://${env.VERCEL_URL}` : 'http://localhost:3000')).origin;
   const supabaseUrl = String(env.SUPABASE_URL || 'https://cgpvhayfwnpipktyltho.supabase.co').replace(/\/$/, '');
   const supabaseKey = env.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_SNPQ5m9R3hv3Y7Uw-icxEQ_WSng7M8W';
-  const db = options.db || createSupabaseData({ url:supabaseUrl, key:supabaseKey });
+  const deviceScope = new AsyncLocalStorage();
+  const deviceVerification = options.deviceVerification !== false;
+  const deviceCookie = origin.startsWith('https:') ? '__Host-elite_device' : 'elite_device';
+  const db = options.db || createSupabaseData({ url:supabaseUrl, key:supabaseKey, getDeviceToken:() => deviceScope.getStore()?.deviceToken || '' });
 
 
   const gateway = options.gateway === undefined ? createGateway(env) : options.gateway;
@@ -120,11 +124,24 @@ export function createSupabaseApplication(options = {}) {
     const factors = Array.isArray(authUser.factors) ? authUser.factors.filter(f => f.status === 'verified') : [];
     const payload = jwtPayload(accessToken);
     const requiresMfa = factors.length > 0 && payload.aal !== 'aal2';
+    let device = {verified:true,needsEmail:false};
+    if (deviceVerification) {
+      try {device = await db.rpc('elitetrade_browser_status', {}, accessToken);}
+      catch(error){if(/session has expired/i.test(error.message))fail(401,'Your sign-in session has expired. Sign in again.');throw error;}
+      if (typeof device?.verified !== 'boolean' || typeof device?.needsEmail !== 'boolean') fail(503,'Browser verification is temporarily unavailable. Please try again.');
+      const scope = deviceScope.getStore();
+      if (device.verified && device.enforced !== false && scope && !scope.hasDeviceCookie) {
+        cookie(scope.res,deviceCookie,scope.deviceToken,Math.max(1,Math.min(7776000,Number(device.expiresIn) || 7776000)));
+        scope.hasDeviceCookie = true;
+      }
+    }
     return {
       token:accessToken,
       authUser,
       profile,
       requiresMfa,
+      requiresDeviceVerification:device.needsEmail,
+      deviceVerified:device.verified,
       user:{
         id:profile.id,
         email:profile.email || authUser.email || '',
@@ -139,6 +156,7 @@ export function createSupabaseApplication(options = {}) {
   const needUser = async req => {
     const ctx = await authContext(req, false);
     if (ctx.requiresMfa) fail(401, 'Complete two-factor authentication to continue.');
+    if (!ctx.deviceVerified) fail(403, 'Verify this browser using your email before opening your account.','browser_verification_required');
     return ctx;
   };
   const needAdmin = async req => {
@@ -171,7 +189,7 @@ export function createSupabaseApplication(options = {}) {
     if (path === '/api/config' && method === 'GET') {
       const ctx = await authContext(req, true);
       let priceCents = 14000;
-      if (ctx) priceCents = Number(await setting('price_cents', ctx.token) || 14000);
+      if (ctx?.deviceVerified) priceCents = Number(await setting('price_cents', ctx.token) || 14000);
       return json(res, {
         priceCents,
         ebook:EBOOK,
@@ -187,19 +205,45 @@ export function createSupabaseApplication(options = {}) {
         persistentData:true,
         credentialEncryptionConfigured:true,
         credentialVaultConfigured:true,
-        cryptoInvoicesSupported:true
+        cryptoInvoicesSupported:true,
+        deviceVerificationSupported:deviceVerification
       });
     }
 
     if (path === '/api/me' && method === 'GET') {
       const ctx = await authContext(req, true);
-      return json(res, { user:ctx && !ctx.requiresMfa ? ctx.user : null, requiresMfa:!!ctx?.requiresMfa });
+      return json(res, { user:ctx && !ctx.requiresMfa && ctx.deviceVerified ? ctx.user : null, requiresMfa:!!ctx?.requiresMfa,
+        ...(ctx && deviceVerification ? {requiresDeviceVerification:ctx.requiresDeviceVerification,deviceEmail:ctx.authUser.email || ''} : {}) });
     }
 
     if (path === '/api/auth/supabase-session' && method === 'POST') {
       const accessToken = string(body.accessToken, 'Access token', 20, 10000);
       const ctx = await authContext(req, false, accessToken);
-      return json(res, { user:ctx.requiresMfa ? null : ctx.user, requiresMfa:ctx.requiresMfa });
+      return json(res, { user:ctx.requiresMfa || !ctx.deviceVerified ? null : ctx.user, requiresMfa:ctx.requiresMfa,
+        ...(deviceVerification ? {requiresDeviceVerification:ctx.requiresDeviceVerification,deviceEmail:ctx.authUser.email || ''} : {}) });
+    }
+
+    if (path === '/api/auth/device/email' && method === 'POST') {
+      const ctx = await authContext(req,false);
+      if (!deviceVerification || !ctx.requiresDeviceVerification) return json(res,{ok:true,alreadyVerified:true});
+      rateLimit(`device-email:${ctx.authUser.id}`,1,60000);
+      const next = body.next === '/ebook' ? '/ebook' : body.next === '/subscription' ? '/subscription' : '/mt5';
+      const redirect = `${origin}/login?intent=device&next=${encodeURIComponent(next)}`;
+      try { await db.auth(`otp?redirect_to=${q(redirect)}`, {body:{email:ctx.authUser.email,create_user:false}}); }
+      catch (error) { if (error.status === 429) fail(429,'A verification email was requested recently. Wait a minute before requesting another.'); fail(503,'The verification email could not be sent. Please try again.'); }
+      return json(res,{ok:true});
+    }
+
+    if (path === '/api/auth/device/verify' && method === 'POST') {
+      const ctx = await authContext(req,false);
+      if (!deviceVerification || !ctx.requiresDeviceVerification) fail(409,'This browser no longer needs email verification. Sign in again.');
+      rateLimit(`device-code:${ctx.authUser.id}`,8,600000);
+      if (typeof body.code !== 'string' || !/^\d{6}$/.test(body.code)) fail(400,'Enter the six-digit code from your verification email.');
+      let session;
+      try { session = await db.auth('verify',{body:{email:ctx.authUser.email,token:body.code,type:'email'}}); }
+      catch { fail(400,'That verification code is invalid or expired. Request a fresh email.'); }
+      if (!session?.access_token || session.user?.id !== ctx.authUser.id) fail(400,'That verification code could not be matched to this account.');
+      return json(res,{session});
     }
 
     if (path === '/api/auth/logout' && method === 'POST') return json(res, { ok:true });
@@ -237,6 +281,7 @@ export function createSupabaseApplication(options = {}) {
 
     if (path === '/api/auth/mfa/enable' && method === 'POST') {
       const ctx = await authContext(req, false);
+      if (ctx.requiresDeviceVerification) fail(403,'Verify this browser using your email first.');
       const factorId = string(body.factorId, 'Factor', 10, 100);
       const challengeId = string(body.challengeId, 'Challenge', 10, 100);
       const code = string(body.code, 'Authenticator code', 6, 10);
@@ -248,6 +293,7 @@ export function createSupabaseApplication(options = {}) {
 
     if (path === '/api/auth/mfa/disable' && method === 'POST') {
       const ctx = await authContext(req, false);
+      if (ctx.requiresDeviceVerification) fail(403,'Verify this browser using your email first.');
       const password = credential(body.password);
       const code = string(body.code, 'Authenticator code', 6, 10);
       try { await db.auth('token?grant_type=password', { body:{ email:ctx.user.email, password } }); }
@@ -562,7 +608,7 @@ export function createSupabaseApplication(options = {}) {
 
     if (path === '/api/support' && method === 'GET') {
       const ctx = await authContext(req, true);
-      if (ctx && !ctx.requiresMfa) {
+      if (ctx && !ctx.requiresMfa && ctx.deviceVerified) {
         const conversations = await db.query('elitetrade_conversations',
           `user_id=eq.${q(ctx.user.id)}&select=*&order=updated_at.desc`, ctx.token);
         return json(res, { conversations });
@@ -575,7 +621,7 @@ export function createSupabaseApplication(options = {}) {
     if (path === '/api/support' && method === 'POST') {
       rateLimit(`chat-create:${req.socket.remoteAddress || 'guest'}`, 5, 900000);
       const ctx = await authContext(req, true);
-      if (ctx && !ctx.requiresMfa) {
+      if (ctx && !ctx.requiresMfa && ctx.deviceVerified) {
         const rows = await db.insert('elitetrade_conversations', {
           user_id:ctx.user.id, name:ctx.user.name, email:ctx.user.email, created_at:now(), updated_at:now()
         }, ctx.token);
@@ -594,7 +640,7 @@ export function createSupabaseApplication(options = {}) {
     if (chatRoute) {
       const ctx = await authContext(req, true);
       const chatId = chatRoute[1];
-      if (ctx && !ctx.requiresMfa) {
+      if (ctx && !ctx.requiresMfa && ctx.deviceVerified) {
         const chat = await db.one('elitetrade_conversations', `id=eq.${q(chatId)}&select=*`, ctx.token);
         if (!chat) fail(404, 'Conversation not found.');
         if (method === 'GET') {
@@ -788,7 +834,7 @@ export function createSupabaseApplication(options = {}) {
   }
 
   const publicPath = resolve(options.publicPath || new URL('../public/', import.meta.url).pathname);
-  const pages = new Set(['/', '/ebook', '/login', '/signup', '/forgot-password', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/dashboard', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
+  const pages = new Set(['/', '/ebook', '/login', '/signup', '/forgot-email', '/forgot-password', '/verify-device', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/dashboard', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
   const server = createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -811,7 +857,9 @@ export function createSupabaseApplication(options = {}) {
         const locksTrading = req.method !== 'GET' && /^\/api\/(?:admin\/)?(?:accounts|bots)(?:\/|$)/.test(url.pathname);
         if (locksTrading && tradingMutation) fail(409, 'A trading connection command is in progress. Wait for confirmation before trying again.');
         if (locksTrading) tradingMutation = true;
-        try { return await handleApi(req, res, url, body); }
+        const rawDevice = cookies(req.headers.cookie)[deviceCookie] || '';
+        const validDevice = /^[A-Za-z0-9_-]{43}$/.test(rawDevice);
+        try { return await deviceScope.run({deviceToken:validDevice ? rawDevice : token(),hasDeviceCookie:validDevice,res},() => handleApi(req, res, url, body)); }
         finally { if (locksTrading) tradingMutation = false; }
       }
 
@@ -856,7 +904,7 @@ export function createSupabaseApplication(options = {}) {
       const error = mapDbError(raw);
       if (res.headersSent) { res.end(); return; }
       if (!error.status) console.error('Request failed:', error.name, error.message);
-      json(res, { error:error.status ? error.message : 'The request could not be completed. Please try again.' }, error.status || 500);
+      json(res, { error:error.status ? error.message : 'The request could not be completed. Please try again.',...(error.code==='browser_verification_required' ? {code:error.code} : {}) }, error.status || 500);
     }
   });
 
