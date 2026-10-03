@@ -1,4 +1,5 @@
 import { createAuthExperience } from './auth.js';
+import { ebookOffer, ebookPage, downloadEbook } from './ebook.js';
 import { mountHeroMarket } from './hero-market.js';
 const openingScreen = document.querySelector('#app-opening');
 if (openingScreen) {
@@ -154,10 +155,10 @@ const publicBrand = `<a href="/" class="brand site-brand">${wordmark}</a>`;
 function marketingHeader() {
   const accountLink = state.user ? '<a class="nav-login" href="/mt5">Workspace</a>' : '<a class="nav-login" href="/login">Sign in</a>';
   const cta = state.user ? '<a class="marketing-cta small" href="/mt5">Open terminal</a>' : '<a class="marketing-cta small" href="/signup">Get started</a>';
-  return `<header class="marketing-header"><div class="marketing-nav">${publicBrand}<nav class="marketing-links" aria-label="Marketing navigation"><a href="/#platform">Platform</a><a href="/#workflow">How it works</a><a href="/#security">Security</a><a href="/#pricing">Access</a><a href="/blog">Blog</a></nav><div class="marketing-actions">${themeButton()}${accountLink}${cta}<details class="public-menu"><summary aria-label="Navigation menu">${icon("menu")}</summary><nav aria-label="Mobile site navigation"><a href="/#platform">Platform</a><a href="/#workflow">How it works</a><a href="/#security">Security</a><a href="/#pricing">Access</a><a href="/blog">Blog</a><a href="/support">Support</a><a href="${state.user ? "/mt5" : "/login"}">${state.user ? "Workspace" : "Sign in"}</a>${cta}</nav></details></div></div></header>`;
+  return `<header class="marketing-header"><div class="marketing-nav">${publicBrand}<nav class="marketing-links" aria-label="Marketing navigation"><a href="/#platform">Platform</a><a href="/#workflow">How it works</a><a href="/#security">Security</a><a href="/#pricing">Access</a><a href="/ebook">Ebook</a><a href="/blog">Blog</a></nav><div class="marketing-actions">${themeButton()}${accountLink}${cta}<details class="public-menu"><summary aria-label="Navigation menu">${icon("menu")}</summary><nav aria-label="Mobile site navigation"><a href="/#platform">Platform</a><a href="/#workflow">How it works</a><a href="/#security">Security</a><a href="/#pricing">Access</a><a href="/ebook">Ebook</a><a href="/blog">Blog</a><a href="/support">Support</a><a href="${state.user ? "/mt5" : "/login"}">${state.user ? "Workspace" : "Sign in"}</a>${cta}</nav></details></div></div></header>`;
 }
 function publicFooter() {
-  return `<footer class="marketing-footer"><div class="footer-grid"><div><div class="footer-brand">${publicBrand}</div><p>Tools for managing MT5 connections, automation controls, account access, payments, and support from one focused workspace.</p></div><div><strong>Platform</strong><a href="/#platform">Overview</a><a href="/#security">Security</a><a href="/blog">Blog</a><a href="/support">Support</a><a href="/login">Sign in</a></div><div><strong>Legal</strong><a href="/terms">Terms of Service</a><a href="/privacy">Privacy Policy</a><a href="/risk-disclosure">Risk Disclosure</a><a href="/refund-policy">Refund Policy</a><a href="/cookies">Cookie Policy</a></div></div><div class="footer-bottom"><span>© ${new Date().getFullYear()} Elite Bot. All rights reserved.</span><span>Trading involves substantial risk. No performance is guaranteed.</span></div></footer>`;
+  return `<footer class="marketing-footer"><div class="footer-grid"><div><div class="footer-brand">${publicBrand}</div><p>Tools for managing MT5 connections, automation controls, account access, payments, and support from one focused workspace.</p></div><div><strong>Platform</strong><a href="/#platform">Overview</a><a href="/#security">Security</a><a href="/ebook">Strategy ebook</a><a href="/blog">Blog</a><a href="/support">Support</a><a href="/login">Sign in</a></div><div><strong>Legal</strong><a href="/terms">Terms of Service</a><a href="/privacy">Privacy Policy</a><a href="/risk-disclosure">Risk Disclosure</a><a href="/refund-policy">Refund Policy</a><a href="/cookies">Cookie Policy</a></div></div><div class="footer-bottom"><span>© ${new Date().getFullYear()} Elite Bot. All rights reserved.</span><span>Trading involves substantial risk. No performance is guaranteed.</span></div></footer>`;
 }
 function publicShell(content) {
   root.innerHTML = `${marketingHeader()}<main id="main" class="marketing-main" tabindex="-1">${content}</main>${publicFooter()}`;
@@ -212,6 +213,8 @@ function marketingPage() {
       <div class="section-heading"><div class="marketing-kicker"><span></span> Platform access</div><h2>A focused workspace for your trading operations.</h2><p>Pricing and payment methods shown after account creation are controlled by the platform administrator and displayed before you submit payment.</p></div>
       <div class="pricing-card"><div><span class="card-label">ELITE BOT ACCESS</span><h3>One workspace. Clear controls.</h3><ul><li>MT5 account connection workflow</li><li>Bot strategy and risk configuration</li><li>Subscription and payment status</li><li>Referral and pool tracking where enabled</li><li>Account security and support</li></ul></div><div class="pricing-action"><small>Start by creating your account</small><a class="marketing-cta" href="${dashboardHref}">${dashboardLabel}</a><p>No profit, return, or trading-outcome guarantee is made.</p></div></div>
     </section>
+
+    ${ebookOffer()}
 
     <section class="marketing-section faq-section"><div class="section-heading"><div class="marketing-kicker"><span></span> Questions</div><h2>Understand the platform before you connect.</h2></div><div class="marketing-faq"><details><summary>Does Elite Bot guarantee profitable trades?</summary><p>No. Markets are uncertain and trading can lose money. The platform provides tooling and controls; it does not guarantee performance.</p></details><details><summary>Is Elite Bot a broker?</summary><p>No. Your trading account remains with your chosen broker. Elite Bot provides a workflow for connecting and controlling supported automation.</p></details><details><summary>Where are MT5 credentials stored?</summary><p>Production MT5 credentials are isolated from normal public application tables and stored using encrypted Supabase Vault infrastructure.</p></details><details><summary>Can I control the bot?</summary><p>The workspace exposes configuration plus explicit start and stop controls. Actual execution depends on the configured trading gateway and broker connection.</p></details></div></section>
 
@@ -294,7 +297,15 @@ function legalPage(path) {
   const doc = legalDocuments[path];
   return `<section class="legal-hero"><div class="marketing-kicker"><span></span> ${doc.kicker}</div><h1>${doc.title}</h1><p>${doc.intro}</p><small>Last updated: October 1, 2026</small></section><section class="legal-layout"><aside><strong>Legal center</strong><a class="${path==='/terms'?'active':''}" href="/terms">Terms of Service</a><a class="${path==='/privacy'?'active':''}" href="/privacy">Privacy Policy</a><a class="${path==='/risk-disclosure'?'active':''}" href="/risk-disclosure">Risk Disclosure</a><a class="${path==='/refund-policy'?'active':''}" href="/refund-policy">Refund Policy</a><a class="${path==='/cookies'?'active':''}" href="/cookies">Cookie Policy</a></aside><article class="legal-document">${doc.sections.map(([title,body])=>`<section><h2>${title}</h2><p>${body}</p></section>`).join('')}<div class="legal-note">This policy is intended to describe the platform’s operating terms and practices. Specific legal rights can vary by jurisdiction.</div></article></section>`;
 }
+function ebookAuthReturn() {
+  const requested = new URLSearchParams(location.search).get('next');
+  try {
+    if (requested === '/ebook') sessionStorage.setItem('elite-auth-return', '/ebook');
+    return requested === '/ebook' || sessionStorage.getItem('elite-auth-return') === '/ebook' ? '/ebook' : '';
+  } catch { return requested === '/ebook' ? '/ebook' : ''; }
+}
 async function finishAuth(auth, destination = '/mt5') {
+  destination = ebookAuthReturn() || destination;
   if (auth?.access_token) {
     const response = await supabaseAuth('factors','GET',undefined,auth.access_token);
     const factors = Array.isArray(response) ? response : [...(response?.totp || []), ...(response?.phone || [])];
@@ -312,10 +323,11 @@ async function finishAuth(auth, destination = '/mt5') {
     if (state.requiresMfa) throw new Error('Complete two-factor authentication to continue.');
   }
   await authUI.fadeOut();
+  try { sessionStorage.removeItem('elite-auth-return'); } catch {}
   navigate(destination,true);
 }
 const authUI = createAuthExperience({
-  root, request:supabaseAuth, onSession:finishAuth, getSession:ensureAccessToken,
+  root, request:supabaseAuth, onSession:finishAuth, getSession:ensureAccessToken, returnTo:ebookAuthReturn,
   legal:path => legalDocuments[path],
   onTheme:() => actions.theme(),
   onDemo:() => actions.demo(),
@@ -327,7 +339,9 @@ const authUI = createAuthExperience({
       challenge_id:pending.challengeId, code
     },pending.auth.access_token);
     saveAuth(auth);state.pendingMfa = null;state.requiresMfa = false;
-    await identity();await authUI.fadeOut();navigate(pending.destination || '/mt5',true);
+    await identity();await authUI.fadeOut();
+    try { sessionStorage.removeItem('elite-auth-return'); } catch {}
+    navigate(pending.destination || '/mt5',true);
   },
   onReset:async password => {
     const accessToken = new URLSearchParams(location.hash.slice(1)).get('access_token') || '';
@@ -338,6 +352,7 @@ const authUI = createAuthExperience({
   }
 });
 function authPage(path) {
+  ebookAuthReturn();
   authUI.mount({path,wordmark,config:state.config,mfa:state.requiresMfa});
 }
 
@@ -441,21 +456,24 @@ async function render({ quiet = false } = {}) {
   if (path === '/logout') { await logout(); return; }
   const auth = ['/login','/signup','/resend-confirmation','/forgot-password','/reset-password','/passkey-setup'].includes(path);
   if (!auth) authUI.dispose();
-  const publicRoutes = ['/','/support','/terms','/privacy','/risk-disclosure','/refund-policy','/cookies'];
+  const publicRoutes = ['/','/ebook','/support','/terms','/privacy','/risk-disclosure','/refund-policy','/cookies'];
   if (!state.user && !auth && !publicRoutes.includes(path)) { history.replaceState(null,'','/login'); authPage('/login'); return; }
-  if (auth) { if (path === '/passkey-setup' && !state.user) { navigate('/signup',true); return; } if (state.user && !state.requiresMfa && ['/login','/signup'].includes(path)) { navigate('/mt5',true); return; } authPage(path); return; }
+  if (auth) { if (path === '/passkey-setup' && !state.user) { navigate('/signup',true); return; } if (state.user && !state.requiresMfa && ['/login','/signup'].includes(path)) { navigate(ebookAuthReturn() || '/mt5',true); return; } authPage(path); return; }
   if (path.startsWith('/admin') && state.user?.role !== 'admin') { shell(empty('Administrator access required','This page is available to administrators only.')); return; }
-  if (!quiet) (state.user ? shell : publicShell)('<div class="loading" aria-busy="true">Loading your workspace…</div>');
+  if (path === '/ebook' && state.requiresMfa) { navigate('/login?next=/ebook',true); return; }
+  const pageShell = ['/', '/ebook'].includes(path) ? publicShell : state.user ? shell : publicShell;
+  if (!quiet) pageShell('<div class="loading" aria-busy="true">Loading your workspace…</div>');
   try {
-    const pages = { '/':marketingPage,'/terms':()=>legalPage('/terms'),'/privacy':()=>legalPage('/privacy'),'/risk-disclosure':()=>legalPage('/risk-disclosure'),'/refund-policy':()=>legalPage('/refund-policy'),'/cookies':()=>legalPage('/cookies'),'/mt5':terminalPage,'/bots':botsPage,'/subscription':subscriptionPage,'/subscribe':subscriptionPage,'/pool':poolPage,'/referrals':referralsPage,'/settings':settingsPage,'/support':supportPage,'/admin':adminPage,'/admin/support':() => supportPage(true) };
+    const pages = { '/':marketingPage,'/ebook':()=>ebookPage({state,api,esc,money,date,badge,form,field,btn}),'/terms':()=>legalPage('/terms'),'/privacy':()=>legalPage('/privacy'),'/risk-disclosure':()=>legalPage('/risk-disclosure'),'/refund-policy':()=>legalPage('/refund-policy'),'/cookies':()=>legalPage('/cookies'),'/mt5':terminalPage,'/bots':botsPage,'/subscription':subscriptionPage,'/subscribe':subscriptionPage,'/pool':poolPage,'/referrals':referralsPage,'/settings':settingsPage,'/support':supportPage,'/admin':adminPage,'/admin/support':() => supportPage(true) };
     const content = pages[path] ? await pages[path]() : empty('Page not found','<a href="/mt5">Return to your workspace</a>');
     if (version !== state.version) return;
-    (state.user ? shell : publicShell)(content); connectEvents();
+    pageShell(content); connectEvents();
+    if (path === '/ebook' && state.user) { try { sessionStorage.removeItem('elite-auth-return'); } catch {} }
     stopHeroMarket = mountHeroMarket(document.querySelector('[data-hero-market]'));
     const messages = document.querySelector('#messages'); if (messages) messages.scrollTop = messages.scrollHeight;
     const pageTitle = path === '/' ? 'Elite Bot · MT5 Trading Automation Platform' : `${document.querySelector('h1')?.textContent || 'Workspace'} · Elite Bot`;
     document.title = pageTitle;
-  } catch (error) { if (version !== state.version) return; if (error.status === 401) { state.user = null; navigate('/login',true); } else (state.user ? shell : publicShell)(empty('Unable to load this page',esc(error.message),btn('Try again','refresh'))); }
+  } catch (error) { if (version !== state.version) return; if (error.status === 401) { state.user = null; navigate('/login',true); } else pageShell(empty('Unable to load this page',esc(error.message),btn('Try again','refresh'))); }
 }
 function navigate(path, replace = false) { if (modal.open) modal.close(); history[replace ? 'replaceState' : 'pushState'](null,'',path); window.scrollTo(0,0); render().then(() => document.querySelector('#main')?.focus({preventScroll:true})); }
 async function logout() {
@@ -505,6 +523,7 @@ const actions = {
     const result=await api(`/bots/${id}/preview`,'POST');
     openModal('Strategy preview',`<div class="notice">${esc(result.message)}</div><p>${esc(result.signal.description)}</p><div class="detail-grid"><div><small>Signal</small><h2>${esc(result.signal.side || 'No entry')}</h2></div><div><small>Account</small><h2>${esc(result.accountType)}</h2></div></div><p class="meta">${esc(result.riskMessage)}</p>${result.order ? `<div class="detail-grid"><div>Lots: ${esc(result.order.volume)}</div><div>Estimated SL loss: ${esc(result.order.estimatedRisk.toFixed(2))} account currency</div><div>SL: ${esc(result.order.stopLoss)}</div><div>TP: ${esc(result.order.takeProfit)}</div></div>` : ''}`);
   },
+  'ebook-download': async () => { await downloadEbook(await ensureAccessToken()); toast('Your ebook download is ready.'); },
   'account-add':accountModal,
   'account-delete': id => openModal('Remove MT5 account',form('account-delete','<p>Disconnect and remove this account? All bots must be stopped first.</p>','Remove account',id)),
   'bot-edit':botModal,
@@ -522,7 +541,7 @@ const actions = {
   'admin-tab': async (id,control) => { const picker = control?.id === 'admin-section-select'; state.adminTab = id; await render({quiet:true}); document.getElementById(picker ? 'admin-section-select' : `admin-tab-${id}`)?.focus({preventScroll:true}); },
   'user-edit': id => { const u = state.data.admin.users.find(u => u.id === id); openModal('Manage member access',form('user',`<p class="meta">${esc(u.email)}</p>${select('Subscription','active',String(!!u.active),[['true','Active'],['false','Inactive']])}${select('Account access','disabled',String(!!u.disabled),[['false','Enabled'],['true','Disabled']])}${select('Role','role',u.role,[['user','Member'],['admin','Administrator']])}`,'Save access',id)); },
   'method-edit':methodModal, 'round-edit':roundModal,
-  'payment-review': id => { const p = state.data.admin.payments.find(p => p.id === id); const m = typeof p.method_snapshot === 'string' ? JSON.parse(p.method_snapshot) : p.method_snapshot; openModal('Review payment',form('payment-review',`<p><strong>${money(p.amount_cents)}</strong> · ${esc(p.email)}</p><p class="mono payment-details">${esc(p.reference)}</p><p class="meta">Submitted payment destination: ${esc(m.name)} · ${esc(m.details)} ${esc(m.network)}</p><div class="notice">Verify that funds arrived at the listed destination before approving. Approval activates subscriptions or records pool contributions.</div>${select('Decision','status','approved',[['approved','Approve verified payment'],['rejected','Reject payment']])}${textarea('Review note','note','','maxlength="500"')}`,'Confirm review',id)); },
+  'payment-review': id => { const p = state.data.admin.payments.find(p => p.id === id); const m = typeof p.method_snapshot === 'string' ? JSON.parse(p.method_snapshot) : p.method_snapshot; openModal('Review payment',form('payment-review',`<p><strong>${money(p.amount_cents)}</strong> · ${esc(p.email)} · ${esc(p.kind === 'ebook' ? 'Strategy ebook' : p.kind)}</p><p class="mono payment-details">${esc(p.reference)}</p><p class="meta">Submitted payment destination: ${esc(m.name)} · ${esc(m.details)} ${esc(m.network)}</p><div class="notice">Verify that funds arrived at the listed destination before approving. ${p.kind === 'ebook' ? 'Approval unlocks the full EliteBot Strategy Rulebook PDF for this buyer.' : 'Approval activates subscriptions or records pool contributions.'}</div>${select('Decision','status','approved',[['approved','Approve verified payment'],['rejected','Reject payment']])}${textarea('Review note','note','','maxlength="500"')}`,'Confirm review',id)); },
   'account-review': id => { const a = state.data.admin.accounts.find(a => a.id === id); openModal('Review MT5 connection',form('account-review',`<p>${esc(a.email)} · ${esc(a.broker)}</p><p class="meta">${esc(a.login)} · ${esc(a.server)}</p>${select('Decision','decision','approve',[['approve','Connect and approve'],['reject','Reject details']])}${textarea('Note','note',a.note,'maxlength="500"')}`,'Confirm decision',id)); },
   'payout-review': id => openModal('Review payout',form('payout-review','<p class="notice">Mark a payout paid only after completing the transfer to the member.</p>' + select('Decision','status','paid',[['paid','Transfer completed'],['rejected','Reject request']]) + field('Transfer reference · required when paid','reference','','text','maxlength="200"'),'Confirm payout',id)),
   'telegram-test': async () => { await api('/admin/telegram-test','POST'); toast('Test alert delivered.'); }
@@ -531,7 +550,7 @@ document.addEventListener('click',async event => {
   const link = event.target.closest('a[href]');
   if (link) document.querySelectorAll('.public-menu[open]').forEach(menu => menu.removeAttribute('open'));
   if (!event.target.closest('.public-menu')) document.querySelectorAll('.public-menu[open]').forEach(menu => menu.removeAttribute('open'));
-  if (!event.defaultPrevented && link && link.origin === location.origin && link.pathname !== '/blog' && !link.pathname.startsWith('/blog/') && !link.hash && !event.metaKey && !event.ctrlKey && event.button === 0) { event.preventDefault(); navigate(link.pathname + link.search); return; }
+  if (!event.defaultPrevented && link && link.origin === location.origin && link.pathname !== '/blog' && !link.pathname.startsWith('/blog/') && !link.hash && !link.target && !link.hasAttribute('download') && !link.pathname.endsWith('.pdf') && !event.metaKey && !event.ctrlKey && event.button === 0) { event.preventDefault(); navigate(link.pathname + link.search); return; }
   const button = event.target.closest('[data-action]'); if (!button || button.disabled) return;
   const action = actions[button.dataset.action]; if (!action) return;
   button.disabled = true;
@@ -644,6 +663,7 @@ document.addEventListener('submit',async event => {
       await render({quiet:true});
       return;
     }
+    if (action === 'ebook-payment') { await api('/ebook/orders','POST',data); toast('Ebook payment submitted for review.'); await render({quiet:true}); return; }
     if (action === 'chat-message') { await api(`/support/${id}/messages`,'POST',data); el.reset(); await refreshChat(); return; }
     if (action === 'chat-create') { const d = await api('/support','POST',data); state.chat = d.id; connectEvents(); }
     else {
@@ -721,7 +741,8 @@ try {
         expires_in:Number(callback.get('expires_in') || 3600)
       });
       const intent = new URLSearchParams(location.search).get('intent');
-      history.replaceState(null,'',intent === 'passkey' ? '/passkey-setup' : intent === 'signin' ? '/mt5' : '/subscription');
+      const returnTo = ebookAuthReturn();
+      history.replaceState(null,'',returnTo || (intent === 'passkey' ? '/passkey-setup' : intent === 'signin' ? '/mt5' : '/subscription'));
     } else if (callback.get('error_description')) {
       const message = callback.get('error_description') || 'Email confirmation failed.';
       history.replaceState(null,'','/login');

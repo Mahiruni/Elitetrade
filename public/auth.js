@@ -44,7 +44,7 @@ function serializeCredential(credential) {
  return result;
 }
 
-export function createAuthExperience({root,request,onSession,onMfa,onReset,getSession,legal,onTheme,onDemo,onCancelMfa}) {
+export function createAuthExperience({root,request,onSession,onMfa,onReset,getSession,legal,onTheme,onDemo,onCancelMfa,returnTo}) {
  let screen=null,mode='login',method='email',busy=false,confirmed=false,previousPath='',cooldownUntil=0,cooldownTimer=null,abort=null;
  let providers=null,config={},lastEmail='',returnFocus=null,controller=null;
  const mobile=window.matchMedia('(max-width:760px)');
@@ -194,7 +194,7 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,getSe
   if(error.name==='TimeoutError')return 'That request took too long. Please try again.';
   return 'We couldn’t complete that request. Please try again.';
  }
- const redirect = intent => `${location.origin}/login?intent=${encodeURIComponent(intent)}`;
+ const redirect = intent => `${location.origin}/login?intent=${encodeURIComponent(intent)}${returnTo?.() === '/ebook' ? '&next=/ebook' : ''}`;
  async function passkey(registration=false) {
   if(!window.isSecureContext || !window.PublicKeyCredential)throw Object.assign(new Error('Passkey unavailable'),{name:'SecurityError'});
   const kind=registration ? 'registration' : 'authentication';
@@ -368,3 +368,4 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,getSe
   dispose(){controller?.abort();abort?.abort();clearTimeout(cooldownTimer);screen=null;}
  };
 }
+

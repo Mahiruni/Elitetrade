@@ -8,6 +8,7 @@ import { createSupabaseData } from './supabase-data.mjs';
 import { engineReady } from './demo-engine.mjs';
 import { STRATEGIES,evaluateStrategy,planTrade } from './trading-strategies.mjs';
 import {USDT_DESTINATION,usdtAmount} from './tron-payments.mjs';
+import { EBOOK, sendEbook } from './ebook.mjs';
 
 const now = () => Date.now();
 class HttpError extends Error { constructor(status, message) { super(message); this.status = status; } }
@@ -173,6 +174,7 @@ export function createSupabaseApplication(options = {}) {
       if (ctx) priceCents = Number(await setting('price_cents', ctx.token) || 14000);
       return json(res, {
         priceCents,
+        ebook:EBOOK,
         emailConfigured:true,
         gatewayConfigured:!!gateway,
         connectionMode:gateway?.mode || (gateway ? 'execution' : 'unconfigured'),
@@ -287,6 +289,33 @@ export function createSupabaseApplication(options = {}) {
       if(!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(methodId))fail(400,'Invalid payment method.');
       const invoice=await db.rpc('elitetrade_crypto_invoice',{p_method_id:methodId},ctx.token);
       return json(res,{invoice:cryptoInvoice(invoice)},201);
+    }
+
+    if (path === '/api/ebook' && method === 'GET') {
+      const ctx = await needUser(req);
+      const [methods, orders] = await Promise.all([
+        db.query('elitetrade_payment_methods', 'enabled=eq.true&select=id,name,kind,details,network,instructions&order=created_at.asc', ctx.token),
+        db.query('elitetrade_payments', `user_id=eq.${q(ctx.user.id)}&kind=eq.ebook&product_id=eq.${EBOOK.id}&select=id,reference,amount_cents,status,note,created_at&order=created_at.desc`, ctx.token)
+      ]);
+      return json(res, { product:EBOOK, methods:methods.filter(m => m.kind !== 'crypto' || (m.network === 'TRC20' && m.details === USDT_DESTINATION)), orders });
+    }
+    if (path === '/api/ebook/orders' && method === 'POST') {
+      const ctx = await needUser(req);
+      rateLimit(`ebook:${ctx.user.id}`, 10, 900000);
+      const methodId = string(body.methodId, 'Payment method', 36, 36);
+      if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(methodId)) fail(400, 'Invalid payment method.');
+      const reference = string(body.reference, 'Transaction reference', 6, 200);
+      if (/^trc20:/i.test(reference)) fail(400, 'This reference is reserved for automatically verified USDT invoices.');
+      const paymentId = await db.rpc('elitetrade_ebook_submit_payment', { p_method_id:methodId, p_reference:reference }, ctx.token);
+      await audit(ctx, 'ebook.payment.submit', paymentId);
+      return json(res, { ok:true, paymentId, message:'Ebook payment submitted for administrator verification.' }, 201);
+    }
+    if (path === '/api/ebook/download' && method === 'GET') {
+      const ctx = await needUser(req);
+      const order = await db.one('elitetrade_payments', `user_id=eq.${q(ctx.user.id)}&kind=eq.ebook&product_id=eq.${EBOOK.id}&status=eq.approved&amount_cents=eq.${EBOOK.priceCents}&select=id&limit=1`, ctx.token);
+      if (!order) fail(403, 'An approved ebook purchase is required.');
+      const asset = await db.rpc('elitetrade_ebook_download', {}, ctx.token);
+      return sendEbook(res, asset.pdf_base64, asset.sha256);
     }
 
     if (path === '/api/payments' && method === 'GET') {
@@ -759,7 +788,7 @@ export function createSupabaseApplication(options = {}) {
   }
 
   const publicPath = resolve(options.publicPath || new URL('../public/', import.meta.url).pathname);
-  const pages = new Set(['/', '/login', '/signup', '/forgot-password', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/dashboard', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
+  const pages = new Set(['/', '/ebook', '/login', '/signup', '/forgot-password', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/dashboard', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
   const server = createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -814,6 +843,9 @@ export function createSupabaseApplication(options = {}) {
         '/security.txt':['security.txt','text/plain; charset=utf-8'],
         '/.well-known/security.txt':['security.txt','text/plain; charset=utf-8']
       };
+      files['/ebook.js'] = ['ebook.js','text/javascript'];
+      files['/ebook.css'] = ['ebook.css','text/css'];
+      files['/ebooks/elitebot-strategy-preview.pdf'] = ['ebooks/elitebot-strategy-preview.pdf','application/pdf'];
       files['/blog.js'] = ['blog.js','text/javascript'];
       files['/blog.css'] = ['blog.css','text/css'];
       const entry = files[url.pathname] || (pages.has(url.pathname) ? ['index.html','text/html'] : null);

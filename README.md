@@ -28,6 +28,7 @@ Sign in again and open Administration. Add your payment methods before accepting
 | Recovery | Single-use, expiring reset links sent through configured SMTP; revokes existing sessions on reset |
 | Two-factor authentication | Authenticator QR enrollment, verified activation, login challenge, replay protection, password/code-verified disable |
 | Subscription | Configurable lifetime price, payment destinations, duplicate-reference protection, member payment history, administrator review and activation |
+| Ebook | $50 Strategy Rulebook on the homepage, a free PDF preview, manual payment approval, and protected buyer downloads; see [ebook sales](docs/EBOOK_SALES.md) |
 | MT5 | Encrypted credential storage, administrator review, broker gateway adapter, confirmed connection status, account removal |
 | Bots | Persistent account/strategy/risk configuration; start/stop only with gateway acknowledgment; unresolved commands show unknown status |
 | Pool | Administrator-created rounds, contribution submissions, approved allocations, total funding, and explicitly administrator-reported profit/loss |

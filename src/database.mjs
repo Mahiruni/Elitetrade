@@ -46,6 +46,16 @@ export function openDatabase(path) {
       CHECK((kind='pool' AND round_id IS NOT NULL) OR (kind='subscription' AND round_id IS NULL))
     ) STRICT;
     CREATE INDEX IF NOT EXISTS payment_user ON payments(user_id,created_at);
+    CREATE TABLE IF NOT EXISTS ebook_orders (
+      id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), method_id TEXT NOT NULL REFERENCES payment_methods(id),
+      reference TEXT NOT NULL UNIQUE, amount_cents INTEGER NOT NULL CHECK(amount_cents=5000),
+      kind TEXT NOT NULL DEFAULT 'ebook' CHECK(kind='ebook'), round_id TEXT CHECK(round_id IS NULL),
+      product_id TEXT NOT NULL CHECK(product_id='elitebot-strategy-rulebook'), method_snapshot TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+      note TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL, reviewed_at INTEGER, reviewer_id TEXT REFERENCES users(id)
+    ) STRICT;
+    CREATE INDEX IF NOT EXISTS ebook_order_user ON ebook_orders(user_id,created_at);
+    CREATE UNIQUE INDEX IF NOT EXISTS ebook_order_once ON ebook_orders(user_id,product_id) WHERE status IN ('pending','approved');
     CREATE TABLE IF NOT EXISTS commissions (
       id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), referred_id TEXT NOT NULL REFERENCES users(id),
       payment_id TEXT NOT NULL UNIQUE REFERENCES payments(id), amount_cents INTEGER NOT NULL, created_at INTEGER NOT NULL

@@ -7,6 +7,8 @@ import QRCode from 'qrcode';
 import { openDatabase, transaction } from './database.mjs';
 import { token, digest, hashPassword, verifyPassword, encrypt, decrypt, base32, verifyTotp, cookies } from './security.mjs';
 import { createMailer, createGateway, createTelegram } from './services.mjs';
+import { EBOOK, sendEbook } from './ebook.mjs';
+import { USDT_DESTINATION } from './tron-payments.mjs';
 
 const now = () => Date.now();
 const id = () => randomUUID();
@@ -286,12 +288,41 @@ export function createApplication(options = {}) {
       run('UPDATE users SET mfa_secret=NULL,mfa_pending=NULL,mfa_counter=-1 WHERE id=?', user.id); return json(res, { ok: true });
     }
     if (path === '/api/payment-methods' && method === 'GET') return json(res, { methods: paymentMethods(), priceCents: Number(setting('price_cents')) });
-    if (path === '/api/payments' && method === 'GET') { const user = needUser(context); return json(res, { payments: all('SELECT id,kind,round_id,reference,amount_cents,status,note,created_at FROM payments WHERE user_id=? ORDER BY created_at DESC', user.id) }); }
+    if (path === '/api/ebook' && method === 'GET') {
+      const user = needUser(context);
+      return json(res, { product:EBOOK,
+        methods:paymentMethods().filter(m => m.kind !== 'crypto' || (m.network === 'TRC20' && m.details === USDT_DESTINATION)),
+        orders:all('SELECT id,reference,amount_cents,status,note,created_at FROM ebook_orders WHERE user_id=? ORDER BY created_at DESC', user.id) });
+    }
+    if (path === '/api/ebook/orders' && method === 'POST') {
+      const user = needUser(context);
+      rateLimit(`ebook:${user.id}`, 10, 900000);
+      if (!options.ebookPdf && (!env.EBOOK_PDF_PATH || !existsSync(env.EBOOK_PDF_PATH))) fail(503, 'The ebook is unavailable. Contact support before paying.');
+      const paymentMethod = get('SELECT * FROM payment_methods WHERE id=? AND enabled=1', string(body.methodId, 'Payment method', 1, 100));
+      if (!paymentMethod || (paymentMethod.kind === 'crypto' && (paymentMethod.network !== 'TRC20' || paymentMethod.details !== USDT_DESTINATION))) fail(400, 'Choose an available ebook payment method.');
+      const reference = string(body.reference, 'Transaction reference', 6, 200).replace(/\s/g, '').toLowerCase();
+      if (reference.length < 6 || /^trc20:/i.test(reference)) fail(400, 'Invalid transaction reference.');
+      if (get('SELECT id FROM payments WHERE reference=?', reference) || get('SELECT id FROM ebook_orders WHERE reference=?', reference)) fail(409, 'This transaction reference has already been submitted.');
+      if (get("SELECT id FROM ebook_orders WHERE user_id=? AND status IN ('pending','approved')", user.id)) fail(409, 'Your ebook purchase is already approved or awaiting review.');
+      const paymentId = id();
+      run('INSERT INTO ebook_orders (id,user_id,method_id,reference,amount_cents,product_id,method_snapshot,created_at) VALUES (?,?,?,?,?,?,?,?)', paymentId, user.id, paymentMethod.id, reference, EBOOK.priceCents, EBOOK.id, JSON.stringify(paymentMethod), now());
+      audit(user.id, 'ebook.payment.submit', paymentId);
+      broadcast(user.id);
+      notifyAdmin(`New $50 ebook payment submitted for review: ${user.email}. Verify funds before approval.`);
+      return json(res, { ok:true, paymentId, message:'Ebook payment submitted for administrator verification.' }, 201);
+    }
+    if (path === '/api/ebook/download' && method === 'GET') {
+      const user = needUser(context);
+      if (!get("SELECT id FROM ebook_orders WHERE user_id=? AND product_id=? AND status='approved' AND amount_cents=?", user.id, EBOOK.id, EBOOK.priceCents)) fail(403, 'An approved ebook purchase is required.');
+      if (!options.ebookPdf && (!env.EBOOK_PDF_PATH || !existsSync(env.EBOOK_PDF_PATH))) fail(503, 'The ebook file is unavailable. Contact support.');
+      return sendEbook(res, options.ebookPdf || readFileSync(env.EBOOK_PDF_PATH));
+    }
+    if (path === '/api/payments' && method === 'GET') { const user = needUser(context); return json(res, { payments: all('SELECT id,kind,round_id,reference,amount_cents,status,note,created_at FROM payments WHERE user_id=? UNION ALL SELECT id,kind,round_id,reference,amount_cents,status,note,created_at FROM ebook_orders WHERE user_id=? ORDER BY created_at DESC', user.id, user.id) }); }
     if (path === '/api/payments' && method === 'POST') {
       const user = needUser(context); rateLimit(`payment:${user.id}`, 10, 900000);
       const paymentMethod = get('SELECT * FROM payment_methods WHERE id=? AND enabled=1', string(body.methodId, 'Payment method', 1, 100)); if (!paymentMethod) fail(400, 'Choose an available payment method.');
       const reference = string(body.reference, 'Transaction reference', 6, 200).replace(/\s/g, '').toLowerCase();
-      if (get('SELECT id FROM payments WHERE reference=?', reference)) fail(409, 'This transaction reference has already been submitted.');
+      if (get('SELECT id FROM payments WHERE reference=?', reference) || get('SELECT id FROM ebook_orders WHERE reference=?', reference)) fail(409, 'This transaction reference has already been submitted.');
       const kind = choice(body.kind || 'subscription', ['subscription','pool'], 'payment type'); let amount = Number(setting('price_cents')), round = null;
       if (kind === 'subscription' && user.active) fail(409, 'Your lifetime subscription is already active.');
       if (kind === 'subscription' && get("SELECT id FROM payments WHERE user_id=? AND kind='subscription' AND status='pending'", user.id)) fail(409, 'Your subscription payment is already awaiting review.');
@@ -427,7 +458,7 @@ export function createApplication(options = {}) {
       const admin = needAdmin(context);
       if (path === '/api/admin/overview' && method === 'GET') return json(res, {
         users: all('SELECT id,email,name,role,active,disabled,created_at FROM users ORDER BY created_at DESC'),
-        payments: all('SELECT p.*,u.email FROM payments p JOIN users u ON u.id=p.user_id ORDER BY p.created_at DESC'),
+        payments: [...all('SELECT p.*,u.email FROM payments p JOIN users u ON u.id=p.user_id'), ...all('SELECT p.*,u.email FROM ebook_orders p JOIN users u ON u.id=p.user_id')].sort((a,b) => b.created_at - a.created_at),
         methods: all('SELECT * FROM payment_methods ORDER BY created_at'), accounts: all('SELECT a.id,a.user_id,a.broker,a.login,a.server,a.status,a.note,a.created_at,u.email FROM accounts a JOIN users u ON u.id=a.user_id ORDER BY a.created_at DESC'),
         payouts: all('SELECT p.*,u.email FROM payouts p JOIN users u ON u.id=p.user_id ORDER BY p.created_at DESC'),
         rounds: all('SELECT * FROM pool_rounds ORDER BY created_at DESC'), priceCents: Number(setting('price_cents')), telegramChat: setting('telegram_chat'),
@@ -450,9 +481,9 @@ export function createApplication(options = {}) {
       const review = path.match(/^\/api\/admin\/payments\/([^/]+)\/review$/);
       if (review && method === 'POST') {
         const status = choice(body.status, ['approved','rejected'], 'review decision'), note = body.note ? string(body.note, 'Review note', 1, 500) : '';
-        const payment = get('SELECT * FROM payments WHERE id=?', review[1]); if (!payment) fail(404, 'Payment not found.');
+        const payment = get('SELECT * FROM payments WHERE id=?', review[1]) || get('SELECT * FROM ebook_orders WHERE id=?', review[1]); if (!payment) fail(404, 'Payment not found.');
         transaction(db, () => {
-          const changed = run("UPDATE payments SET status=?,note=?,reviewed_at=?,reviewer_id=? WHERE id=? AND status='pending'", status, note, now(), admin.id, payment.id);
+          const changed = run(`UPDATE ${payment.kind === 'ebook' ? 'ebook_orders' : 'payments'} SET status=?,note=?,reviewed_at=?,reviewer_id=? WHERE id=? AND status='pending'`, status, note, now(), admin.id, payment.id);
           if (!changed.changes) fail(409, 'This payment has already been reviewed.');
           if (status === 'approved' && payment.kind === 'subscription') {
             run('UPDATE users SET active=1 WHERE id=?', payment.user_id);
@@ -504,7 +535,7 @@ export function createApplication(options = {}) {
   }
 
   const publicPath = resolve(options.publicPath || new URL('../public/', import.meta.url).pathname);
-  const pages = new Set(['/', '/login', '/signup', '/forgot-password', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/dashboard', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
+  const pages = new Set(['/', '/ebook', '/login', '/signup', '/forgot-password', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/dashboard', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
   const server = createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Referrer-Policy', 'no-referrer'); res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
@@ -544,6 +575,9 @@ export function createApplication(options = {}) {
       files['/assets/hero-mt5-hd.webp'] = ['assets/hero-mt5-hd.webp','image/webp'];
       files['/assets/hero-mt5-640.webp'] = ['assets/hero-mt5-640.webp','image/webp'];
       files['/hero-market.js'] = ['hero-market.js','text/javascript'];
+      files['/ebook.js'] = ['ebook.js','text/javascript'];
+      files['/ebook.css'] = ['ebook.css','text/css'];
+      files['/ebooks/elitebot-strategy-preview.pdf'] = ['ebooks/elitebot-strategy-preview.pdf','application/pdf'];
       files['/blog.js'] = ['blog.js','text/javascript'];
       files['/blog.css'] = ['blog.css','text/css'];
       const entry = files[url.pathname] || (pages.has(url.pathname) ? ['index.html','text/html'] : null);
