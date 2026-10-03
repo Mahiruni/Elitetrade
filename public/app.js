@@ -328,8 +328,8 @@ async function finishAuth(auth, destination = '/mt5') {
       }
       return;
     }
-    const response = await supabaseAuth('factors','GET',undefined,auth.access_token);
-    const factors = Array.isArray(response) ? response : [...(response?.totp || []), ...(response?.phone || [])];
+    const response = await supabaseAuth('user','GET',undefined,auth.access_token);
+    const factors = Array.isArray(response?.factors) ? response.factors : [];
     const factor = factors.find(item => item.status === 'verified' && (!item.factor_type || item.factor_type === 'totp'));
     if (factor && decodeJwt(auth.access_token).aal !== 'aal2') {
       const challenge = await supabaseAuth(`factors/${encodeURIComponent(factor.id)}/challenge`,'POST',{},auth.access_token);

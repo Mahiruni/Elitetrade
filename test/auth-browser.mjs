@@ -19,7 +19,8 @@ await context.route('**/auth/v1/**',async route=>{
  const req=route.request(),url=new URL(req.url()),path=url.pathname;
  const body=req.postData() ? req.postDataJSON() : {};
  requests.push({path,body});
- if(path.endsWith('/factors'))return route.fulfill({json:scenario==='mfa' ? [{id:'isolated-factor',factor_type:'totp',status:'verified'}] : []});
+ if(path.endsWith('/factors') && req.method()==='GET')return route.fulfill({status:405,json:{msg:'Method not allowed'}});
+ if(path.endsWith('/user') && req.method()==='GET')return route.fulfill({json:{id:'isolated-member',factors:scenario==='mfa' ? [{id:'isolated-factor',factor_type:'totp',status:'verified'}] : []}});
  if(scenario==='mfa' && path.endsWith('/challenge'))return route.fulfill({json:{id:'isolated-mfa-challenge'}});
  if(scenario==='mfa' && path.endsWith('/verify'))return route.fulfill({json:{access_token:'isolated-mfa-session',refresh_token:'isolated-refresh',expires_in:3600}});
  if(path.endsWith('/settings'))return route.fulfill({json:{external:{apple:false,google:false}}});
