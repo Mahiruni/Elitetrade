@@ -193,6 +193,8 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,onSen
    cooldownUntil=Date.now()+Math.min(Math.max(seconds,1),900)*1000;
    return `Too many attempts — try again in ${Math.ceil((cooldownUntil-Date.now())/1000)}s.`;
   }
+  if(error.name==='TimeoutError' || error.status===504 || error.code==='request_timeout')return 'That request took too long. Please try again.';
+  if(/email_address_not_authorized|smtp|sending.*email|email.*(?:delivery|send)/i.test(error.code+' '+error.message) || mode==='forgot' && error.status>=500)return mode==='forgot' ? 'Recovery email is temporarily unavailable. Please try again later or contact support.' : 'Email delivery is temporarily unavailable. Please try again later or contact support.';
   if(/mfa_verification_failed|invalid.*code/i.test(error.code+' '+error.message))return 'That code wasn’t accepted. Try a fresh code.';
   if(/passkey_disabled/.test(error.code+' '+error.message))return 'Passkey sign-in is unavailable. Use email or password.';
   if(/webauthn_credential_not_found|webauthn_verification_failed/.test(error.code+' '+error.message))return 'We couldn’t verify that passkey. Try email instead.';
@@ -201,7 +203,6 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,onSen
   if(/sso_provider|sso.*domain/i.test(error.message+' '+error.code))return 'Work sign-in isn’t available for this domain. Use email.';
   if(/failed to fetch|network|load failed/i.test(error.message))return 'Connection lost. Check your internet and try again.';
   if(/password|recovery link|request expired|two-factor|verification|verify this browser/i.test(error.message))return error.message;
-  if(error.name==='TimeoutError')return 'That request took too long. Please try again.';
   return 'We couldn’t complete that request. Please try again.';
  }
  const redirect = intent => `${location.origin}/login?intent=${encodeURIComponent(intent)}${returnTo?.() === '/ebook' ? '&next=/ebook' : ''}`;
@@ -230,7 +231,7 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,onSen
   lastEmail=email;
  }
  async function submit(event) {
-  event.preventDefault();if(busy || Date.now()<cooldownUntil)return;
+  event.preventDefault();if(busy || Date.now()<cooldownUntil || mode==='emailhelp')return;
   if(!validateAll())return;
   const current=mode,currentMethod=method,mountedScreen=screen;
   const stillHere=()=>screen===mountedScreen && screen?.isConnected;
@@ -239,7 +240,7 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,onSen
   try {
    if(current==='forgot'){
     try{await request(`recover?redirect_to=${encodeURIComponent(location.origin+'/reset-password')}`,'POST',{email});}
-    catch(error){if(error.status!==400 && error.status!==422)throw error;}
+    catch(error){if(!([400,422].includes(error.status) && (error.code==='user_not_found' || /user.*not.*found/i.test(error.message))))throw error;}
     showConfirmation('Recovery link requested.','If an account uses {email}, you’ll receive a recovery link. Check your inbox and spam folder.',email);return;
    }
    if(current==='resend'){
