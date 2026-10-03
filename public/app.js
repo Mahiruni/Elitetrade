@@ -599,22 +599,7 @@ document.addEventListener('submit',async event => {
     if (['password','reset'].includes(action) && data.password !== data.confirm) throw new Error('The new passwords do not match.');
     if (action === 'login') {
       const auth = await supabaseAuth('token?grant_type=password','POST',{ email:data.email, password:data.password });
-      let factors = [];
-      try {
-        const response = await supabaseAuth('factors','GET',undefined,auth.access_token);
-        factors = Array.isArray(response) ? response : [...(response?.totp || []), ...(response?.phone || [])];
-      } catch {}
-      const factor = factors.find(f => f.status === 'verified');
-      if (factor && decodeJwt(auth.access_token).aal !== 'aal2') {
-        const challenge = await supabaseAuth(`factors/${encodeURIComponent(factor.id)}/challenge`,'POST',{},auth.access_token);
-        state.pendingMfa = { auth, factorId:factor.id, challengeId:challenge.id };
-        state.requiresMfa = true;
-        authPage('/login');
-        return;
-      }
-      saveAuth(auth);
-      await identity();
-      navigate('/mt5',true);
+      await finishAuth(auth);
       return;
     }
     if (action === 'signup') {
@@ -625,9 +610,7 @@ document.addEventListener('submit',async event => {
           <div class="auth-bottom"><a href="/login">Go to sign in</a> · <a href="/forgot-password">Reset password</a></div>`;
         return;
       }
-      saveAuth(auth);
-      await identity();
-      navigate('/subscription',true);
+      await finishAuth(auth,'/subscription');
       return;
     }
     if (action === 'resend-confirmation-form') {
@@ -643,11 +626,10 @@ document.addEventListener('submit',async event => {
         { challenge_id:state.pendingMfa.challengeId, code:data.code },
         state.pendingMfa.auth.access_token
       );
-      saveAuth(verified);
+      const destination = state.pendingMfa.destination || '/mt5';
       state.pendingMfa = null;
       state.requiresMfa = false;
-      await identity();
-      navigate('/mt5',true);
+      await finishAuth(verified,destination);
       return;
     }
     if (action === 'forgot') {
