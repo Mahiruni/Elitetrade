@@ -1,0 +1,74 @@
+[
+  {
+    "filename": "01-confirm-signup.html",
+    "dashboard_template": "Confirm sign up",
+    "template_key": "confirmation",
+    "subject": "Confirm your email for EliteTrade",
+    "alternative_subject": "Welcome to EliteTrade — confirm your email",
+    "preheader": "One confirmation to finish creating your EliteTrade account.",
+    "primary_link": "{{ .ConfirmationURL }}"
+  },
+  {
+    "filename": "02-magic-link.html",
+    "dashboard_template": "Magic link or OTP",
+    "template_key": "magic_link",
+    "subject": "Your secure EliteTrade sign-in link",
+    "alternative_subject": "Sign in to EliteTrade",
+    "preheader": "Use your secure link or verification code to continue.",
+    "primary_link": "{{ .ConfirmationURL }}"
+  },
+  {
+    "filename": "03-reset-password.html",
+    "dashboard_template": "Reset password",
+    "template_key": "recovery",
+    "subject": "Reset your EliteTrade password",
+    "alternative_subject": "Your EliteTrade password reset request",
+    "preheader": "Choose a new password using your secure recovery link.",
+    "primary_link": "{{ .ConfirmationURL }}"
+  },
+  {
+    "filename": "04-change-email.html",
+    "dashboard_template": "Change email address",
+    "template_key": "email_change",
+    "subject": "Confirm your new EliteTrade email address",
+    "alternative_subject": "Approve your EliteTrade email change",
+    "preheader": "Confirm the request to update your sign-in email address.",
+    "primary_link": "{{ .ConfirmationURL }}"
+  },
+  {
+    "filename": "05-invite-user.html",
+    "dashboard_template": "Invite user",
+    "template_key": "invite",
+    "subject": "You’re invited to EliteTrade",
+    "alternative_subject": "Your EliteTrade invitation is ready",
+    "preheader": "Accept your invitation and set up your EliteTrade account.",
+    "primary_link": "{{ .ConfirmationURL }}"
+  },
+  {
+    "filename": "06-password-changed.html",
+    "dashboard_template": "Password changed",
+    "template_key": "password_changed_notification",
+    "subject": "Your EliteTrade password was changed",
+    "alternative_subject": "EliteTrade security notice: password changed",
+    "preheader": "A password change was completed. Review it if this was not you.",
+    "primary_link": "{{ .SiteURL }}"
+  },
+  {
+    "filename": "07-email-changed.html",
+    "dashboard_template": "Email address changed",
+    "template_key": "email_changed_notification",
+    "subject": "Your EliteTrade email address was changed",
+    "alternative_subject": "EliteTrade security notice: email changed",
+    "preheader": "Your sign-in email was updated. Review it if this was not you.",
+    "primary_link": "{{ .SiteURL }}"
+  },
+  {
+    "filename": "08-reauthentication.html",
+    "dashboard_template": "Reauthentication",
+    "template_key": "reauthentication",
+    "subject": "Your EliteTrade verification code",
+    "alternative_subject": "Verify your identity for EliteTrade",
+    "preheader": "Enter this one-time code to confirm the action you requested.",
+    "primary_link": "{{ .SiteURL }}"
+  }
+]
