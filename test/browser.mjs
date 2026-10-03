@@ -81,7 +81,7 @@ try {
   await navigate('/login'); await ready('Welcome back.');
   await capture(page,{path:'test-results/login-desktop.png',fullPage:true});
   await page.getByRole('tab',{name:'Create account',exact:true}).click();
-  await page.getByRole('button',{name:'Use a password instead',exact:true}).click();
+  assert.ok(await page.getByLabel('Password',{exact:true}).isVisible());
   await page.getByLabel('Full name',{exact:true}).fill('Browser Member');
   await page.getByLabel('Email address',{exact:true}).fill('browser@example.test');
   await page.getByLabel('Password',{exact:true}).fill('Browser password 42!');
@@ -131,7 +131,7 @@ try {
   await isolateAuth(customerContext);
   const customer = await customerContext.newPage(); customer.on('pageerror',e => errors.push(e.message));
   await customer.goto(base+'/signup');
-  await customer.getByRole('button',{name:'Use a password instead',exact:true}).click();
+  assert.ok(await customer.getByLabel('Password',{exact:true}).isVisible());
   await customer.getByLabel('Full name',{exact:true}).fill('Mobile Customer');
   await customer.getByLabel('Email address',{exact:true}).fill('mobile@example.test');
   await customer.getByLabel('Password',{exact:true}).fill('Mobile password 42!');

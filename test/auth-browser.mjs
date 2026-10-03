@@ -68,7 +68,8 @@ const component=async(selector,filename)=>{
  await page.screenshot({path:join(output,filename),clip:{x:Math.max(0,box.x-6),y:Math.max(0,box.y-6),width:box.width+12,height:box.height+12}});
 };
 const theme=async value=>{await page.evaluate(theme=>{localStorage.setItem('elite-theme',theme);document.body.classList.toggle('light',theme==='light');},value);};
-const password=async()=>page.getByRole('button',{name:'Use a password instead',exact:true}).click();
+const password=async()=>page.getByRole('button',{name:'Email & password',exact:true}).click();
+const emailLink=async()=>page.getByRole('button',{name:'Use an email link instead',exact:true}).click();
 const axePath=process.env.AXE_SCRIPT;
 try{
  // Four mode/theme combinations at both viewport sizes, plus narrow/reflow checks.
@@ -131,7 +132,7 @@ try{
   await component('.auth-primary',`component-button-default-${value}.png`);
   await page.locator('.auth-primary').focus();await component('.auth-primary',`component-button-focus-${value}.png`);
   await page.locator('.auth-primary').evaluate(el=>el.disabled=true);await component('.auth-primary',`component-button-disabled-${value}.png`);await page.locator('.auth-primary').evaluate(el=>el.disabled=false);
-  scenario='hold';const count=requests.filter(r=>r.path.endsWith('/otp')).length;
+  await emailLink();scenario='hold';const count=requests.filter(r=>r.path.endsWith('/otp')).length;
   await page.getByRole('button',{name:'Continue',exact:true}).click();await page.locator('form[aria-busy=true]').waitFor();
   await component('.auth-primary',`component-button-loading-${value}.png`);
   await page.locator('form').evaluate(el=>el.requestSubmit());
@@ -140,10 +141,10 @@ try{
   await page.getByRole('heading',{name:'Check your inbox.',exact:true}).waitFor();await capture(`desktop-success-${value}.png`);
  }
  // Missing accounts receive the same magic-link and recovery success treatment.
- scenario='unknown';await go('/login');await page.getByLabel('Email address',{exact:true}).fill('unknown@example.test');await page.getByRole('button',{name:'Continue',exact:true}).click();await page.getByRole('heading',{name:'Check your inbox.',exact:true}).waitFor();
+ scenario='unknown';await go('/login');await emailLink();await page.getByLabel('Email address',{exact:true}).fill('unknown@example.test');await page.getByRole('button',{name:'Continue',exact:true}).click();await page.getByRole('heading',{name:'Check your inbox.',exact:true}).waitFor();
  assert.equal(requests.at(-1).body.create_user,false);
  await go('/forgot-password');await page.getByLabel('Email address',{exact:true}).fill('unknown@example.test');await page.getByRole('button',{name:'Send recovery link',exact:true}).click();await page.getByRole('heading',{name:'Recovery link requested.',exact:true}).waitFor();
- scenario='';await go('/signup');await page.getByLabel('Full name',{exact:true}).fill('Magic Member');await page.getByLabel('Email address',{exact:true}).fill('magic@example.test');await page.getByRole('button',{name:'Continue',exact:true}).click();await page.getByRole('heading',{name:'Check your inbox.',exact:true}).waitFor();assert.equal(requests.at(-1).body.create_user,true);
+ scenario='';await go('/signup');await emailLink();await page.getByLabel('Full name',{exact:true}).fill('Magic Member');await page.getByLabel('Email address',{exact:true}).fill('magic@example.test');await page.getByRole('button',{name:'Continue',exact:true}).click();await page.getByRole('heading',{name:'Check your inbox.',exact:true}).waitFor();assert.equal(requests.at(-1).body.create_user,true);
  // Passkey and provider setup gaps remain recoverable; they never imply authentication succeeded.
  await go('/login');await page.getByRole('button',{name:'Use a passkey',exact:true}).click();assert.ok(await page.getByLabel('Email address',{exact:true}).isHidden());
  await page.getByRole('button',{name:'Continue',exact:true}).click();await page.getByRole('alert').filter({hasText:'Passkey sign-in is unavailable'}).waitFor();await capture('desktop-passkey-dark.png');

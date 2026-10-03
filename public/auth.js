@@ -45,7 +45,7 @@ function serializeCredential(credential) {
 }
 
 export function createAuthExperience({root,request,onSession,onMfa,onReset,getSession,legal,onTheme,onDemo,onCancelMfa,returnTo}) {
- let screen=null,mode='login',method='email',busy=false,confirmed=false,previousPath='',cooldownUntil=0,cooldownTimer=null,abort=null;
+ let screen=null,mode='login',method='password',busy=false,confirmed=false,previousPath='',cooldownUntil=0,cooldownTimer=null,abort=null;
  let providers=null,config={},lastEmail='',returnFocus=null,controller=null;
  const mobile=window.matchMedia('(max-width:760px)');
  const $=selector=>screen?.querySelector(selector);
@@ -114,8 +114,7 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,getSe
   $('.auth-mode-tab[data-mode="login"]').tabIndex=mode==='login' ? 0 : -1;
   $('.auth-mode-tab[data-mode="signup"]').setAttribute('aria-selected',String(mode==='signup'));
   $('.auth-mode-tab[data-mode="signup"]').tabIndex=mode==='signup' ? 0 : -1;
-  $('.auth-method[data-method="email"]').setAttribute('aria-pressed',String(method==='email'));
-  $('.auth-method[data-method="passkey"]').setAttribute('aria-pressed',String(method==='passkey'));
+  screen.querySelectorAll('.auth-method').forEach(button=>button.setAttribute('aria-pressed',String(method===button.dataset.method)));
   $('.auth-password-fallback').textContent=method==='password' || method==='sso' ? 'Use an email link instead' : 'Use a password instead';
   showField('name',mode==='signup');
   showField('email',!['reset','mfa','enroll'].includes(mode) && !(mode==='login' && method==='passkey'));
@@ -142,8 +141,10 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,getSe
  function setMode(next,{url=true,focusField=false,force=false}={}) {
   if(busy && !force)return;
   if(force)setBusy(false);
+  const wasNormal=['login','signup'].includes(mode);
   mode=next;confirmed=false;message('');
   if(!['login','signup'].includes(mode))method='email';
+  else if(!wasNormal)method='password';
   if(url){const path=({signup:'/signup',forgot:'/forgot-password',reset:'/reset-password',resend:'/resend-confirmation',enroll:'/passkey-setup'})[mode] || '/login';history.pushState(null,'',path);previousPath=path;}
   for(const input of $('form[data-auth-form]').querySelectorAll('input'))setError(input,'');
   updateUI({focusField});announce(`${titles[mode]} ${descriptions[mode]}`);
@@ -320,7 +321,7 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,getSe
     if(path!==previousPath || next!==mode){previousPath=path;setMode(next,{url:false,force:true});}
     return;
    }
-   controller?.abort();abort?.abort();clearTimeout(cooldownTimer);busy=false;confirmed=false;cooldownUntil=0;providers=null;mode=next;method='email';previousPath=path;
+   controller?.abort();abort?.abort();clearTimeout(cooldownTimer);busy=false;confirmed=false;cooldownUntil=0;providers=null;mode=next;method=['login','signup'].includes(next) ? 'password' : 'email';previousPath=path;
    root.innerHTML=`<main id="main" class="auth-experience" tabindex="-1">
     <aside class="auth-brand-panel" aria-label="About EliteBot">
      <a href="/" class="brand">${wordmark}</a>
@@ -337,7 +338,7 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,getSe
       <div class="auth-mode-tabs" role="tablist" aria-label="Account access"><button class="auth-mode-tab" id="auth-tab-login" role="tab" aria-controls="auth-form-panel" data-mode="login" type="button">Sign in</button><button class="auth-mode-tab" id="auth-tab-signup" role="tab" aria-controls="auth-form-panel" data-mode="signup" type="button">Create account</button><span class="auth-tab-line" aria-hidden="true"></span></div>
       <div class="auth-form-heading"><h1 id="auth-title" tabindex="-1"></h1><p id="auth-description"></p></div>
       <form data-auth-form id="auth-form-panel" aria-labelledby="auth-title" novalidate>
-       <div class="auth-methods" role="group" aria-label="Passwordless options"><button type="button" class="auth-method" data-method="email">${svg('mail')} Email link</button><button type="button" class="auth-method" data-method="passkey">${svg('key')} Use a passkey</button></div>
+       <div class="auth-methods" role="group" aria-label="Sign-in options"><button type="button" class="auth-method" data-method="password">${svg('mail')} Email &amp; password</button><button type="button" class="auth-method" data-method="passkey">${svg('key')} Use a passkey</button></div>
        <div class="auth-password-path"><button type="button" class="auth-text-button auth-password-fallback" data-auth-action="fallback"></button></div>
        <div class="auth-fields">
         ${field('name','Full name','text','autocomplete="name" maxlength="64"')}
@@ -368,4 +369,3 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,getSe
   dispose(){controller?.abort();abort?.abort();clearTimeout(cooldownTimer);screen=null;}
  };
 }
-

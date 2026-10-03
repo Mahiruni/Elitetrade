@@ -2,6 +2,8 @@
 
 The authentication surface uses Instrument Serif for display text and the variable DM Sans face for labels, input text, and controls. Fonts are self-hosted, with DM Sans optical sizing enabled. The EliteBot text wordmark and small Your Trading Bot tagline are preserved.
 
+Email and password are the default on both /login and /signup. Both fields appear immediately, including when returning from password recovery or confirmation screens. Password sign-in uses the password grant and opens the workspace directly after any required MFA; it does not send an email link. Email-link access remains an explicit alternative. New-account confirmation is controlled separately by the Supabase Auth provider setting.
+
 ## Frames and layout
 
 - Desktop: 42% brand panel, 58% form column; form width at most 400px. Warm paper and graphite themes share the same geometry and hierarchy.
@@ -11,7 +13,7 @@ The authentication surface uses Instrument Serif for display text and the variab
 
 ## Keyboard and focus
 
-1. Skip to content, home wordmark, theme, selected mode tab, Email link, Use a passkey, password fallback, visible fields, password visibility, recovery, and submission controls. Hidden fields are disabled and excluded from keyboard and form submission.
+1. Skip to content, home wordmark, theme, selected mode tab, Email & password, Use a passkey, email-link alternative, visible fields, password visibility, recovery, and submission controls. Hidden fields are disabled and excluded from keyboard and form submission.
 2. Mode tabs use a roving tab stop. Left/Right switch modes; Home selects Sign in and End selects Create account. Focus stays on the selected tab, and the existing email/password nodes and values are retained.
 3. On desktop, Continue and legal links come before social providers. On mobile, the same secondary control nodes move before the pinned Continue zone so visual and keyboard order match.
 4. Fields validate on blur. Submit validates all visible fields, announces the summary, and focuses the first invalid input. Each label uses a matching for/id; inline messages use aria-describedby and a live region.
