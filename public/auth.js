@@ -57,6 +57,7 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,onSen
  };
  const message=copy=>{const box=$('.auth-error-summary');if(box)box.innerHTML=copy ? `${svg('alert')}<span>${escape(copy)}</span>` : '';};
  const announce=copy=>{const live=$('.auth-live');if(live) live.textContent=copy;};
+ const verificationCodeLength=()=>mode==='device' ? Number(config.deviceCodeLength || 8) : 6;
  function validate(input) {
   if(input.disabled || input.closest('[hidden]')) return true;
   const value=input.value;
@@ -65,7 +66,7 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,onSen
   if(input.name==='name' && (value.trim().length<2 || value.trim().length>64)) error='Use 2–64 characters for your name.';
   if(input.name==='password' && (value.length>128 || value.length<(mode==='login' ? 1 : 12))) error=mode==='login' ? 'Enter your password.' : 'Use 12–128 characters.';
   if(input.name==='confirm' && value!==$('#a-password').value) error='Your passwords don’t match.';
-  if(input.name==='code' && !/^\d{6}$/.test(value)) error='Enter the six-digit code.';
+  if(input.name==='code' && !new RegExp('^[0-9]{'+verificationCodeLength()+'}$').test(value)) error=mode==='device' ? 'Enter the eight-digit code.' : 'Enter the six-digit code.';
   setError(input,error);return !error;
  }
  function validateAll() {
@@ -112,7 +113,7 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,onSen
   $('.auth-fields').hidden=mode==='enroll' || mode==='emailhelp';
   $('.auth-email-help').hidden=mode!=='emailhelp';
   $('.auth-device-controls').hidden=mode!=='device';
-  $('.auth-device-copy').textContent=config.deviceEmail ? `Enter the six-digit code sent to ${config.deviceEmail}, or open the verification link in this browser. We’ll remember this browser for 90 days.` : 'Enter the code from your verification email, or open its link in this browser.';
+  $('.auth-device-copy').textContent=config.deviceEmail ? `Enter the eight-digit code sent to ${config.deviceEmail}, or open the verification link in this browser. We’ll remember this browser for 90 days.` : 'Enter the eight-digit code from your verification email, or open its link in this browser.';
   $('.auth-mode-tab[data-mode="login"]').setAttribute('aria-selected',String(mode==='login'));
   $('.auth-mode-tab[data-mode="login"]').tabIndex=mode==='login' ? 0 : -1;
   $('.auth-mode-tab[data-mode="signup"]').setAttribute('aria-selected',String(mode==='signup'));
@@ -124,6 +125,9 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,onSen
   showField('password',mode==='reset' || normal && method==='password');
   showField('confirm',mode==='reset');showField('code',mode==='mfa' || mode==='device');
   $('label[for="a-code"]').textContent=mode==='device' ? 'Email verification code' : 'Authenticator code';
+  $('#a-code').maxLength=verificationCodeLength();
+  $('#a-code').minLength=verificationCodeLength();
+  $('#a-code').pattern='[0-9]{'+verificationCodeLength()+'}';
   $('#a-password').autocomplete=mode==='login' ? 'current-password' : 'new-password';
   $('.auth-password-hint').hidden=!(mode==='signup' && method==='password');
   $('.auth-forgot-row').hidden=!(mode==='login' && method==='password');

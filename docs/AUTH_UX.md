@@ -8,7 +8,7 @@ Email and password are the default on both /login and /signup. Both fields appea
 
 - Forgot password sends the existing single-use recovery link. Successful reset clears the application session and returns to password sign-in.
 - Forgot email opens /forgot-email with a public support link. Support must verify ownership before changing the sign-in email; this flow never reveals whether another person's address has an account.
-- With browser enforcement active, a password session from an unfamiliar browser opens /verify-device and requests an email to the authenticated account address. A secure email link or the six-digit code approves the browser. The return destination is limited to /mt5, /subscription, or /ebook.
+- With browser enforcement active, a password session from an unfamiliar browser opens /verify-device and requests an email to the authenticated account address. A secure email link or the eight-digit email code approves the browser. Authenticator codes remain six digits. The return destination is limited to /mt5, /subscription, or /ebook.
 - A random 256-bit browser secret lives in a Secure, HttpOnly, SameSite=Lax cookie with the __Host- prefix on HTTPS. Only its SHA-256 digest is stored in private database tables. Browser approval lasts 90 days. Clearing cookies or using another browser/device requires verification again.
 - Password and email changes revoke every remembered browser and session approval. Expired or deleted Auth sessions cannot obtain approval. Signed, recent Auth AMR evidence is required to approve a new browser; editable user_metadata is never evidence.
 - MFA remains required wherever it was previously enabled. An email check cannot authorize a session that still needs MFA.
@@ -16,14 +16,14 @@ Email and password are the default on both /login and /signup. Both fields appea
 
 ### Activation status — October 3, 2026
 
-The trusted-browser migration is applied. Its rollout switch is **off** because the live project has no custom SMTP sender. Supabase's default sender is limited to project-team addresses and the dashboard does not permit template edits without a sender or paid email service. Ordinary password access therefore remains available while email delivery is prepared.
+The trusted-browser migration is applied. A fresh settings page confirms that custom SMTP is enabled and saved. The Magic link or OTP template is saved with the EliteBot verification link and code. The production site URL, /login and /reset-password callbacks, and all three exact new-browser callback URLs are configured. Email OTP length remains eight digits; the application and API now match that setting.
+
+The rollout switch is **off** pending a delivery test to a user-designated registered account. Ordinary password access therefore remains available while delivery is verified. The setup checks read sender status only; SMTP credentials were not read or exported.
 
 Before activation:
 
-1. Connect a production SMTP sender in Authentication → Emails → SMTP Settings. Enter provider credentials through the provider's secure settings UI; never put them in the repository or chat.
-2. Update the Magic link or OTP template to include both `{{ .ConfirmationURL }}` and `{{ .Token }}`, with the provider's email OTP length set to six digits. The proposed template is in docs/DEVICE_VERIFICATION_EMAIL.html.
-3. Confirm the production /login and /reset-password callbacks are allowed, and verify delivery to a controlled address outside the project team as part of an explicitly authorized email test.
-4. After the matching deployment is ready and delivery works, enable `elitetrade_private.browser_auth_config.enforced`. No setting that disables signup email confirmation is needed.
+1. Use a registered account designated by the user for one explicitly authorized verification email. Confirm receipt and that its callback opens the correct production destination. The saved template is in docs/DEVICE_VERIFICATION_EMAIL.html.
+2. After the matching deployment is ready and delivery works, enable `elitetrade_private.browser_auth_config.enforced`. No setting that disables signup email confirmation is needed.
 
 Current validation: 74 Node tests passed, syntax/entrypoint checks passed for 37 JavaScript files, and transactional SQL checks passed for RLS/RPC guards, fresh/stale email evidence, metadata isolation, remembered/different browsers, MFA, expiry, password/email changes, and revoked sessions. All SQL fixtures rolled back and email-provider tests used an isolated HTTP service. These checks do not certify live email delivery. Older browser results below describe prior validation, not a rerun of this rollout.
 

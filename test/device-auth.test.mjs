@@ -24,7 +24,7 @@ async function fixture(t) {
     if(url.pathname==='/auth/v1/user')return signed?reply(signed.person):reply({message:'Invalid bearer token'},401);
     if(url.pathname==='/auth/v1/otp')return control.emailError?reply({message:'Delivery unavailable'},503):reply({});
     if(url.pathname==='/auth/v1/verify'){
-      if(body.token!=='123456')return reply({message:'Expired code'},400);
+      if(body.token!=='12345678')return reply({message:'Expired code'},400);
       return reply(issue(control.verifyUser||user,true));
     }
     if(!signed)return reply({message:'Authentication required'},401);
@@ -77,13 +77,16 @@ test('email requests use the authenticated address, safe destinations, and reque
 
 test('codes must be valid and matched to the signed-in account',async t=>{
   const f=await fixture(t),session=f.issue();
+  assert.equal((await f.call('/config')).data.deviceCodeLength,8);
   assert.equal((await f.call('/auth/device/verify',{session,body:{code:'12'}})).status,400);
+  assert.equal((await f.call('/auth/device/verify',{session,body:{code:'123456'}})).status,400);
+  assert.equal((await f.call('/auth/device/verify',{session,body:{code:'123456789'}})).status,400);
   assert.equal(f.calls.filter(c=>c.path==='/auth/v1/verify').length,0);
-  assert.equal((await f.call('/auth/device/verify',{session,body:{code:'000000'}})).status,400);
-  f.control.verifyUser=f.other;assert.equal((await f.call('/auth/device/verify',{session,body:{code:'123456'}})).status,400);
-  f.control.verifyUser=null;const result=await f.call('/auth/device/verify',{session,body:{code:'123456',email:f.other.email}});
+  assert.equal((await f.call('/auth/device/verify',{session,body:{code:'00000000'}})).status,400);
+  f.control.verifyUser=f.other;assert.equal((await f.call('/auth/device/verify',{session,body:{code:'12345678'}})).status,400);
+  f.control.verifyUser=null;const result=await f.call('/auth/device/verify',{session,body:{code:'12345678',email:f.other.email}});
   assert.equal(result.status,200);assert.equal(result.data.session.user.id,f.user.id);
-  assert.deepEqual(f.calls.filter(c=>c.path==='/auth/v1/verify').at(-1).body,{email:f.user.email,token:'123456',type:'email'});
+  assert.deepEqual(f.calls.filter(c=>c.path==='/auth/v1/verify').at(-1).body,{email:f.user.email,token:'12345678',type:'email'});
   const verified=await f.call('/me',{session:result.data.session});assert.equal(verified.data.user.id,f.user.id);
   assert.match(verified.cookie,/^__Host-elite_device=[A-Za-z0-9_-]{43}; HttpOnly; SameSite=Lax; Path=\/; Max-Age=7776000; Secure$/);
 });

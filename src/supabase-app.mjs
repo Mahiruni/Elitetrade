@@ -65,6 +65,7 @@ export function createSupabaseApplication(options = {}) {
   const supabaseKey = env.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_SNPQ5m9R3hv3Y7Uw-icxEQ_WSng7M8W';
   const deviceScope = new AsyncLocalStorage();
   const deviceVerification = options.deviceVerification !== false;
+  const deviceCodeLength = 8;
   const deviceCookie = origin.startsWith('https:') ? '__Host-elite_device' : 'elite_device';
   const db = options.db || createSupabaseData({ url:supabaseUrl, key:supabaseKey, getDeviceToken:() => deviceScope.getStore()?.deviceToken || '' });
 
@@ -206,7 +207,8 @@ export function createSupabaseApplication(options = {}) {
         credentialEncryptionConfigured:true,
         credentialVaultConfigured:true,
         cryptoInvoicesSupported:true,
-        deviceVerificationSupported:deviceVerification
+        deviceVerificationSupported:deviceVerification,
+        deviceCodeLength
       });
     }
 
@@ -238,7 +240,7 @@ export function createSupabaseApplication(options = {}) {
       const ctx = await authContext(req,false);
       if (!deviceVerification || !ctx.requiresDeviceVerification) fail(409,'This browser no longer needs email verification. Sign in again.');
       rateLimit(`device-code:${ctx.authUser.id}`,8,600000);
-      if (typeof body.code !== 'string' || !/^\d{6}$/.test(body.code)) fail(400,'Enter the six-digit code from your verification email.');
+      if (typeof body.code !== 'string' || !new RegExp('^[0-9]{'+deviceCodeLength+'}$').test(body.code)) fail(400,'Enter the eight-digit code from your verification email.');
       let session;
       try { session = await db.auth('verify',{body:{email:ctx.authUser.email,token:body.code,type:'email'}}); }
       catch { fail(400,'That verification code is invalid or expired. Request a fresh email.'); }
