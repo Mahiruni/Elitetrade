@@ -10,7 +10,7 @@ The application now opens `/dashboard` after password or passkey sign-in. Existi
 - Activity and History: latest worker reports; completed trade history explicitly unavailable until a history integration exists.
 - Account: MT5, profile/security, notifications, subscription, pool, referrals, support, and sign-out.
 
-Desktop uses a compact sidebar and top bar with orchid navigation accents. Mobile uses an edge-to-edge, frosted-glass monochrome icon-only tab bar for Home, Markets, Bot, Activity, and Account, with filled active icons, accessible names, safe-area insets, table cards, and bottom-sheet dialogs. The tab bar uses a translucent, blurred surface in both themes, with an opaque fallback for unsupported browsers and reduced transparency. The mobile drawer has a profile entry, smooth slide/fade transitions, keyboard focus containment, Escape/backdrop dismissal, and reduced-motion support. The existing public pages and authentication UI retain their styling.
+Desktop uses a compact sidebar and top bar with cobalt blue navigation accents. Mobile uses an edge-to-edge, frosted-glass icon-only tab bar for Home, Markets, Bot, Activity, and Account, with filled blue active icons, accessible names, safe-area insets, table cards, and bottom-sheet dialogs. The tab bar uses a translucent, blurred surface in both themes, with an opaque fallback for unsupported browsers and reduced transparency. The mobile drawer has a profile entry, smooth slide/fade transitions, keyboard focus containment, Escape/backdrop dismissal, and reduced-motion support. The existing public pages and authentication UI retain their styling.
 
 Selection and date/activity filters are stored per user in session storage. Financial data and quotes are not persisted in browser storage. API responses retain `no-store`. Offline command submissions are blocked, confirmed start buttons are disabled, and displayed data is marked stale. No service worker was active in the editable app; the recovered original manifest is not installed by this change.
 
@@ -23,6 +23,10 @@ Internal links open through the existing client router. Trading screens show mem
 Simultaneous account/bot reads share their in-flight request. Every new read after completion still contacts the server; this is not a financial-data TTL cache. Snapshots are cloned and cleared on logout, identity change, or API mutation. Responses from before invalidation cannot repopulate them. Cached views never enable start/pause, risk editing, or account removal. Failed updates retain the clearly stale view with a retry action. Route versions prevent late updates from replacing a newer page.
 
 `test/navigation-data.test.mjs` covers request sharing, isolated snapshots, fresh reads, retry, and invalidation during pending reads. The workspace browser test blocks account/bot responses while switching Markets → Activity → Bot on mobile/desktop; useful content must appear within 600 ms without the backend response. It also checks stale control locks, refresh recovery, shared requests, unchanged navigation shell, and unavailable-service retries.
+
+## Brand palette
+
+Cobalt `#2962FF` is the shared primary action color across the public pages, authentication, and dashboard. Dark surfaces use navy `#131722` and slate `#1E222D`; the light theme pairs white cards with `#F0F3FA` backgrounds. Links use lighter blue in dark mode and deeper blue in light mode for readable contrast. Green and red retain their existing gain/loss and status meaning. Navigation, charts, focus indicators, and the glass tab bar use this same palette.
 
 ## Data and controls
 

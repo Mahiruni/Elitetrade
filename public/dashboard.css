@@ -1,18 +1,18 @@
 /* Signed-in workspace. Public pages keep their existing visual system. */
 .layout {
-  --bg:#101623; --panel:#18202f; --surface:#222d40; --border:#ffffff0e;
-  --control-border:#46536b; --text:#f3f6fc; --muted:#a2afc4;
-  --accent:#98b6ff; --button:#3268f9; --button-hover:#2458df;
-  --green:#60d9b5; --red:#ffa1ac; --radius:28px;
+  --bg:#131722; --panel:#1e222d; --surface:#2a2e39; --border:#363a45;
+  --control-border:#626b7c; --text:#f0f3fa; --muted:#a9b1c2;
+  --accent:#82a7ff; --button:var(--brand-primary); --button-hover:var(--brand-primary-hover);
+  --green:#4dd0b0; --red:#ff9299; --radius:28px;
   --workspace-shadow:0 12px 36px #060c181a;
   display:grid; grid-template-columns:244px minmax(0,1fr); min-height:100dvh;
   background:var(--bg); color:var(--text); letter-spacing:-.015em;
 }
 body.light .layout {
-  --bg:#f5f7fb; --panel:#fff; --surface:#edf1f8; --border:#e7ecf3;
-  --control-border:#bbc6d7; --text:#202d43; --muted:#62718a;
-  --accent:#2858d9; --button:#2962ff; --button-hover:#2055df;
-  --green:#087c62; --red:#bd3650; --workspace-shadow:0 10px 36px #29406406;
+  --bg:#f0f3fa; --panel:#fff; --surface:#f0f3fa; --border:#d8deea;
+  --control-border:#8993a5; --text:#131722; --muted:#566176;
+  --accent:#2354d4; --button:var(--brand-primary); --button-hover:var(--brand-primary-hover);
+  --green:#087f6b; --red:#c02b3a; --workspace-shadow:0 10px 36px #29406406;
 }
 .layout button,.layout a { transition:background .2s var(--ease),color .2s var(--ease),box-shadow .2s var(--ease),transform .2s var(--ease) }
 .layout button { font-size:var(--type-control); min-height:44px; padding:.72rem 1.05rem; font-weight:600 }
@@ -403,8 +403,8 @@ body.light .layout {
 }
 
 /* App shell: compact navigation, deliberate density, and shared surfaces. */
-.layout { --radius:14px; --type-caption:.8125rem; --type-label:.875rem; --type-title:1.625rem; --type-metric:1.65rem; --border:#303948; --bg:#10151e; --panel:#181f2a; --surface:#222c3a; grid-template-columns:216px minmax(0,1fr); letter-spacing:0; font-size:.9375rem }
-body.light .layout { --bg:#f5f7fa; --border:#dce2eb; --muted:#526077; --text:#172236; --panel:#fff; --surface:#edf1f7 }
+.layout { --radius:14px; --type-caption:.8125rem; --type-label:.875rem; --type-title:1.625rem; --type-metric:1.65rem; --border:#363a45; --bg:#131722; --panel:#1e222d; --surface:#2a2e39; grid-template-columns:216px minmax(0,1fr); letter-spacing:0; font-size:.9375rem }
+body.light .layout { --bg:#f0f3fa; --border:#d8deea; --muted:#566176; --text:#131722; --panel:#fff; --surface:#f0f3fa }
 .layout .workspace { background:none; display:flex; flex-direction:column; min-width:0 }
 .layout .sidebar { padding:20px 12px 14px; background:var(--panel); border-right:1px solid var(--border) }
 .layout .sidebar-brand { margin-bottom:26px }
@@ -540,16 +540,15 @@ body.light .layout { --bg:#f5f7fa; --border:#dce2eb; --muted:#526077; --text:#17
 .snapshot-banner .meta { flex:1;min-width:0;overflow-wrap:anywhere }
 @media(max-width:760px) { .snapshot-banner { padding:10px 16px } }
 
-/* Navigation chrome: orchid accents, quiet surfaces, and a monochrome tab bar. */
+/* Navigation uses the same navy / blue identity as trading controls and charts. */
 .layout {
-  --nav-bg:#101115; --nav-chrome:#171621; --nav-text:#f4f2fa;
-  --nav-muted:#b2acbf; --nav-accent:#c4b5fd; --nav-border:#ffffff12;
-  --nav-hover:#ffffff09; --nav-selected:#c4b5fd14; --nav-glass:#101115b8;
+  --nav-bg:var(--bg); --nav-chrome:var(--panel); --nav-text:var(--text);
+  --nav-muted:var(--muted); --nav-accent:var(--accent); --nav-border:var(--border);
+  --nav-hover:#82a7ff0c; --nav-selected:#82a7ff1a; --nav-glass:#131722b8;
 }
 body.light .layout {
-  --nav-bg:#fff; --nav-chrome:#fcfaff; --nav-text:#211b2d;
-  --nav-muted:#6b627a; --nav-accent:#7444b2; --nav-border:#eae4f0;
-  --nav-hover:#7444b209; --nav-selected:#7444b211; --nav-glass:#ffffffc2;
+  --nav-bg:#fff; --nav-chrome:#fff;
+  --nav-hover:#2962ff09; --nav-selected:#2962ff12; --nav-glass:#ffffffc2;
 }
 .layout .sidebar,.layout .topbar { background:var(--nav-chrome); color:var(--nav-text); border-color:var(--nav-border) }
 .layout .topbar { box-shadow:0 1px 0 #00000002 }
@@ -606,7 +605,7 @@ body.light .layout {
   .bottom-nav a { min-height:56px;padding:0;position:relative;flex-direction:row;gap:0;color:var(--nav-text);border-radius:0;background:transparent;overflow:visible;transition:color 180ms ease }
   .bottom-nav a svg { width:26px;height:26px;position:relative;z-index:1;transition:transform 180ms ease }
   .bottom-nav a:before { content:'';position:absolute;width:44px;height:44px;border-radius:50%;background:var(--nav-text);opacity:0;transition:opacity 180ms ease }
-  .bottom-nav a.active { color:var(--nav-text);background:transparent }
+  .bottom-nav a.active { color:var(--nav-accent);background:transparent }
   .bottom-nav a:hover { background:transparent }
   .bottom-nav a:hover:before { opacity:.05 }
   .bottom-nav a:active svg { transform:scale(.9) }

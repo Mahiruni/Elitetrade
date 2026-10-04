@@ -1,5 +1,6 @@
 /* Elite Bot — open layouts, soft curves and a shared blue identity. */
 :root {
+  --brand-primary:#2962ff; --brand-primary-hover:#1e53e5;
   --brand-gradient:radial-gradient(ellipse at 52% 0%,#4274c532,transparent 64%),linear-gradient(110deg,#071226 0%,#102441 58%,#152e50 100%);
   --font-ui:"DM Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   --type-body:.9375rem; --type-small:.8125rem; --type-caption:.75rem;
@@ -17,7 +18,7 @@
   color-scheme:dark;
   --bg:#131722; --panel:#1e222d; --surface:#2a2e39; --border:#363a45;
   --control-border:#626b7c; --text:#f0f3fa; --muted:#a9b1c2; --accent:#82a7ff; --green:#4dd0b0; --red:#ff9299;
-  --accent-ink:#fff; --button:#2962ff; --button-hover:#1e53e5;
+  --accent-ink:#fff; --button:var(--brand-primary); --button-hover:var(--brand-primary-hover);
   --shadow:0 24px 80px #0004; --radius:28px; --radius-sm:999px;
   --space-1:.5rem; --space-2:1rem; --space-3:1.5rem; --space-4:2rem;
   --ease:cubic-bezier(.2,.7,.2,1);
@@ -28,7 +29,7 @@ body.light {
   color-scheme:light;
   --bg:#f0f3fa; --panel:#fff; --surface:#f0f3fa; --border:#d8deea;
   --control-border:#8993a5; --text:#131722; --muted:#566176; --accent:#2354d4; --green:#087f6b; --red:#c02b3a;
-  --button:#2962ff; --button-hover:#1e53e5; --shadow:0 16px 48px #13172210;
+  --button:var(--brand-primary); --button-hover:var(--brand-primary-hover); --shadow:0 16px 48px #13172210;
 }
 * { box-sizing:border-box }
 html { scroll-padding-top:6rem; scroll-behavior:smooth }
