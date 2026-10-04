@@ -544,12 +544,12 @@ body.light .layout { --bg:#f5f7fa; --border:#dce2eb; --muted:#526077; --text:#17
 .layout {
   --nav-bg:#101115; --nav-chrome:#171621; --nav-text:#f4f2fa;
   --nav-muted:#b2acbf; --nav-accent:#c4b5fd; --nav-border:#ffffff12;
-  --nav-hover:#ffffff09; --nav-selected:#c4b5fd14;
+  --nav-hover:#ffffff09; --nav-selected:#c4b5fd14; --nav-glass:#101115b8;
 }
 body.light .layout {
   --nav-bg:#fff; --nav-chrome:#fcfaff; --nav-text:#211b2d;
   --nav-muted:#6b627a; --nav-accent:#7444b2; --nav-border:#eae4f0;
-  --nav-hover:#7444b209; --nav-selected:#7444b211;
+  --nav-hover:#7444b209; --nav-selected:#7444b211; --nav-glass:#ffffffc2;
 }
 .layout .sidebar,.layout .topbar { background:var(--nav-chrome); color:var(--nav-text); border-color:var(--nav-border) }
 .layout .topbar { box-shadow:0 1px 0 #00000002 }
@@ -602,7 +602,7 @@ body.light .layout {
   .layout .sidebar .nav-label { font-size:.6875rem;letter-spacing:.1em;text-transform:uppercase }
   .layout .menu-scrim { display:block;position:fixed;inset:0;z-index:35;background:#08070e80;opacity:0;visibility:hidden;pointer-events:none;transition:opacity 240ms ease,visibility 240ms }
   .menu-open .layout .menu-scrim { opacity:1;visibility:visible;pointer-events:auto }
-  .bottom-nav { padding:0 max(4px,env(safe-area-inset-right)) env(safe-area-inset-bottom) max(4px,env(safe-area-inset-left));background:var(--nav-bg);border-top:1px solid var(--nav-border);box-shadow:none }
+  .bottom-nav { padding:0 max(4px,env(safe-area-inset-right)) env(safe-area-inset-bottom) max(4px,env(safe-area-inset-left));background:var(--nav-bg);border-top:1px solid var(--nav-border);box-shadow:0 -6px 24px #00000008,inset 0 1px 0 #ffffff18 }
   .bottom-nav a { min-height:56px;padding:0;position:relative;flex-direction:row;gap:0;color:var(--nav-text);border-radius:0;background:transparent;overflow:visible;transition:color 180ms ease }
   .bottom-nav a svg { width:26px;height:26px;position:relative;z-index:1;transition:transform 180ms ease }
   .bottom-nav a:before { content:'';position:absolute;width:44px;height:44px;border-radius:50%;background:var(--nav-text);opacity:0;transition:opacity 180ms ease }
@@ -612,4 +612,18 @@ body.light .layout {
   .bottom-nav a:active svg { transform:scale(.9) }
   .bottom-nav a:focus-visible { outline-offset:-5px;border-radius:8px }
   .layout .workspace { padding-bottom:calc(72px + env(safe-area-inset-bottom)) }
+}
+
+/* Keep the full-width tab bar; frost only its surface over scrolling content. */
+@supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))) {
+  @media(max-width:760px) {
+    .bottom-nav { background:var(--nav-glass);-webkit-backdrop-filter:blur(22px) saturate(155%);backdrop-filter:blur(22px) saturate(155%) }
+  }
+}
+@media(prefers-reduced-transparency:reduce) {
+  .bottom-nav { background:var(--nav-bg);-webkit-backdrop-filter:none;backdrop-filter:none }
+}
+@media(forced-colors:active) {
+  .bottom-nav { background:Canvas;color:CanvasText;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none }
+  .bottom-nav a,.bottom-nav a.active { color:CanvasText }
 }
