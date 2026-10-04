@@ -71,7 +71,7 @@ const navigationIcon = (name,selected=false) => {
   return `<svg class="navigation-icon" viewBox="0 0 24 24" fill="${selected?'currentColor':'none'}" stroke="${selected?'none':'currentColor'}" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${shapes[name]}</svg>`;
 };
 const menuToggleIcon = '<span class="menu-toggle-lines" aria-hidden="true"><span></span><span></span></span>';
-const wordmark = `<span class="brand-wordmark"><span class="brand-name">EliteBot</span><span class="wordmark-sub">Your Trading Bot</span></span>`;
+const wordmark = `<img class="brand-logo" src="/favicon.svg?v=eb1989" alt="EliteBot" width="104" height="48" decoding="async">`;
 const brand = `<a href="/dashboard" class="brand">${wordmark}</a>`;
 const btn = (label, action, id = '', extra = '') => `<button type="button" data-action="${action}" data-id="${esc(id)}" ${extra}>${label}</button>`;
 const themeButton = () => btn(icon('theme'), 'theme', '', 'class="icon ghost" aria-label="Toggle light and dark theme"');
