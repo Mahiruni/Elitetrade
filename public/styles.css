@@ -84,13 +84,13 @@ p { line-height:1.7 }
 hr { border:0; border-top:1px solid var(--border); margin:1.5rem 0 }
 .muted { color:var(--muted) }
 .mono { font-family:ui-monospace,"SFMono-Regular",Consolas,monospace; font-variant-numeric:tabular-nums }
-.brand { display:flex; align-items:center; gap:.7rem; color:var(--text); font-size:var(--type-logo); font-weight:650; letter-spacing:-.025em; line-height:1.2 }
+.brand { display:flex; align-items:center; gap:.7rem; color:var(--text); font-size:var(--type-logo); font-weight:650; letter-spacing:-.025em; line-height:1.2; min-height:44px }
 .brand:hover { text-decoration:none }
 /* EB artwork shares one cached asset across every branded surface. */
-.brand-logo { display:block; flex:none; width:104px; height:48px; object-fit:contain; filter:invert(1) hue-rotate(180deg) }
+.brand-logo { display:block; flex:none; width:76px; height:35px; object-fit:contain; filter:invert(1) hue-rotate(180deg) }
 body.light .brand-logo { filter:none }
 body .marketing-header .brand-logo,body .marketing-footer .brand-logo,body .auth-brand-panel .brand-logo,body .auth-mobile-top .brand-logo { filter:invert(1) hue-rotate(180deg) }
-.app-opening .brand-logo,.opening-placeholder .brand-logo { width:164px; height:76px }
+.app-opening .brand-logo,.opening-placeholder .brand-logo { width:120px; height:56px }
 .brand-wordmark { display:flex; flex-direction:column; align-items:flex-start; gap:4px; white-space:nowrap }
 .brand-name { line-height:1.15 }
 .wordmark-sub { display:block; font-size:var(--type-tagline); font-weight:500; line-height:1.2; letter-spacing:.015em; color:var(--muted) }
