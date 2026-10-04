@@ -1,3 +1,4 @@
+import {createSupportWorkspace} from './support.js';
 import { createNavigationData } from './navigation-data.js';
 import { createWorkspace } from './workspace.js';
 import { createAuthExperience } from './auth.js';
@@ -37,6 +38,7 @@ function saveAuth(session) {
   try { localStorage.setItem(AUTH_KEY, JSON.stringify(state.auth)); } catch {}
 }
 function clearAuth() {
+  supportUI.clearDrafts();
   navigationData.clear();state.showingSnapshot=false;
   state.auth = null;
   state.pendingMfa = null;
@@ -99,7 +101,7 @@ async function api(path, method = 'GET', body, {snapshot=false} = {}) {
     if(snapshot)return navigationData.snapshot(path);
     return navigationData.read(path,()=>fetchApi(path,method,body));
   }
-  if(method!=='GET'){navigationData.clear();if(!/^\/bots\/[^/]+\/preview$/.test(path)){state.quotes={};state.marketGeneration=(state.marketGeneration||0)+1;}}
+  if(method!=='GET'&&!path.startsWith('/support/workspace')){navigationData.clear();if(!/^\/bots\/[^/]+\/preview$/.test(path)){state.quotes={};state.marketGeneration=(state.marketGeneration||0)+1;}}
   return fetchApi(path,method,body);
 }
 async function fetchApi(path, method = 'GET', body) {
@@ -172,6 +174,7 @@ async function identity() {
   return me;
 }
 function connectEvents() {
+  if (state.config.persistentData) return;
   if (state.stream || !state.user && !state.chat) return;
   state.stream = new EventSource('/api/events');
   state.stream.addEventListener('refresh', async () => {
@@ -179,6 +182,7 @@ function connectEvents() {
     toast('Your account has an update. Refresh to see the latest status.');
   });
 }
+const supportUI = createSupportWorkspace({state,api,esc,date,toast});
 const workspaceUI = createWorkspace({state,api,esc,money,date,icon,btn,badge,heading,empty,stat,table});
 function shell(content) {
   const path = location.pathname;
@@ -477,6 +481,7 @@ function settingsPage() {
   return heading('Account settings','Make it yours. Keep your account secure.') + `<div class="grid settings-grid"><section class="card"><div class="card-head"><h2>Profile</h2><span class="section-icon">${icon('referrals')}</span></div>${form('profile',field('Full name','name',state.user.name,'text','required minlength="2" maxlength="64" autocomplete="name"') + field('Email address','email',state.user.email,'email','disabled') + '<small>Contact support if your sign-in email needs to change.</small>')}</section><section class="card"><div class="card-head"><h2>Password</h2><span class="section-icon">${icon('shield')}</span></div>${form('password',password('Current password','currentPassword') + password('New password','password','new-password') + password('Confirm new password','confirm','new-password') + (state.user.mfaEnabled ? field('Authenticator code','code','','text','required pattern="[0-9]{6}" inputmode="numeric" maxlength="6" autocomplete="one-time-code"') : ''), 'Update password')}</section><section class="card"><h2>Two-factor authentication</h2><div class="action-line"><div>${badge(state.user.mfaEnabled ? 'active' : 'inactive')}<p>Add a second sign-in step with an authenticator app.</p></div>${btn(state.user.mfaEnabled ? 'Disable' : 'Set up','mfa-setup','','class="ghost"')}</div></section><section class="card"><h2>Session</h2><p class="meta">Signed in as ${esc(state.user.email)}. Updating your password signs out all sessions.</p><div class="actions">${btn('Sign out','logout','','class="danger"')}</div></section></div>`;
 }
 async function supportPage(admin = false) {
+  if(state.user) return supportUI.page(admin);
   const d = await api(admin ? '/admin/support' : '/support'); state.data.chats = d.conversations;
   if (!d.conversations.some(c => c.id === state.chat)) state.chat = d.conversations[0]?.id || null;
   const chatBody = state.chat ? await chatContent(state.chat) : admin ? empty('Your inbox is clear','New customer conversations will appear here.') : `<div class="support-empty"><span class="support-empty-icon">${icon('support')}</span><h2>How can we help?</h2><p>Start a conversation for help with account access, payments, or your MT5 connection.</p>${btn('Start a conversation','chat-create','','class="primary"')}</div>`;
@@ -488,6 +493,7 @@ async function chatContent(id) {
 }
 function messagesHtml(messages) { return messages.map(m => `<div class="message ${esc(m.sender)}"><small>${m.sender === 'admin' ? 'Support team' : 'Customer'}</small><p>${esc(m.body)}</p><small>${date(m.created_at)}</small></div>`).join('') || '<p class="meta">Send a message to begin.</p>'; }
 async function refreshChat() {
+  if(state.user && location.pathname.includes('support')) return supportUI.refresh();
   if (!state.chat || !document.querySelector('#messages')) return;
   const chatId = state.chat, d = await api(`/support/${chatId}`); if (state.chat !== chatId) return;
   const el = document.querySelector('#messages'); if (!el) return;
@@ -522,6 +528,7 @@ async function adminPage() {
   return heading('Administration','A focused view of members, payments, and connected services.') + `<div class="stats">${stat('Members',d.users.length,'Registered workspace members','referrals')}${stat('Pending payments',pending.payments,'Submissions awaiting verification','wallet')}${stat('Pending connections',pending.accounts,'MT5 accounts awaiting review','terminal')}</div><div class="admin-section-picker"><label for="admin-section-select">Administration section</label><select id="admin-section-select">${tabs.map(([id,label]) => `<option value="${id}" ${state.adminTab === id ? 'selected' : ''}>${label}${pending[id] ? ` · ${pending[id]} pending` : ''}</option>`).join('')}</select></div><div class="admin-layout"><div class="tabs admin-nav" role="tablist" aria-label="Administration sections" aria-orientation="vertical">${tabs.map(([id,label]) => btn(`${icon(sections[id][0])}<span>${label}</span>${pending[id] ? `<span class="tab-count" aria-hidden="true">${pending[id]}</span>` : ''}`,'admin-tab',id,`id="admin-tab-${id}" role="tab" aria-label="${label}" aria-controls="admin-panel" aria-selected="${state.adminTab === id}" tabindex="${state.adminTab === id ? '0' : '-1'}" class="${state.adminTab === id ? 'selected' : ''}"`)).join('')}</div><section class="card admin-panel" id="admin-panel" role="tabpanel" aria-labelledby="admin-panel-title"><div class="admin-panel-heading"><div><h2 id="admin-panel-title">${tabs.find(([id]) => id === state.adminTab)[1]}</h2><p>${sections[state.adminTab][1]}</p></div></div>${content}</section></div>`;
 }
 async function render({ quiet = false, navigation = false } = {}) {
+  supportUI.dispose();
   stopHeroMarket(); stopHeroMarket = () => {};
   const focused=document.activeElement;
   const restoreAction=quiet && focused?.dataset?.action ? {action:focused.dataset.action,id:focused.dataset.id}:null;
@@ -557,6 +564,7 @@ async function render({ quiet = false, navigation = false } = {}) {
     if(canShowSnapshot)content=await pages[path]({snapshot:true});
     if(version!==state.version)return;
     pageShell(content); connectEvents();
+    if(state.user && path.includes('support')) supportUI.mount();
     if(navigation && document.activeElement===document.body)document.querySelector('#main')?.focus({preventScroll:true});
     if(restoreAction)[...root.querySelectorAll('[data-action]')].find(el=>el.dataset.action===restoreAction.action&&el.dataset.id===restoreAction.id)?.focus({preventScroll:true});
     if (path === '/ebook' && state.user) { try { sessionStorage.removeItem('elite-auth-return'); } catch {} }
@@ -911,8 +919,8 @@ function syncOffline() {
   if(!navigator.onLine)document.querySelectorAll('.account-strip-state .badge').forEach(el=>{el.textContent='offline';el.className='badge offline';});
 }
 setInterval(()=>{if(state.user&&!document.hidden)workspaceUI.syncFreshness();},10000);
-window.addEventListener('offline',()=>{syncOffline();toast('Offline. Trading actions are unavailable.');});
-window.addEventListener('online',()=>{syncOffline();if(state.user&&!modal.open)render({quiet:true});});
+window.addEventListener('offline',()=>{syncOffline();toast(location.pathname.includes('support')?'Offline. Your draft is saved on this device.':'Offline. Trading actions are unavailable.');});
+window.addEventListener('online',()=>{syncOffline();if(state.user&&!modal.open){if(location.pathname.includes('support'))void supportUI.refresh();else render({quiet:true});}});
 
 document.addEventListener('invalid',event=>{event.target.setAttribute('aria-invalid','true');const details=event.target.closest('details');if(details)details.open=true;},true);
 document.addEventListener('input',event=>event.target.removeAttribute('aria-invalid'));
