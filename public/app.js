@@ -1,3 +1,5 @@
+import { createWorkspace } from './workspace.js';
+import { translateWorkspace, language } from './workspace-i18n.js';
 import { createAuthExperience } from './auth.js';
 import { ebookOffer, ebookPage, downloadEbook } from './ebook.js';
 import { mountHeroMarket } from './hero-market.js';
@@ -22,6 +24,7 @@ const readStoredAuth = () => {
   try { return JSON.parse(localStorage.getItem(AUTH_KEY) || 'null'); }
   catch { return null; }
 };
+const submitLocks = new Set();
 const state = { user: null, csrf: null, config: {}, data: {}, chat: null, adminTab: 'payments', version: 0, stream: null, auth: readStoredAuth(), pendingMfa: null, requiresDeviceVerification:false,deviceEmail:'',deviceDestination:'/mt5',deviceEmailSession:'' };
 function saveAuth(session) {
   if (!session?.access_token) return;
@@ -49,7 +52,7 @@ const date = value => value ? new Date(value).toLocaleString([], { dateStyle:'me
 const badge = value => `<span class="badge ${esc(value)}">${esc(value)}</span>`;
 const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${({ terminal:'<path d="m5 7 5 5-5 5m8 0h6"/>', bots:'<rect x="4" y="6" width="16" height="14" rx="4"/><path d="M12 2v4M8 11v2m8-2v2m-8 4h8M1 11h3m16 0h3"/>', pool:'<path d="M3 20h18M5 20V10m7 10V4m7 16v-7M3 7l8-5 10 5"/>', referrals:'<circle cx="9" cy="7" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3m2-17a3 3 0 0 1 0 6m2 4a5 5 0 0 1 2 4v3"/>', lock:'<rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/>', settings:'<path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="10" cy="18" r="2"/>', wallet:'<rect x="3" y="5" width="18" height="15" rx="3"/><path d="M3 8V5l14-3v3m4 7h-6v5h6"/>', support:'<path d="M4 13v-2a8 8 0 0 1 16 0v2M4 11H2v7h4v-7zm16 0h2v7h-4v-7zm0 7v3h-7"/>', shield:'<path d="m12 2 8 4v6c0 5-8 10-8 10S4 17 4 12V6zm-4 9 3 3 5-6"/>', menu:'<path d="M4 6h16M4 12h16M4 18h16"/>', theme:'<path d="M21 13A9 9 0 0 1 11 3a9 9 0 1 0 10 10Z"/>', close:'<path d="m6 6 12 12M6 18 18 6"/>', arrow:'<path d="M4 12h16m-6-6 6 6-6 6"/>', logout:'<path d="M9 3H4v18h5m6-15 6 6-6 6m-7-6h13"/>', plus:'<path d="M12 4v16M4 12h16"/>', eye:'<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>', refresh:'<path d="M20 7v5h-5M4 17v-5h5M5 7a8 8 0 0 1 14-1l1 6M4 12l1 6a8 8 0 0 0 14-1"/>' })[name] || ''}</svg>`;
 const wordmark = `<span class="brand-wordmark"><span class="brand-name">EliteBot</span><span class="wordmark-sub">Your Trading Bot</span></span>`;
-const brand = `<a href="/mt5" class="brand">${wordmark}</a>`;
+const brand = `<a href="/dashboard" class="brand">${wordmark}</a>`;
 const btn = (label, action, id = '', extra = '') => `<button type="button" data-action="${action}" data-id="${esc(id)}" ${extra}>${label}</button>`;
 const themeButton = () => btn(icon('theme'), 'theme', '', 'class="icon ghost" aria-label="Toggle light and dark theme"');
 const empty = (title, detail, action = '') => `<div class="empty"><strong>${title}</strong>${detail}${action ? `<div class="actions center">${action}</div>` : ''}</div>`;
@@ -69,8 +72,9 @@ const table = (heads, rows) => {
 };
 const stat = (label, value, note = '', symbol = 'pool') => `<div class="stat"><div class="stat-label"><span class="metric-icon">${icon(symbol)}</span><small>${label}</small></div><div class="value">${value}</div>${note ? `<span class="metric-note">${note}</span>` : ''}</div>`;
 function toast(message) { const el = document.querySelector('#toast'); el.textContent = message; el.classList.add('visible'); clearTimeout(state.toastTimer); state.toastTimer = setTimeout(() => el.classList.remove('visible'), 5000); }
-function openModal(title, body) { modal.innerHTML = `<div class="dialog-head"><h2>${title}</h2>${btn(icon('close'), 'close', '', 'class="icon ghost" aria-label="Close dialog"')}</div><div class="dialog-body">${body}</div>`; modal.showModal(); }
+function openModal(title, body) { modal.innerHTML = `<div class="dialog-head"><h2>${title}</h2>${btn(icon('close'), 'close', '', 'class="icon ghost" aria-label="Close dialog"')}</div><div class="dialog-body">${body}</div>`; modal.showModal(); translateWorkspace(modal); }
 async function api(path, method = 'GET', body) {
+  if(method!=='GET'&&!navigator.onLine)throw new Error('Reconnect before sending changes or trading commands.');
   const accessToken = path === '/config' ? '' : await ensureAccessToken();
   const response = await fetch(`/api${path}`, {
     method,
@@ -145,17 +149,20 @@ function connectEvents() {
     toast('Your account has an update. Refresh to see the latest status.');
   });
 }
+const workspaceUI = createWorkspace({state,api,esc,money,date,icon,btn,badge,heading,empty,stat,table});
 function shell(content) {
   const path = location.pathname;
-  const groups = [
-    ['Workspace',[['/mt5','terminal','MT5 terminal'],['/bots','bots','Trading bots'],['/pool','pool','Live pool']]],
-    ['Account',[['/referrals','referrals','Referrals'],['/subscription','wallet','Subscription'],['/settings','settings','Settings'],['/support','support','Support']]]
-  ];
-  if (state.user.role === 'admin') groups.push(['Administration',[['/admin','shield','Administration'],['/admin/support','support','Support inbox']]]);
-  const current = groups.flatMap(([,links]) => links).find(([href]) => path === href || href === '/subscription' && path === '/subscribe');
+  const mainLinks = [['/dashboard','pool','Home'],['/markets','terminal','Markets'],['/bots','bots','Bot'],['/activity','refresh','Activity'],['/account','referrals','Account']];
+  const secondary = [['/mt5','terminal','MT5 terminal'],['/positions','pool','Positions'],['/notifications','shield','Notifications'],['/subscription','wallet','Subscription'],['/pool','pool','Live pool'],['/referrals','referrals','Referrals'],['/settings','settings','Settings'],['/support','support','Support']];
+  if (state.user.role === 'admin') secondary.push(['/admin','shield','Administration'],['/admin/support','support','Support inbox']);
+  const current = [...mainLinks,...secondary].find(([href]) => path === href || href === '/subscription' && path === '/subscribe');
+  const accountArea = ['/account','/mt5','/subscription','/subscribe','/settings','/pool','/referrals','/support','/admin','/admin/support','/notifications'].includes(path);
+  const activeMain = accountArea ? '/account' : ['/positions','/history'].includes(path) ? '/activity' : path;
+  const navLink = ([href,i,title]) => `<a href="${href}" class="${current?.[0]===href?'active':''}" ${current?.[0]===href?'aria-current="page"':''}>${icon(i)}<span>${href==='/bots'?'Trading bots':title}</span></a>`;
   const initials = String(state.user.name || state.user.email || 'E').trim().split(/\s+/).slice(0,2).map(part => part[0]).join('').toUpperCase();
-  const service = state.config.connectionMode === 'account-data' ? 'Account data mode' : state.config.gatewayConfigured ? 'Gateway configured' : 'Gateway not configured';
-  root.innerHTML = `<div class="layout" data-page="${esc(path.split('/')[1] || 'home')}"><div class="menu-scrim" data-action="menu"></div><aside class="sidebar" id="workspace-navigation"><div class="sidebar-brand">${brand}${btn(icon('close'),'menu','','class="icon ghost mobile-only" aria-label="Close navigation"')}</div><nav aria-label="Main navigation">${groups.map(([label,links]) => `<div class="nav-group"><div class="nav-label">${label}</div>${links.map(([href,i,title]) => `<a href="${href}" class="${current?.[0] === href ? 'active' : ''}" ${current?.[0] === href ? 'aria-current="page"' : ''}>${icon(i)}<span>${title}</span>${current?.[0] === href ? '<span class="nav-active-dot" aria-hidden="true"></span>' : ''}</a>`).join('')}</div>`).join('')}</nav><div class="sidebar-bottom"><a href="/subscription" class="membership"><span class="membership-icon">${icon('shield')}</span><span><strong>Lifetime membership</strong><small>${state.user.active ? 'Your access is active' : 'Activate your access'}</small></span>${badge(state.user.active ? 'active' : 'inactive')}</a>${btn(`${icon('logout')} Sign out`, 'logout', '', 'class="ghost logout"')}</div></aside><div class="workspace"><header class="topbar"><div class="desktop-crumb"><span>Workspace</span><span class="crumb-divider">/</span><strong>${esc(current?.[2] || 'Terminal')}</strong></div>${brand}<div class="topbar-actions"><span class="connection-label" title="Connection service configuration; individual account status is shown below.">${service}</span>${btn(icon('refresh'),'refresh','','class="icon ghost topbar-refresh" aria-label="Refresh workspace"')}${themeButton()}<a href="/settings" class="profile-link" aria-label="Account settings for ${esc(state.user.name || state.user.email)}"><span class="account-name"><strong>${esc(state.user.name)}</strong><small>${state.user.role === 'admin' ? 'Administrator' : 'Member'}</small></span><span class="avatar">${esc(initials)}</span></a>${btn(icon('menu'), 'menu', '', 'class="icon ghost mobile-only" aria-label="Open navigation" aria-controls="workspace-navigation" aria-expanded="false"')}</div></header><main id="main" class="content" tabindex="-1">${content}</main><footer class="workspace-footer"><span>Elite Bot <span class="footer-dot">·</span> Your trading workspace</span><span>Trading involves risk. Performance is not guaranteed.</span></footer></div></div>`;
+  const online = navigator.onLine;
+  root.innerHTML = `<div class="layout" data-page="${esc(path.split('/')[1] || 'home')}"><div class="menu-scrim" data-action="menu"></div><aside class="sidebar" id="workspace-navigation"><div class="sidebar-brand">${brand}${btn(icon('close'),'menu','','class="icon ghost mobile-only" aria-label="Close navigation"')}</div><nav aria-label="Main navigation"><div class="nav-group">${mainLinks.map(navLink).join('')}</div><div class="nav-group"><div class="nav-label">Workspace</div>${secondary.map(navLink).join('')}</div></nav><div class="sidebar-bottom"><div class="sidebar-member"><span class="avatar">${esc(initials)}</span><span><strong>${esc(state.user.name)}</strong><small>${state.user.role==='admin'?'Administrator':'Member'}</small></span></div>${btn(`${icon('logout')} Sign out`,'logout','','class="ghost logout"')}</div></aside><div class="workspace"><header class="topbar"><div class="desktop-crumb"><span>Workspace</span><span class="crumb-divider">/</span><strong>${current?.[2] || 'Home'}</strong></div>${brand}<div class="topbar-actions">${btn(icon('refresh'),'refresh','','class="icon ghost topbar-refresh" aria-label="Refresh workspace"')}${btn(language()==='am'?'EN':'አማ','language','','class="language-button ghost" aria-label="Switch language"')}${themeButton()}<a href="/notifications" class="icon-link" aria-label="View account alerts">${icon('shield')}</a><a href="/account" class="profile-link" aria-label="Account"><span class="avatar">${esc(initials)}</span></a>${btn(icon('menu'),'menu','','class="icon ghost mobile-only" aria-label="Open navigation" aria-controls="workspace-navigation" aria-expanded="false"')}</div></header><div id="offline-banner" class="offline-banner" role="status" ${online?'hidden':''}>Offline · Data may be stale. Trading actions are unavailable.</div><main id="main" class="content" tabindex="-1">${content}</main><footer class="workspace-footer"><span>EliteBot · Trading workspace</span><span>Trading involves risk.</span></footer></div><nav class="bottom-nav" aria-label="Mobile navigation">${mainLinks.map(([href,i,title])=>`<a href="${href}" class="${activeMain===href?'active':''}" ${activeMain===href?'aria-current="page"':''}>${icon(i)}<span>${title}</span></a>`).join('')}</nav></div>`;
+  syncOffline(); translateWorkspace(root);
 }
 const publicBrand = `<a href="/" class="brand site-brand">${wordmark}</a>`;
 function marketingHeader() {
@@ -310,13 +317,13 @@ function ebookAuthReturn() {
     return requested === '/ebook' || sessionStorage.getItem('elite-auth-return') === '/ebook' ? '/ebook' : '';
   } catch { return requested === '/ebook' ? '/ebook' : ''; }
 }
-async function finishAuth(auth, destination = '/mt5') {
+async function finishAuth(auth, destination = '/dashboard') {
   destination = ebookAuthReturn() || destination;
   if (auth?.access_token) {
     saveAuth(auth);
     await identity();
     if (state.requiresDeviceVerification) {
-      state.deviceDestination = ['/ebook','/subscription'].includes(destination) ? destination : '/mt5';
+      state.deviceDestination = ['/ebook','/subscription','/dashboard'].includes(destination) ? destination : '/mt5';
       try { sessionStorage.setItem('elite-device-return',state.deviceDestination); } catch {}
       history.replaceState(null,'','/verify-device');
       authPage('/verify-device');
@@ -389,14 +396,15 @@ async function terminalPage() {
   const data = await api('/accounts'); state.data.accounts = data.accounts;
   const connected = data.accounts.filter(a => a.status === 'connected').length;
   const pending = data.accounts.filter(a => a.status === 'pending').length;
-  const accounts = data.accounts.length ? data.accounts.map(account => `<article class="card account-card"><div class="terminal-status"><div class="account-identity"><span class="broker-icon">${icon('terminal')}</span><div><h2>${esc(account.broker)}</h2><span class="meta">MT5 account <span class="mono">${esc(account.login)}</span></span></div></div>${badge(account.status)}</div><div class="account-server"><span>Broker server</span><strong class="mono">${esc(account.server)}</strong></div><div class="account-balances"><div><small>Balance</small><div class="value">${account.snapshot?.balance === undefined ? '—' : money(account.snapshot.balance * 100,account.snapshot.currency)}</div></div><div><small>Equity</small><div class="value">${account.snapshot?.equity === undefined ? '—' : money(account.snapshot.equity * 100,account.snapshot.currency)}</div></div></div>${account.snapshot ? `<p class="meta snapshot-time">Updated ${date(account.snapshot.updatedAt)}</p>` : '<p class="account-note"><span class="status-dot" aria-hidden="true"></span>Account figures appear after the trading connection is confirmed.</p>'}${account.note ? `<p class="account-review-note">${esc(account.note)}</p>` : ''}<div class="account-footer"><a href="/bots" class="button-link">Manage bots ${icon('arrow')}</a>${btn('Remove account','account-delete',account.id,'class="danger ghost"')}</div></article>`).join('') : `<section class="card">${empty('Connect your first MT5 account','Add your broker and terminal details to request a connection.',btn(`${icon('plus')} Add MT5 account`,'account-add','','class="primary"'))}</section>`;
+  const accounts = data.accounts.length ? data.accounts.map(account => `<article class="card account-card"><div class="terminal-status"><div class="account-identity"><span class="broker-icon">${icon('terminal')}</span><div><h2>${esc(account.broker)}</h2><span class="meta">MT5 account <span class="mono">${esc(account.login)}</span></span></div></div>${badge(account.status)}</div><p class="account-kind">${workspaceUI.type(account)}</p><div class="account-server"><span>Broker server</span><strong class="mono">${esc(account.server)}</strong></div><div class="account-balances"><div><small>Balance</small><div class="value">${account.snapshot?.balance === undefined ? '—' : money(account.snapshot.balance * 100,account.snapshot.currency)}</div></div><div><small>Equity</small><div class="value">${account.snapshot?.equity === undefined ? '—' : money(account.snapshot.equity * 100,account.snapshot.currency)}</div></div></div>${account.snapshot ? `<p class="meta snapshot-time">Updated ${date(account.snapshot.updatedAt)}</p>` : '<p class="account-note"><span class="status-dot" aria-hidden="true"></span>Account figures appear after the trading connection is confirmed.</p>'}${account.note ? `<p class="account-review-note">${esc(account.note)}</p>` : ''}<div class="account-footer"><a href="/bots" class="button-link">Manage bots ${icon('arrow')}</a>${btn('Remove account','account-delete',account.id,'class="danger ghost"')}</div></article>`).join('') : `<section class="card">${empty('Connect your first MT5 account','Add your broker and terminal details to request a connection.',btn(`${icon('plus')} Add MT5 account`,'account-add','','class="primary"'))}</section>`;
   return heading('MT5 terminal','Every broker connection, in one clear view.',btn(`${icon('plus')} Add account`,'account-add','','class="primary"')) + activation() + `<div class="stats">${stat('Connected accounts',connected,'Confirmed broker connections','terminal')}${stat('Accounts in review',pending,'Awaiting administrator approval','shield')}${stat('Connection service',state.config.tradingEnabled === false && state.config.gatewayConfigured ? 'Account data' : data.gatewayConfigured ? 'Configured' : 'Not connected','Demo and real MT5 accounts','settings')}</div><div class="dashboard-columns"><section class="account-list" aria-label="Your MT5 accounts"><div class="section-heading"><div><h2>Broker accounts</h2><p>${data.accounts.length} ${data.accounts.length === 1 ? 'account' : 'accounts'} in your workspace</p></div><span class="section-icon">${icon('terminal')}</span></div>${accounts}</section><aside class="workspace-aside"><section class="card connection-guide"><span class="section-icon">${icon('shield')}</span><h2>A clear path to connection</h2><p class="meta">Each account follows the same review process.</p><ol class="connection-steps"><li><span>01</span><div><strong>Add your MT5 details</strong><p>Use the login, password, and exact server assigned by your broker.</p></div></li><li><span>02</span><div><strong>Administrator review</strong><p>Your details are reviewed before the provider connects your account.</p></div></li><li><span>03</span><div><strong>See your account data</strong><p>Balance and equity appear after the broker connection is confirmed.</p></div></li></ol><a href="/support" class="button-link">Get connection help ${icon('arrow')}</a></section>${state.config.tradingEnabled === false && state.config.gatewayConfigured ? '<div class="notice"><strong>Account data mode</strong><p>MT5 demo and real accounts are supported. Account data is available after review; automated trading is not enabled.</p></div>' : ''}${!data.gatewayConfigured ? '<div class="notice"><strong>Connection service required</strong><p>Live account data and trading will become available when your administrator connects the MT5 service. You can save account details for review after activation.</p></div>' : ''}</aside></div>`;
 }
 async function botsPage() {
   const [data, accounts] = await Promise.all([api('/bots'),api('/accounts')]); state.data.bots = data.bots; state.data.accounts = accounts.accounts;
   if(typeof data.engineReady === 'boolean')state.config.tradingEnabled=data.engineReady;
-  const engineOffline = state.config.tradingEnabled === false && state.config.gatewayConfigured;
-  return heading('Trading bots','Your strategies, risk controls, and demo execution.') + activation() + `<div class="stats">${stat('Configured bots',data.bots.length,'Saved strategies in your workspace','bots')}${stat('Monitoring now',data.bots.filter(bot => bot.status === 'running').length,'Bots currently marked as running','pool')}${stat('Execution mode',engineOffline ? 'Offline' : 'Demo only','Real trading remains disabled','shield')}</div>` + (engineOffline ? '<div class="notice execution-notice"><span class="notice-icon">'+icon('bots')+'</span><div><strong>Demo engine is offline</strong><p>Strategy previews are available after account approval; start the persistent worker to enable demo monitoring. Real trading is disabled.</p></div></div>' : '') + `<div class="bot-list">${data.bots.map(bot => `<article class="card bot-card"><div class="card-head"><div class="account-identity"><span class="broker-icon">${icon('bots')}</span><div><div class="bot-symbol">${esc(bot.symbol)} <span>·</span> ${esc(bot.strategy)}</div><h2>${esc(bot.name)}</h2></div></div>${badge(bot.status)}</div><div class="risk-metrics"><div><small>Risk per trade</small><strong>${esc(bot.risk_percent)}<span>%</span></strong></div><div><small>Daily loss limit</small><strong>${esc(bot.daily_loss)}<span>%</span></strong></div><div><small>Maximum drawdown</small><strong>${esc(bot.max_drawdown)}<span>%</span></strong></div></div><div class="bot-control"><div class="bot-account"><span class="meta">Linked MT5 account</span><strong class="mono">${esc(accounts.accounts.find(a => a.id === bot.account_id)?.login || 'No account selected')}</strong><div class="meta">${esc(bot.lot_size)} lots <span>·</span> SL ${esc(bot.stop_loss)}% <span>·</span> TP ${esc(bot.take_profit)}%</div></div><div class="actions">${btn(`${icon('settings')} Configure`,'bot-edit',bot.id,bot.status !== 'stopped' ? 'disabled' : '')}${btn(`${icon('eye')} Preview strategy`,'bot-preview',bot.id)}${btn(`${icon(bot.status === 'stopped' ? 'arrow' : 'close')} ${bot.status === 'stopped' ? 'Start bot' : 'Stop bot'}`,'bot-control',bot.id,`class="${bot.status === 'stopped' ? 'primary' : 'danger'}" ${bot.status === 'stopped' && engineOffline ? 'disabled' : ''}`)}</div></div>${bot.engineMessage ? `<p class="bot-engine-note">${esc(bot.engineMessage)}${bot.engineUpdatedAt ? ` <span>· ${date(bot.engineUpdatedAt)}</span>` : ''}</p>` : ''}</article>`).join('') || `<section class="card">${empty('No trading bots yet','Your configured strategies will appear here.')}</section>`}</div><details class="strategy-guide"><summary>${icon('shield')} About the existing demo strategies <span>${icon('plus')}</span></summary><p>Demo execution only. Trend: EMA 20/50 · 15m. Scalping: EMA 9/21 · 5m. Breakout: prior 20-candle range · 15m. Signals use closed candles. Stop prevents new entries; existing positions remain open with their SL/TP.</p></details>`;
+  const engineOffline = !state.config.gatewayConfigured || state.config.tradingEnabled === false;
+  const demoMode=state.config.connectionMode==='account-data';
+  return heading('Trading bots','Your strategies, risk controls, and demo execution.') + workspaceUI.accountBar(workspaceUI.accountContext(accounts.accounts)) + activation() + `<div class="stats">${stat('Configured bots',data.bots.length,'Saved strategies in your workspace','bots')}${stat('Monitoring now',data.bots.filter(bot => bot.status === 'running').length,'Bots currently marked as running','pool')}${stat('Execution mode',engineOffline ? 'Offline' : demoMode ? 'Demo only' : 'Gateway',demoMode ? 'Real trading remains disabled' : 'Check the linked account type','shield')}</div>` + (engineOffline ? '<div class="notice execution-notice"><span class="notice-icon">'+icon('bots')+'</span><div><strong>Bot execution unavailable</strong><p>Confirm the MT5 connection and execution service before starting. Review the linked account type and risk settings.</p></div></div>' : '') + `<div class="bot-list">${data.bots.map(bot => `<article class="card bot-card"><div class="card-head"><div class="account-identity"><span class="broker-icon">${icon('bots')}</span><div><div class="bot-symbol">${esc(bot.symbol)} <span>·</span> ${esc(bot.strategy)}</div><h2>${esc(bot.name)}</h2></div></div>${badge(bot.status==='stopped'?'paused':bot.status)}</div><div class="risk-metrics"><div><small>Risk per trade</small><strong>${esc(bot.risk_percent)}<span>%</span></strong></div><div><small>Daily loss limit</small><strong>${esc(bot.daily_loss)}<span>%</span></strong></div><div><small>Maximum drawdown</small><strong>${esc(bot.max_drawdown)}<span>%</span></strong></div></div><div class="bot-control"><div class="bot-account"><span class="meta">Linked MT5 account</span><strong class="mono">${esc(accounts.accounts.find(a => a.id === bot.account_id)?.login || 'No account selected')}</strong><div class="bot-connection">${badge(accounts.accounts.find(a=>a.id===bot.account_id)?.status || 'disconnected')}<span class="meta">${workspaceUI.type(accounts.accounts.find(a=>a.id===bot.account_id))}</span></div><div class="meta">${esc(bot.lot_size)} lots <span>·</span> SL ${esc(bot.stop_loss)}% <span>·</span> TP ${esc(bot.take_profit)}%</div></div><div class="actions">${btn(`${icon('settings')} Configure`,'bot-edit',bot.id,bot.status !== 'stopped' ? 'disabled' : '')}${btn(`${icon('eye')} Preview strategy`,'bot-preview',bot.id)}${btn(`${icon(bot.status === 'stopped' ? 'arrow' : 'close')} ${bot.status === 'stopped' ? 'Start bot' : 'Pause bot'}`,'bot-control',bot.id,`class="${bot.status === 'stopped' ? 'primary' : 'danger'}" ${bot.status === 'stopped' && (engineOffline || !state.user.active || workspaceUI.stale(accounts.accounts.find(a=>a.id===bot.account_id)) || (state.config.connectionMode==='account-data' && accounts.accounts.find(a=>a.id===bot.account_id)?.snapshot?.accountType!=='demo')) ? 'disabled data-offline-lock' : 'data-online-action'}`)}</div></div>${bot.engineMessage ? `<p class="bot-engine-note">${esc(bot.engineMessage)}${bot.engineUpdatedAt ? ` <span>· ${date(bot.engineUpdatedAt)}</span>` : ''}</p>` : ''}</article>`).join('') || `<section class="card">${empty('No trading bots yet','Your configured strategies will appear here.')}</section>`}</div><details class="strategy-guide"><summary>${icon('shield')} About the existing demo strategies <span>${icon('plus')}</span></summary><p>Demo execution only. Trend: EMA 20/50 · 15m. Scalping: EMA 9/21 · 5m. Breakout: prior 20-candle range · 15m. Signals use closed candles. Stop prevents new entries; existing positions remain open with their SL/TP.</p></details>`;
 }
 async function subscriptionPage() {
   const [methods,payments,crypto] = await Promise.all([api('/payment-methods'),api('/payments'),state.config.cryptoInvoicesSupported ? api('/crypto-invoices') : null]); state.data.methods = methods.methods;
@@ -478,25 +486,27 @@ async function adminPage() {
 }
 async function render({ quiet = false } = {}) {
   stopHeroMarket(); stopHeroMarket = () => {};
+  const focused=document.activeElement;
+  const restoreAction=quiet && focused?.dataset?.action ? {action:focused.dataset.action,id:focused.dataset.id}:null;
   const version = ++state.version; let path = location.pathname;
   setWorkspaceMenu(false,false);
-  if (path === '/dashboard') { path = state.user ? '/mt5' : '/login'; history.replaceState(null,'',path); }
   if (path === '/logout') { await logout(); return; }
   const auth = ['/login','/signup','/forgot-email','/verify-device','/resend-confirmation','/forgot-password','/reset-password','/passkey-setup'].includes(path);
   if (!auth) authUI.dispose();
   const publicRoutes = ['/','/ebook','/support','/terms','/privacy','/risk-disclosure','/refund-policy','/cookies'];
   if (!state.user && !auth && !publicRoutes.includes(path)) { const next=state.requiresDeviceVerification ? '/verify-device' : '/login';history.replaceState(null,'',next);authPage(next);return; }
   if (path==='/verify-device' && !state.requiresDeviceVerification) {navigate(state.user ? state.deviceDestination : '/login',true);return;}
-  if (auth) { if (path === '/passkey-setup' && !state.user) { navigate('/signup',true); return; } if (state.user && !state.requiresMfa && ['/login','/signup'].includes(path)) { navigate(ebookAuthReturn() || '/mt5',true); return; } authPage(path); return; }
+  if (auth) { if (path === '/passkey-setup' && !state.user) { navigate('/signup',true); return; } if (state.user && !state.requiresMfa && ['/login','/signup'].includes(path)) { navigate(ebookAuthReturn() || '/dashboard',true); return; } authPage(path); return; }
   if (path.startsWith('/admin') && state.user?.role !== 'admin') { shell(empty('Administrator access required','This page is available to administrators only.')); return; }
   if (path === '/ebook' && (state.requiresMfa || state.requiresDeviceVerification)) {state.deviceDestination='/ebook';navigate(state.requiresDeviceVerification ? '/verify-device' : '/login?next=/ebook',true);return;}
   const pageShell = ['/', '/ebook'].includes(path) ? publicShell : state.user ? shell : publicShell;
-  if (!quiet) pageShell('<div class="loading" aria-busy="true">Loading your workspace…</div>');
+  if (!quiet) pageShell('<div class="workspace-loading" role="status" aria-busy="true"><span class="sr-only">Loading your workspace…</span><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-account"></div><div class="skeleton-metrics"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div><div class="skeleton skeleton-panel"></div></div>');
   try {
-    const pages = { '/':marketingPage,'/ebook':()=>ebookPage({state,api,esc,money,date,badge,form,field,btn}),'/terms':()=>legalPage('/terms'),'/privacy':()=>legalPage('/privacy'),'/risk-disclosure':()=>legalPage('/risk-disclosure'),'/refund-policy':()=>legalPage('/refund-policy'),'/cookies':()=>legalPage('/cookies'),'/mt5':terminalPage,'/bots':botsPage,'/subscription':subscriptionPage,'/subscribe':subscriptionPage,'/pool':poolPage,'/referrals':referralsPage,'/settings':settingsPage,'/support':supportPage,'/admin':adminPage,'/admin/support':() => supportPage(true) };
+    const pages = { '/':marketingPage,'/ebook':()=>ebookPage({state,api,esc,money,date,badge,form,field,btn}),'/terms':()=>legalPage('/terms'),'/privacy':()=>legalPage('/privacy'),'/risk-disclosure':()=>legalPage('/risk-disclosure'),'/refund-policy':()=>legalPage('/refund-policy'),'/cookies':()=>legalPage('/cookies'),'/dashboard':workspaceUI.home,'/markets':workspaceUI.markets,'/activity':workspaceUI.activity,'/history':workspaceUI.activity,'/positions':workspaceUI.positionsPage,'/notifications':workspaceUI.notifications,'/account':workspaceUI.accountPage,'/mt5':terminalPage,'/bots':botsPage,'/subscription':subscriptionPage,'/subscribe':subscriptionPage,'/pool':poolPage,'/referrals':referralsPage,'/settings':settingsPage,'/support':supportPage,'/admin':adminPage,'/admin/support':() => supportPage(true) };
     const content = pages[path] ? await pages[path]() : empty('Page not found','<a href="/mt5">Return to your workspace</a>');
     if (version !== state.version) return;
     pageShell(content); connectEvents();
+    if(restoreAction)[...root.querySelectorAll('[data-action]')].find(el=>el.dataset.action===restoreAction.action&&el.dataset.id===restoreAction.id)?.focus({preventScroll:true});
     if (path === '/ebook' && state.user) { try { sessionStorage.removeItem('elite-auth-return'); } catch {} }
     stopHeroMarket = mountHeroMarket(document.querySelector('[data-hero-market]'));
     const messages = document.querySelector('#messages'); if (messages) messages.scrollTop = messages.scrollHeight;
@@ -513,14 +523,15 @@ async function logout() {
   state.requiresMfa = false;
   state.csrf = null;
   state.chat = null;
+  state.data = {}; state.workspace = null; state.quotes = {};
   state.stream?.close();
   state.stream = null;
   navigate('/login',true);
 }
-function accountModal() { openModal('Add MT5 account',form('account',field('Broker','broker','','text','required minlength="2" maxlength="100" placeholder="Your broker name"') + field('MT5 account number','login','','text','required inputmode="numeric" pattern="[0-9]+" maxlength="30"') + field('Server','server','','text','required minlength="2" maxlength="100" placeholder="Exact server name from MT5"') + password('MT5 password','password') + '<p class="meta">Use the exact broker server for your demo or real MT5 account. Your encrypted credentials are shared with the connection provider after administrator approval. An investor password is recommended for account data access.</p>', 'Save account')); }
+function accountModal() { openModal('Add MT5 account',form('account','<ol class="mt5-form-steps"><li>Enter broker details</li><li>Save for administrator review</li><li>Wait for confirmed connection</li></ol>' + field('Broker','broker','','text','required minlength="2" maxlength="100" placeholder="Your broker name"') + field('MT5 account number','login','','text','required inputmode="numeric" pattern="[0-9]+" maxlength="30"') + field('Server','server','','text','required minlength="2" maxlength="100" placeholder="Exact server name from MT5"') + password('MT5 password','password') + '<p class="meta">Use the exact broker server for your demo or real MT5 account. Your encrypted credentials are shared with the connection provider after administrator approval. An investor password is recommended for account data access.</p>', 'Save account')); }
 function botModal(id) {
   const b = state.data.bots.find(b => b.id === id);
-  openModal('Configure trading bot',form('bot',`<div class="form-grid">${field('Bot name','name',b.name,'text','required minlength="2" maxlength="64"')}${field('Broker symbol','symbol',b.symbol,'text','required maxlength="30"')}${select('MT5 account','accountId',b.account_id || '',[['','Select an account'],...state.data.accounts.map(a => [a.id,`${a.broker} · ${a.login}`])])}${select('Strategy','strategy',b.strategy,[['trend','Trend'],['scalping','Scalping'],['breakout','Breakout']])}${[['Risk per trade · %','riskPercent',b.risk_percent,.1,5],['Stop distance · % of entry price','stopLoss',b.stop_loss,.1,20],['Target distance · % of entry price','takeProfit',b.take_profit,.1,50],['Maximum drawdown · %','maxDrawdown',b.max_drawdown,1,30],['Daily loss limit · %','dailyLoss',b.daily_loss,.1,10],['Maximum lot size','lotSize',b.lot_size,.01,10]].map(([l,n,v,min,max]) => field(l,n,v,'number',`required min="${min}" max="${max}" step="0.01"`)).join('')}</div>`, 'Save configuration',id));
+  openModal('Configure trading bot',form('bot',`<div class="form-grid">${field('Bot name','name',b.name,'text','required minlength="2" maxlength="64"')}${field('Broker symbol','symbol',b.symbol,'text','required maxlength="30"')}${select('MT5 account','accountId',b.account_id || '',[['','Select an account'],...state.data.accounts.map(a => [a.id,`${a.broker} · ${a.login}`])])}${select('Strategy','strategy',b.strategy,[['trend','Trend'],['scalping','Scalping'],['breakout','Breakout']])}</div><details class="advanced-settings"><summary>Risk and execution settings</summary><div class="form-grid">${[['Risk per trade · %','riskPercent',b.risk_percent,.1,5],['Stop distance · % of entry price','stopLoss',b.stop_loss,.1,20],['Target distance · % of entry price','takeProfit',b.take_profit,.1,50],['Maximum drawdown · %','maxDrawdown',b.max_drawdown,1,30],['Daily loss limit · %','dailyLoss',b.daily_loss,.1,10],['Maximum lot size','lotSize',b.lot_size,.01,10]].map(([l,n,v,min,max]) => field(l,n,v,'number',`required min="${min}" max="${max}" step="0.01"`)).join('')}</div></details>`, 'Save configuration',id));
 }
 function methodModal(id) { const m = state.data.admin.methods.find(m => m.id === id) || { enabled:1, kind:'bank' }; openModal(id ? 'Edit payment method' : 'Add payment method',form('method',field('Method name','name',m.name,'text','required minlength="2" maxlength="100"') + select('Type','kind',m.kind,[['bank','Bank transfer'],['mobile_money','Mobile money'],['crypto','Cryptocurrency']]) + textarea('Account or wallet details','details',m.details,'required minlength="3" maxlength="500"') + field('Network · required for crypto','network',m.network,'text','maxlength="100"') + textarea('Instructions','instructions',m.instructions,'maxlength="1000"') + select('Availability','enabled',String(!!m.enabled),[['true','Enabled'],['false','Disabled']]),'Save payment method',id)); }
 function localDate(value) { const d = new Date(value); return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,16); }
@@ -541,6 +552,16 @@ const actions = {
     toast('If this address is awaiting confirmation, a new confirmation email has been requested. Check your inbox and spam folder.');
   },
   demo: async () => { const d = await api('/auth/demo','POST'); state.user = d.user; state.requiresMfa = false; navigate('/mt5',true); },
+  language: async () => { try { localStorage.setItem('elite-language',language()==='am'?'en':'am'); } catch {} await render({quiet:true}); },
+  'performance-range': async r => {workspaceUI.setRange(r);await render({quiet:true});},
+  'activity-filter': async f => {workspaceUI.setActivity(f);await render({quiet:true});},
+  'market-refresh': async id => {
+    if(!navigator.onLine)throw new Error('Reconnect before requesting broker data.');
+    const owner=state.user.id;
+    try {const q=await api(`/bots/${id}/preview`,'POST');if(state.user?.id!==owner)return;state.quotes[id]=q;}
+    catch(error){if(state.user?.id!==owner)return;state.quotes[id]={...state.quotes[id],error:error.message};}
+    await render({quiet:true});
+  },
   theme: () => { const theme = document.body.classList.contains('light') ? 'dark' : 'light'; applyTheme(theme); try { localStorage.setItem('elite-theme',theme); } catch {} },
   menu: () => setWorkspaceMenu(!document.body.classList.contains('menu-open')),
   close: () => modal.close(),
@@ -549,6 +570,7 @@ const actions = {
   refresh: async () => { await identity(); await render(); }, logout,
   'bot-preview':async id => {
     toast('Loading broker candles and risk preview…');
+    if (!navigator.onLine) throw new Error('Reconnect before requesting broker data.');
     const result=await api(`/bots/${id}/preview`,'POST');
     openModal('Strategy preview',`<div class="notice">${esc(result.message)}</div><p>${esc(result.signal.description)}</p><div class="detail-grid"><div><small>Signal</small><h2>${esc(result.signal.side || 'No entry')}</h2></div><div><small>Account</small><h2>${esc(result.accountType)}</h2></div></div><p class="meta">${esc(result.riskMessage)}</p>${result.order ? `<div class="detail-grid"><div>Lots: ${esc(result.order.volume)}</div><div>Estimated SL loss: ${esc(result.order.estimatedRisk.toFixed(2))} account currency</div><div>SL: ${esc(result.order.stopLoss)}</div><div>TP: ${esc(result.order.takeProfit)}</div></div>` : ''}`);
   },
@@ -556,7 +578,12 @@ const actions = {
   'account-add':accountModal,
   'account-delete': id => openModal('Remove MT5 account',form('account-delete','<p>Disconnect and remove this account? All bots must be stopped first.</p>','Remove account',id)),
   'bot-edit':botModal,
-  'bot-control': id => { const b = state.data.bots.find(b => b.id === id); openModal(b.status === 'stopped' ? 'Start trading bot' : 'Stop trading bot',form('bot-control',`<p>${b.status === 'stopped' ? `Start ${esc(b.name)} on ${esc(b.symbol)} using the saved risk settings? This arms demo monitoring. A qualifying closed-candle signal and worker risk checks are required before an order.` : 'Send a stop command to the trading service. Existing positions may remain open; check your MT5 terminal.'}</p><input type="hidden" name="running" value="${b.status === 'stopped'}">`,b.status === 'stopped' ? 'Start bot' : 'Stop bot',id)); },
+  'bot-control': id => {
+    const b=state.data.bots.find(b=>b.id===id), a=state.data.accounts.find(a=>a.id===b.account_id), start=b.status==='stopped';
+    if (!navigator.onLine) throw new Error('Reconnect before sending a trading command.');
+    if (start && workspaceUI.stale(a)) throw new Error('Confirm the account connection before starting.');
+    openModal(start?'Start trading bot':'Pause trading bot',form('bot-control',`<div class="notice"><strong>${esc(a?.broker || 'No account selected')} · ${esc(a?.login || '—')}</strong><p>${workspaceUI.type(a)} · ${esc(a?.status || 'disconnected')}</p></div><div class="risk-confirm"><span>Risk per trade <strong>${esc(b.risk_percent)}%</strong></span><span>Daily loss limit <strong>${esc(b.daily_loss)}%</strong></span><span>Maximum drawdown <strong>${esc(b.max_drawdown)}%</strong></span><span>Maximum lot size <strong>${esc(b.lot_size)}</strong></span></div><p>${start ? state.config.connectionMode==='account-data' ? 'This starts demo monitoring. A qualifying closed-candle signal and worker risk checks are required before an order.' : 'This sends a start command using your saved strategy and risk settings. The trading service may place orders.' : state.config.connectionMode==='account-data' ? 'Pausing stops new entries. Existing positions remain open with their current SL/TP. Manage them in MT5.' : 'This sends a stop command to the gateway. Existing positions may remain open; verify them in MT5.'}</p><input type="hidden" name="running" value="${start}">`,start?'Start bot':'Pause bot',id));
+  },
   'pool-contribute': id => { const r = state.data.rounds.find(r => r.id === id); openModal(`Contribute to ${esc(r.name)}`,state.data.methods.length ? paymentForm(state.data.methods,r) : empty('No payment method available','Contact support before contributing.')); },
   payout: () => openModal('Request commission payout',form('payout',`<p>Request your available ${money(state.data.referrals.availableCents)}? The support team will coordinate the transfer with you.</p>`,'Request payout')),
   'mfa-setup': async () => {
@@ -586,16 +613,27 @@ document.addEventListener('click',async event => {
   try { await action(button.dataset.id,button); } catch (error) { toast(error.message); } finally { button.disabled = false; }
 });
 document.addEventListener('change',async event => {
+  if (event.target.id === 'workspace-account') { await workspaceUI.selectAccount(event.target.value); await render({quiet:true}); }
   if (event.target.id === 'admin-section-select') { try { await actions['admin-tab'](event.target.value,event.target); } catch (error) { toast(error.message); } }
   if (event.target.name === 'methodId') { const m = state.data.methods.find(m => m.id === event.target.value); const info = event.target.form.querySelector('#payment-info'); if (info && m) info.innerHTML = methodInfo(m); }
 });
-document.addEventListener('input',event => { if (event.target.id === 'member-search') { const query = event.target.value.toLowerCase(); document.querySelectorAll('[data-member]').forEach(row => { row.hidden = !row.dataset.member.includes(query); }); } });
+document.addEventListener('input',event => { if(event.target.closest('form[data-form="bot"]')?.dataset.riskConfirmed) { const f=event.target.form;delete f.dataset.riskConfirmed;f.querySelector('[type="submit"]').textContent='Save configuration'; }  if (event.target.id === 'member-search') { const query = event.target.value.toLowerCase(); document.querySelectorAll('[data-member]').forEach(row => { row.hidden = !row.dataset.member.includes(query); }); } });
 document.addEventListener('submit',async event => {
   const el = event.target.closest('form[data-form]'); if (!el) return; event.preventDefault();
   const button = el.querySelector('[type="submit"]'); if (button.disabled) return;
   const data = Object.fromEntries(new FormData(el)), action = el.dataset.form, id = el.dataset.id;
+  const lockKey=`${action}:${id}`;if(submitLocks.has(lockKey))return;submitLocks.add(lockKey);
   const errorBox = el.querySelector('.error'); errorBox.textContent = ''; button.disabled = true; const label = button.textContent; button.textContent = 'Please wait…'; el.setAttribute('aria-busy','true');
   try {
+    if (!navigator.onLine) throw new Error('You are offline. Reconnect before saving changes or sending commands.');
+    if (action==='bot' && !el.dataset.riskConfirmed) {
+      const account=state.data.accounts.find(a=>a.id===data.accountId);
+      if (account?.snapshot?.accountType==='real') {
+        el.dataset.riskConfirmed='true';
+        const review=document.createElement('div');review.className='notice';review.textContent='Live account risk review: check the entered risk, loss limits, lot size, and selected account. Submit again to confirm these settings.';errorBox.before(review);
+        button.textContent='Confirm live risk settings';return;
+      }
+    }
     if (['password','reset'].includes(action) && data.password !== data.confirm) throw new Error('The new passwords do not match.');
     if (action === 'login') {
       const auth = await supabaseAuth('token?grant_type=password','POST',{ email:data.email, password:data.password });
@@ -626,7 +664,7 @@ document.addEventListener('submit',async event => {
         { challenge_id:state.pendingMfa.challengeId, code:data.code },
         state.pendingMfa.auth.access_token
       );
-      const destination = state.pendingMfa.destination || '/mt5';
+      const destination = state.pendingMfa.destination || '/dashboard';
       state.pendingMfa = null;
       state.requiresMfa = false;
       await finishAuth(verified,destination);
@@ -684,9 +722,10 @@ document.addEventListener('submit',async event => {
       if (action === 'method') data.enabled = data.enabled === 'true';
       if (action === 'bot-control') data.running = data.running === 'true';
       if (action === 'round') { data.startsAt = new Date(data.startsAt).toISOString(); data.endsAt = new Date(data.endsAt).toISOString(); }
-      await api(endpoint[0],endpoint[1],data);
+      const result=await api(endpoint[0],endpoint[1],data);
+      if(action==='bot-control')state.commandMessage=result.message || (data.running?'Start command confirmed.':'Pause command confirmed. Verify existing positions in MT5.');
     }
-    if (modal.open) modal.close(); await identity(); state.config = await api('/config'); toast(action === 'payment' ? 'Payment submitted for review.' : 'Changes saved.'); await render({quiet:true});
+    if (modal.open) modal.close(); await identity(); state.config = await api('/config'); toast(action==='bot-control' ? state.commandMessage : action==='account' ? 'MT5 details saved for review. Connection is not active yet.' : action === 'payment' ? 'Payment submitted for review.' : 'Changes saved.'); await render({quiet:true});
   } catch (error) {
     if (action === 'login' && /email not confirmed/i.test(error.message || '')) {
       errorBox.innerHTML = `${esc(error.message)} <button type="button" class="ghost" data-action="resend-confirmation" data-id="${esc(data.email)}">Resend confirmation</button>`;
@@ -695,7 +734,7 @@ document.addEventListener('submit',async event => {
     }
     errorBox.scrollIntoView({block:'nearest'});
   }
-  finally { button.disabled = false; button.textContent = label; el.removeAttribute('aria-busy'); }
+  finally { submitLocks.delete(lockKey); button.disabled = false; button.textContent = action==='bot' && el.dataset.riskConfirmed ? 'Confirm live risk settings' : label; el.removeAttribute('aria-busy'); translateWorkspace(modal); }
 });
 window.addEventListener('popstate',() => render());
 function setWorkspaceMenu(open,restoreFocus = true) {
@@ -706,6 +745,7 @@ function setWorkspaceMenu(open,restoreFocus = true) {
   opener?.setAttribute('aria-expanded',String(open && mobile));
   const workspace = document.querySelector('.workspace');
   if (workspace) workspace.inert = open && mobile;
+  const bottom=document.querySelector('.bottom-nav');if(bottom)bottom.inert=open&&mobile;
   if (open && mobile) document.querySelector('.sidebar a.active, .sidebar a')?.focus();
   else if (wasOpen && restoreFocus) opener?.focus();
 }
@@ -754,8 +794,8 @@ try {
       const intent = new URLSearchParams(location.search).get('intent');
       const returnTo = ebookAuthReturn();
       const requested=new URLSearchParams(location.search).get('next');
-      const deviceReturn=['/ebook','/subscription','/mt5'].includes(requested) ? requested : '/mt5';
-      history.replaceState(null,'',returnTo || (intent === 'device' ? deviceReturn : intent === 'passkey' ? '/passkey-setup' : intent === 'signin' ? '/mt5' : '/subscription'));
+      const deviceReturn=['/ebook','/subscription','/mt5','/dashboard'].includes(requested) ? requested : '/mt5';
+      history.replaceState(null,'',returnTo || (intent === 'device' ? deviceReturn : intent === 'passkey' ? '/passkey-setup' : intent === 'signin' ? '/dashboard' : '/subscription'));
     } else if (callback.get('error_description')) {
       const message = callback.get('error_description') || 'Email confirmation failed.';
       history.replaceState(null,'','/login');
@@ -766,14 +806,18 @@ try {
   if ((state.requiresMfa || state.requiresDeviceVerification) && state.auth?.access_token) {
     let rememberedDevice='';
     try { rememberedDevice=sessionStorage.getItem('elite-device-return') || ''; } catch {}
-    const destination = ['/ebook','/subscription'].includes(rememberedDevice) ? rememberedDevice : location.pathname === '/passkey-setup' ? '/passkey-setup' : '/mt5';
+    const destination = ['/ebook','/subscription','/dashboard'].includes(rememberedDevice) ? rememberedDevice : location.pathname === '/passkey-setup' ? '/passkey-setup' : '/mt5';
     await finishAuth(state.auth,destination);
   } else await render();
 } catch (error) {
   root.innerHTML = `<main id="main" class="public-content">${empty('Unable to connect',esc(error.message),'<a href="/">Try again</a>')}</main>`;
 }
 setInterval(() => { if (!document.hidden && location.pathname.includes('support') && state.chat) refreshChat().catch(() => {}); },15000);
-setInterval(() => { if (!document.hidden && state.user && !modal.open && !document.body.classList.contains('menu-open') && ['/mt5','/bots'].includes(location.pathname)) render({quiet:true}); },15000);
+let workspacePolling=false;
+setInterval(async () => {
+  if(workspacePolling || !navigator.onLine || document.hidden || !state.user || modal.open || document.body.classList.contains('menu-open') || document.activeElement?.matches('input,textarea,select') || !['/dashboard','/markets','/mt5','/bots','/activity','/positions','/notifications'].includes(location.pathname))return;
+  workspacePolling=true;try {await render({quiet:true});}finally{workspacePolling=false;}
+},15000);
 
 let cryptoPolling=false;
 async function refreshCryptoStatus() {
@@ -788,3 +832,16 @@ async function refreshCryptoStatus() {
 }
 setInterval(refreshCryptoStatus,30000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshCryptoStatus();});
+
+function syncOffline() {
+  const banner=document.querySelector('#offline-banner');if(banner)banner.hidden=navigator.onLine;
+  document.querySelectorAll('[data-online-action]').forEach(button=>{button.disabled=!navigator.onLine;});
+  modal.querySelectorAll('form[data-form="bot-control"] button[type="submit"]').forEach(button=>{button.disabled=!navigator.onLine;});
+  if(!navigator.onLine)document.querySelectorAll('.market-card .badge').forEach(el=>{el.textContent='stale';el.className='badge stale';});
+  if(!navigator.onLine)document.querySelectorAll('.account-strip-state .badge').forEach(el=>{el.textContent='offline';el.className='badge offline';});
+}
+window.addEventListener('offline',()=>{syncOffline();toast('Offline. Trading actions are unavailable.');});
+window.addEventListener('online',()=>{syncOffline();if(state.user&&!modal.open)render({quiet:true});});
+
+document.addEventListener('invalid',event=>{event.target.setAttribute('aria-invalid','true');const details=event.target.closest('details');if(details)details.open=true;},true);
+document.addEventListener('input',event=>event.target.removeAttribute('aria-invalid'));

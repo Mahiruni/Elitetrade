@@ -256,13 +256,13 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,onSen
     const url=new URL(result.url);if(url.protocol!=='https:')throw new Error('Invalid sign-in address');
     location.assign(url.href);return;
    }
-   if(current==='login' && currentMethod==='passkey'){const result=await passkey();if(stillHere())await onSession(result.session || result,'/mt5');return;}
+   if(current==='login' && currentMethod==='passkey'){const result=await passkey();if(stillHere())await onSession(result.session || result,'/dashboard');return;}
    if(currentMethod!=='password'){await sendEmail(email);return;}
    const result=await request(current==='signup' ? `signup?redirect_to=${encodeURIComponent(redirect('signup'))}` : 'token?grant_type=password','POST',{
     email,password,...(current==='signup' ? {data:{full_name:$('#a-name').value.trim(),referral_code:new URLSearchParams(location.search).get('ref') || ''}} : {})
    });
    if(current==='signup' && !result.access_token){showConfirmation('Verify your email.','If this is a new account, open the confirmation link sent to {email}. Already registered? Sign in or reset your password.',email);return;}
-   if(stillHere())await onSession(result,current==='signup' ? '/subscription' : '/mt5');
+   if(stillHere())await onSession(result,current==='signup' ? '/subscription' : '/dashboard');
   }catch(error){if(stillHere())message(errorCopy(error));}
   finally{if(stillHere()){setBusy(false);}}
  }

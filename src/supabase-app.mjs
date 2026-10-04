@@ -1,3 +1,4 @@
+import { accountDetails } from './account-view.mjs';
 import { renderBlogPage } from './blog.mjs';
 import { createServer } from 'node:http';
 import { AsyncLocalStorage } from 'node:async_hooks';
@@ -229,7 +230,7 @@ export function createSupabaseApplication(options = {}) {
       const ctx = await authContext(req,false);
       if (!deviceVerification || !ctx.requiresDeviceVerification) return json(res,{ok:true,alreadyVerified:true});
       rateLimit(`device-email:${ctx.authUser.id}`,1,60000);
-      const next = body.next === '/ebook' ? '/ebook' : body.next === '/subscription' ? '/subscription' : '/mt5';
+      const next = body.next === '/ebook' ? '/ebook' : body.next === '/subscription' ? '/subscription' : body.next === '/dashboard' ? '/dashboard' : '/mt5';
       const redirect = `${origin}/login?intent=device&next=${encodeURIComponent(next)}`;
       try { await db.auth(`otp?redirect_to=${q(redirect)}`, {body:{email:ctx.authUser.email,create_user:false}}); }
       catch (error) { if (error.status === 429) fail(429,'A verification email was requested recently. Wait a minute before requesting another.'); fail(503,'The verification email could not be sent. Please try again.'); }
@@ -434,10 +435,10 @@ export function createSupabaseApplication(options = {}) {
           try {
             const snapshot = await gateway.snapshot(account.gateway_id);
             safe.snapshot = {
+              ...accountDetails(snapshot),
               connected:!!snapshot.connected,
               currency:/^[A-Z]{3}$/.test(snapshot.currency || '') ? snapshot.currency : 'USD',
               updatedAt:now(),
-              ...(gateway.mode === 'account-data' ? {accountType:snapshot.accountType} : {})
             };
             for (const name of ['balance','equity','profit']) if (Number.isFinite(snapshot[name])) safe.snapshot[name] = snapshot[name];
             safe.snapshot.history = Array.isArray(snapshot.history)
@@ -561,7 +562,7 @@ export function createSupabaseApplication(options = {}) {
       let order=null,riskMessage='No current entry signal.';
       if(signal.side)try {order=planTrade({bot,...market,side:signal.side});riskMessage='Preliminary risk check passed. Worker rechecks risk, exposure and margin before execution.';}
       catch(error){riskMessage=error.message;}
-      return json(res,{signal,order,riskMessage,accountType:market.info.type==='ACCOUNT_TRADE_MODE_DEMO'?'demo':'real',message:'Preview only. No order sent.'});
+      return json(res,{signal,order,riskMessage,accountType:market.info.type==='ACCOUNT_TRADE_MODE_DEMO'?'demo':'real',message:'Preview only. No order sent.',quote:{...Object.fromEntries(['bid','ask'].filter(k=>Number.isFinite(market.quote?.[k])).map(k=>[k,market.quote[k]]))},updatedAt:typeof market.quote?.time==='string'&&Number.isFinite(Date.parse(market.quote.time))?market.quote.time:null,retrievedAt:now()});
     }
 
     const botControl = path.match(/^\/api\/bots\/([^/]+)\/control$/);
@@ -836,7 +837,7 @@ export function createSupabaseApplication(options = {}) {
   }
 
   const publicPath = resolve(options.publicPath || new URL('../public/', import.meta.url).pathname);
-  const pages = new Set(['/', '/ebook', '/login', '/signup', '/forgot-email', '/forgot-password', '/verify-device', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/dashboard', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
+  const pages = new Set(['/', '/ebook', '/login', '/signup', '/forgot-email', '/forgot-password', '/verify-device', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/dashboard', '/markets', '/activity', '/positions', '/history', '/notifications', '/account', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
   const server = createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -896,6 +897,9 @@ export function createSupabaseApplication(options = {}) {
       files['/ebook.js'] = ['ebook.js','text/javascript'];
       files['/ebook.css'] = ['ebook.css','text/css'];
       files['/ebooks/elitebot-strategy-preview.pdf'] = ['ebooks/elitebot-strategy-preview.pdf','application/pdf'];
+      for (const weight of [400,500,600]) files[`/fonts/noto-ethiopic-${weight}.woff`] = [`fonts/noto-ethiopic-${weight}.woff`,'font/woff'];
+      files['/workspace.js'] = ['workspace.js','text/javascript'];
+      files['/workspace-i18n.js'] = ['workspace-i18n.js','text/javascript'];
       files['/blog.js'] = ['blog.js','text/javascript'];
       files['/blog.css'] = ['blog.css','text/css'];
       const entry = files[url.pathname] || (pages.has(url.pathname) ? ['index.html','text/html'] : null);

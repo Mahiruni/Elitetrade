@@ -252,3 +252,20 @@ test('provider demo order is explicitly gated, protects SL/TP and verifies broke
   else {assert.equal(trades.length,1);const body=JSON.parse(trades[0].options.body);assert.equal(body.stopLoss,1900);assert.equal(body.takeProfit,2100);assert.equal(body.symbol,'XAUUSDm');assert.ok(trades[0].url.startsWith('https://mt-client-api-v1.new-york.agiliumtrade.ai/'));}
  }
 });
+
+test('account snapshots read broker positions without trading, and position outages preserve balance access',async()=>{
+ for(const available of [true,false]){
+  const calls=[];
+  const gateway=createMetaApiGateway(env,async(url,options)=>{
+   calls.push({url:String(url),method:options.method});
+   if(String(url).includes('/positions'))return available?Response.json([{id:'broker-ticket',symbol:'XAUUSD',type:'POSITION_TYPE_BUY',volume:.01,profit:-3.5}]):Response.json({}, {status:503});
+   if(String(url).includes('/account-information'))return Response.json({platform:'mt5',type:'ACCOUNT_TRADE_MODE_DEMO',login:12345,server:supplied.server,balance:1000,equity:996.5,currency:'USD'});
+   return Response.json({_id:'remote-1',name:'EliteTrade local-1',metadata:{elitetradeAccountId:'local-1'},login:supplied.login,server:supplied.server,region:'new-york',state:'DEPLOYED',connectionStatus:'CONNECTED'});
+  });
+  const result=await gateway.snapshot('metaapi:local-1:remote-1');
+  assert.equal(result.balance,1000);assert.equal(result.accountType,'demo');assert.equal(result.connected,true);
+  if(available){assert.equal(result.profit,-3.5);assert.equal(result.positions[0].id,'broker-ticket');}
+  else {assert.equal(result.positions,undefined);assert.equal(result.profit,undefined);}
+  assert.ok(calls.every(c=>c.method==='GET'));
+ }
+});

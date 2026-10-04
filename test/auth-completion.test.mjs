@@ -39,7 +39,7 @@ function fixture({ factors = [], aal = 'aal1', device = false, next = '' } = {})
 
 test('password sign-in completes through the supported user endpoint', async () => {
   const f = fixture(); await f.finish(f.auth);
-  assert.deepEqual(f.navigation, ['/mt5']);
+  assert.deepEqual(f.navigation, ['/dashboard']);
   assert.deepEqual(f.calls.map(c => [c.path, c.method, c.token]), [['user', 'GET', f.auth.access_token]]);
 });
 
@@ -64,7 +64,7 @@ test('an aal2 session and an unverified authenticator do not request a challenge
     { factors: [{ id: 'isolated-factor', factor_type: 'totp', status: 'unverified' }] }
   ]) {
     const f = fixture(settings); await f.finish(f.auth);
-    assert.deepEqual(f.navigation, ['/mt5']);
+    assert.deepEqual(f.navigation, ['/dashboard']);
     assert.equal(f.calls.length, 1);
   }
 });

@@ -1,3 +1,6 @@
+@font-face { font-family:"Noto Sans Ethiopic";font-style:normal;font-weight:400;font-display:swap;src:url("/fonts/noto-ethiopic-400.woff") format("woff") }
+@font-face { font-family:"Noto Sans Ethiopic";font-style:normal;font-weight:500;font-display:swap;src:url("/fonts/noto-ethiopic-500.woff") format("woff") }
+@font-face { font-family:"Noto Sans Ethiopic";font-style:normal;font-weight:600;font-display:swap;src:url("/fonts/noto-ethiopic-600.woff") format("woff") }
 /* Signed-in workspace. Public pages keep their existing visual system. */
 .layout {
   --bg:#101623; --panel:#18202f; --surface:#222d40; --border:#ffffff0e;
@@ -401,3 +404,141 @@ body.light .layout {
   .layout .account-identity h2 { font-size:var(--type-card)}
   .layout .workspace-footer { margin-inline:14px }
 }
+
+/* App shell: compact navigation, deliberate density, and shared surfaces. */
+.layout { --radius:14px; --type-caption:.8125rem; --type-label:.875rem; --type-title:1.625rem; --type-metric:1.65rem; --border:#303948; --bg:#10151e; --panel:#181f2a; --surface:#222c3a; grid-template-columns:216px minmax(0,1fr); letter-spacing:0; font-size:.9375rem }
+body.light .layout { --bg:#f5f7fa; --border:#dce2eb; --muted:#526077; --text:#172236; --panel:#fff; --surface:#edf1f7 }
+.layout .workspace { background:none; display:flex; flex-direction:column; min-width:0 }
+.layout .sidebar { padding:20px 12px 14px; background:var(--panel); border-right:1px solid var(--border) }
+.layout .sidebar-brand { margin-bottom:26px }
+.layout .sidebar nav { gap:22px }
+.layout .nav-label { font-size:.75rem; letter-spacing:.06em; padding-inline:12px }
+.layout .sidebar nav a { border-radius:8px; min-height:44px; padding:10px 12px; font-size:.875rem }
+.layout .sidebar nav a.active { box-shadow:inset 2px 0 0 var(--accent) }
+.sidebar-member { display:flex; gap:10px; align-items:center; padding:8px 10px; min-width:0 }
+.sidebar-member>span:last-child { min-width:0 }
+.sidebar-member strong,.sidebar-member small { display:block; font-size:.8125rem; overflow-wrap:anywhere }
+.layout .topbar { min-height:64px; padding:10px 28px; backdrop-filter:none; background:var(--panel); position:sticky; top:0; z-index:15; gap:12px }
+.layout .desktop-crumb { font-size:.875rem; gap:10px }
+.layout .topbar-actions { gap:4px; margin-left:auto }
+.layout button.icon { width:44px; min-height:44px }
+.layout .topbar>.brand { display:none }
+.layout .content { flex:1; width:100%; max-width:1600px; margin:0 auto; padding:28px; min-width:0 }
+.layout .page-heading { margin-bottom:22px; gap:16px; align-items:center }
+.layout .page-heading h1 { font-size:1.625rem; letter-spacing:-.035em }
+.layout .page-heading .eyebrow { display:none }
+.layout .page-heading p { margin-top:6px; font-size:.9375rem; line-height:1.55 }
+.layout .card,.layout .account-card,.layout .connection-guide { padding:20px; border-radius:14px; border:1px solid var(--border); box-shadow:0 3px 12px #00000008 }
+.layout .card h2,.layout .account-identity h2 { font-size:1rem; margin-bottom:16px }
+.layout .card-head h2,.layout .section-heading h2,.layout .account-identity h2 { margin-bottom:0 }
+.layout .section-heading,.layout .card-head { margin-bottom:16px; gap:12px }
+.layout button,.layout input,.layout select,.layout textarea { border-radius:9px }
+.layout input,.layout select { min-height:46px; padding:10px 12px }
+.layout .field { margin-bottom:18px }
+.layout .card>form { margin-top:16px }
+.layout .grid { gap:16px }
+.layout .stats { border:1px solid var(--border); border-radius:14px; background:var(--panel); padding:20px 0; margin-bottom:20px }
+.layout .stat { padding-inline:20px }
+.layout .stat .value { margin-top:10px; letter-spacing:-.025em; font-variant-numeric:tabular-nums; overflow-wrap:anywhere }
+.layout .stat small { font-size:.8125rem }
+.layout .financial-stats { grid-template-columns:repeat(4,minmax(0,1fr)) }
+.layout .financial-stats .stat:last-child { display:block; grid-column:auto; border:0; padding:0 20px }
+.layout .financial-stats .stat:last-child .value { text-align:left; margin-top:10px }
+.layout .metric-note { font-size:.75rem; line-height:1.5 }
+.layout .badge { font-size:.75rem; padding:5px 9px; max-width:100%; overflow-wrap:anywhere }
+.layout .badge.error,.layout .badge.disconnected { background:color-mix(in srgb,var(--red) 10%,transparent); color:var(--red) }
+.layout .badge.stale,.layout .badge.offline { background:var(--surface); color:var(--muted) }
+.layout .button-link { display:inline-flex; align-items:center; min-height:44px; font-size:.875rem; overflow-wrap:anywhere }
+.layout .notice { border:1px solid var(--border); background:var(--surface); border-radius:12px; padding:16px; font-size:.875rem; margin-bottom:18px }
+.layout .empty { padding:28px 8px; font-size:.875rem; min-width:0; line-height:1.65; max-width:100% }
+.layout .empty strong { font-size:.9375rem; color:var(--text); margin-bottom:7px }
+.layout .table-wrap { border-radius:10px; max-width:100%; border-color:var(--border) }
+.layout th { font-size:.75rem; font-weight:500; background:var(--surface) }
+.layout td { font-size:.875rem }
+.numeric { font-variant-numeric:tabular-nums }
+.positive { color:var(--green) }.negative { color:var(--red) }
+.layout .workspace-footer { margin:0 28px; padding:16px 0; border-top:1px solid var(--border); font-size:.75rem; gap:12px }
+.bottom-nav { display:none }
+.icon-link { min-width:44px; min-height:44px; display:inline-flex; align-items:center; justify-content:center; color:var(--muted); border-radius:8px }
+.icon-link:hover { background:var(--surface); text-decoration:none }
+.language-button { min-width:44px; padding-inline:8px!important }
+.account-strip { display:flex; align-items:center; gap:20px; background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:14px 18px; margin-bottom:20px; min-width:0; flex-wrap:wrap }
+.account-picker { min-width:0; flex:1; max-width:370px }
+.account-picker label { margin-bottom:5px; font-size:.75rem; color:var(--muted) }
+.account-picker select { font-size:.875rem; width:100% }
+.account-strip-state { display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0 }
+.account-strip-state small { flex-basis:100%; font-size:.75rem }
+.account-kind { font-size:.8125rem; color:var(--muted); margin-top:8px }
+.account-strip .account-kind { margin:0 }
+.account-strip>.button-link { margin-left:auto }
+.overview-grid { display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:18px; align-items:start }
+.overview-main,.overview-aside { display:grid; gap:18px; min-width:0 }
+.overview-grid .section-heading h2 { min-width:0; font-size:1rem }
+.overview-grid .section-heading .button-link { font-size:.8125rem }
+.summary-row { display:flex; gap:12px; align-items:flex-start; padding:14px 0; border-bottom:1px solid var(--border); min-width:0 }
+.summary-row:last-child { border:0 }
+.summary-copy { flex:1; min-width:0 }
+.summary-copy strong,.summary-copy small { display:block; overflow-wrap:anywhere }
+.summary-copy strong { font-size:.875rem }.summary-copy small { font-size:.75rem; margin-top:4px }
+.summary-copy p { margin-top:8px }.summary-row .broker-icon { width:32px; height:32px; border-radius:8px }
+.summary-row>.badge { flex:none; margin-left:auto }
+.issue-list { display:grid; gap:16px }.issue { display:flex; gap:10px; min-width:0 }.issue>div { min-width:0 }.issue strong { font-size:.875rem }.issue p { margin-top:5px }.issue .section-icon { width:28px; height:28px; border-radius:7px }.issue a { font-size:.8125rem }
+.activity-list { list-style:none; padding:0; margin:0; display:grid; gap:14px }
+.activity-list li { display:flex; gap:12px; align-items:flex-start; padding-bottom:14px; border-bottom:1px solid var(--border) }
+.activity-list li:last-child { border:0 }.activity-list li>div { flex:1; min-width:0 }.activity-list p { font-size:.875rem; margin:5px 0; overflow-wrap:anywhere }
+.segmented { display:flex; padding:3px; background:var(--surface); border-radius:8px; flex-wrap:wrap; flex:none }
+.layout .segmented button { padding:6px 10px; min-height:44px; font-size:.75rem; background:transparent; border:0; font-weight:500 }
+.layout .segmented button[aria-pressed=true] { background:var(--panel); color:var(--accent); box-shadow:0 1px 4px #0002 }
+.performance-key,.chart-dates { display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:.8125rem }
+.performance-key strong { font-variant-numeric:tabular-nums;font-size:1.125rem }
+.performance-chart { width:100%; height:auto; display:block; margin-block:16px; overflow:visible }
+.chart-grid { stroke:var(--border); fill:none }.chart-line { fill:none; stroke:var(--accent); stroke-width:2.5; vector-effect:non-scaling-stroke }
+.quote-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:16px 0; border-block:1px solid var(--border); margin:14px 0 }
+.quote-grid small,.quote-grid strong { display:block }.quote-grid strong { font-size:1.5rem; margin-top:6px }
+.section-note { margin-top:16px }.account-profile { display:flex; gap:14px; align-items:center; margin-bottom:18px }.account-profile>div { min-width:0; flex:1 }.account-profile h2 { overflow-wrap:anywhere }.account-profile p { overflow-wrap:anywhere }
+.layout .account-profile .avatar { width:44px; height:44px }.layout .account-profile h2 { margin-bottom:4px }
+.layout .hub-link { display:flex; gap:12px; align-items:center; color:var(--text); min-height:100px }.hub-link>div { flex:1; min-width:0 }.hub-link strong { font-size:.9375rem }.hub-link>svg { width:16px;color:var(--muted) }.layout .hub-link:hover { border-color:var(--control-border); text-decoration:none;background:var(--surface) }.account-hub { margin-bottom:20px }
+.offline-banner { background:var(--surface); border-bottom:1px solid var(--border); color:var(--text); padding:12px 28px; font-size:.875rem }
+.bot-connection { display:flex; align-items:center; gap:8px; margin:8px 0; flex-wrap:wrap }
+.risk-confirm { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px }.risk-confirm span { font-size:.875rem;color:var(--muted) }.risk-confirm strong { display:block;font-size:1.125rem;color:var(--text);font-variant-numeric:tabular-nums }
+.advanced-settings { margin:12px 0 18px; border:1px solid var(--border); border-radius:10px; padding:12px }.advanced-settings summary { font-size:.875rem; cursor:pointer; min-height:44px; display:flex;align-items:center }.advanced-settings .form-grid { margin-top:12px }
+#modal { border-radius:16px; width:min(620px,calc(100% - 32px)); border:1px solid var(--border) }
+#modal input,#modal select,#modal textarea,#modal button { border-radius:9px }
+#modal .dialog-head { padding:18px 20px;border-bottom:1px solid var(--border) }
+#modal .dialog-body { padding:20px }#modal .dialog-head h2 { font-size:1.125rem }
+#toast { bottom:24px;border-radius:10px; max-width:calc(100vw - 32px) }
+.sr-only { position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%) }
+.skeleton { background:linear-gradient(90deg,var(--surface) 25%,var(--panel) 50%,var(--surface) 75%); background-size:200% 100%; animation:skeleton-load 1.8s ease infinite; border-radius:10px; height:96px }
+.skeleton-title { height:32px; width:40%; margin-bottom:24px }.skeleton-account { height:85px;margin-bottom:20px }.skeleton-metrics { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:20px }.skeleton-panel { height:270px }
+@keyframes skeleton-load { to { background-position:-200% 0 } }
+@media(max-width:1150px) { .overview-grid { grid-template-columns:1fr }.overview-aside { grid-template-columns:1fr 1fr }.layout .content { padding:24px }.layout .topbar { padding-inline:24px } }
+@media(max-width:900px) and (min-width:761px) { .layout { grid-template-columns:190px minmax(0,1fr) }.layout .sidebar { padding-inline:8px }.overview-aside { grid-template-columns:1fr }.layout .financial-stats { grid-template-columns:1fr 1fr }.layout .financial-stats .stat:nth-child(2) { border-right:0 }.layout .financial-stats .stat:nth-child(n+3) { margin-top:18px;padding-top:18px;border-top:1px solid var(--border) }.layout .financial-stats .stat:last-child { padding-top:18px } }
+@media(max-width:760px) {
+  .layout { display:block }.layout .sidebar { top:0;left:0;border-radius:0;width:min(304px,calc(100vw - 40px));height:100dvh;padding:calc(20px + env(safe-area-inset-top)) 14px calc(20px + env(safe-area-inset-bottom)); transform:translateX(-105%); z-index:40 }
+  .menu-open .layout .sidebar { transform:none }.menu-scrim { z-index:35!important }
+  .layout .topbar { min-height:64px; padding:calc(8px + env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) 8px max(16px,env(safe-area-inset-left)); gap:4px }.layout .topbar>.brand { display:flex; font-size:1.125rem }.layout .wordmark-sub { display:none }
+  .layout .topbar-actions { gap:0 }.layout .topbar .profile-link { display:none }.layout .topbar .icon-link { display:none }.layout .topbar button.icon { width:44px; min-height:44px }.layout .desktop-crumb { display:none }
+  .layout .content { padding:20px max(16px,env(safe-area-inset-right)) 24px max(16px,env(safe-area-inset-left)); margin:0;max-width:none }.layout .page-heading { margin-bottom:18px;gap:10px }.layout .page-heading h1 { font-size:1.375rem }.layout .page-heading p { font-size:.875rem; margin-top:5px }.layout .page-heading .actions { width:auto }
+  .bottom-nav { display:grid;grid-template-columns:repeat(5,minmax(0,1fr));position:fixed;left:0;right:0;bottom:0;padding:6px max(4px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(4px,env(safe-area-inset-left));border-top:1px solid var(--border); background:var(--panel);z-index:25 }
+  .bottom-nav a { display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;min-height:54px;color:var(--muted);border-radius:8px;font-size:.75rem;line-height:1.3;padding:4px 1px;overflow-wrap:anywhere;text-align:center }.bottom-nav a svg { width:20px;height:20px }.bottom-nav a.active { color:var(--accent);background:color-mix(in srgb,var(--button) 9%,transparent) }.bottom-nav a:hover { text-decoration:none }
+  .layout .workspace { padding-bottom:calc(78px + env(safe-area-inset-bottom)) }.layout .workspace-footer { margin-inline:16px;padding:12px 0;flex-direction:row;flex-wrap:wrap;gap:5px;font-size:.75rem }.layout .workspace-footer span:first-child { display:none }
+  .account-strip { padding:12px;gap:10px;margin-bottom:16px }.account-picker { flex-basis:100%;max-width:none }.account-strip-state { flex:1;gap:6px }.account-strip>.button-link { margin-left:0;font-size:.8125rem }.account-strip .account-kind { font-size:.75rem }
+  .layout .financial-stats { grid-template-columns:1fr 1fr;padding:16px 0;margin-bottom:16px }.layout .financial-stats .stat { padding:0 14px 16px;display:block;border-right:1px solid var(--border) }.layout .financial-stats .stat:nth-child(2) { border-right:0 }.layout .financial-stats .stat:nth-child(n+3) { border-top:1px solid var(--border);padding-top:16px;padding-bottom:0 }.layout .financial-stats .stat:last-child { border-right:0;grid-column:auto }.layout .financial-stats .stat:last-child .value { text-align:left;margin-top:10px }.layout .financial-stats .stat .value { font-size:1.5rem }.layout .financial-stats .stat-label { min-height:24px }.layout .financial-stats .metric-note { display:block;font-size:.75rem }
+  .layout .card,.layout .account-card,.layout .connection-guide { padding:16px;border-radius:12px }.layout .card h2 { font-size:1rem }.overview-grid,.overview-main,.overview-aside { gap:16px }.overview-aside { grid-template-columns:1fr }.layout .grid,.layout .grid.three { gap:16px }.layout .empty { padding:24px 4px }.layout .section-heading { gap:8px;flex-wrap:wrap;margin-bottom:12px }.layout .segmented { flex-wrap:nowrap }.layout .stats:not(.financial-stats) .stat:last-child { display:block }.layout .stats:not(.financial-stats) .stat:last-child .value { text-align:left }
+  .layout tbody tr { border-radius:10px;gap:12px;padding:14px }.layout td:last-child { padding-top:10px }.layout td:before { font-size:.75rem }.layout .table-wrap { border:0 }
+  .risk-metrics { margin-top:14px;gap:8px;padding-block:16px }.risk-metrics strong { font-size:1.25rem }.risk-metrics>div+div { padding-left:10px }.layout .risk-metrics small { font-size:.75rem }.layout .bot-control { gap:14px;margin-top:14px }.layout .bot-control .actions { gap:8px }
+  #modal { position:fixed;inset:auto 0 0;width:100%;max-width:100%;margin:0;max-height:calc(100dvh - 28px - env(safe-area-inset-top));border-radius:18px 18px 0 0;padding-bottom:env(safe-area-inset-bottom) }#modal .dialog-head { position:sticky;top:0;background:var(--panel);z-index:1;padding:16px }#modal .dialog-body { padding:16px }.risk-confirm { gap:10px }
+  #toast { bottom:calc(88px + env(safe-area-inset-bottom));left:16px;right:16px;transform:translateY(10px);width:auto }#toast.visible { transform:translateY(0) }
+  .skeleton-metrics { grid-template-columns:1fr 1fr;gap:12px }.offline-banner { padding:12px 16px }
+}
+@media(prefers-reduced-motion:reduce) { .layout *,#modal *,#toast { animation:none!important;transition:none!important;scroll-behavior:auto!important }.skeleton { background:var(--surface) } }
+html[lang=am] .layout,html[lang=am] #modal { font-family:"Benaiah Amharic","Noto Sans Ethiopic",var(--font-ui);letter-spacing:0;line-height:1.75 }
+.mt5-form-steps { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;counter-reset:step;list-style:none;padding:0;margin:0 0 20px;font-size:.8125rem;color:var(--muted) }.mt5-form-steps li:before { counter-increment:step;content:counter(step);display:block;font-size:.9375rem;font-weight:600;color:var(--accent);margin-bottom:6px }
+[aria-invalid=true] { border-color:var(--red) }
+@media(max-width:360px) { .summary-row { flex-wrap:wrap }.summary-row>.badge { margin-left:44px }.layout .topbar>.brand { font-size:1rem }.layout .topbar .language-button { padding-inline:4px!important }.layout .risk-metrics { grid-template-columns:1fr }.layout .risk-metrics>div+div { border:0;padding-left:0 }.layout .risk-metrics>div { display:flex;align-items:center;justify-content:space-between;gap:12px }.risk-metrics strong { margin:0 }.mt5-form-steps { grid-template-columns:1fr }.mt5-form-steps li:before { display:inline;margin-right:8px } }
+.layout .empty:before { content:none;display:none }
+.layout .workspace-section .empty { min-height:110px;padding:20px 8px;gap:8px }
+.layout .workspace-section .empty strong { margin:0 }
+.layout .summary-row { flex-wrap:wrap }.summary-row>.badge { max-width:100% }
+
+.layout .language-button { font-family:"Noto Sans Ethiopic",var(--font-ui) }

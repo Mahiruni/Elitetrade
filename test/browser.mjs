@@ -20,6 +20,7 @@ async function isolateAuth(context) {
   let csrf = '';
   await context.route('**/auth/v1/**',async route => {
     const request = route.request(), path = new URL(request.url()).pathname;
+    if (path.endsWith('/user') && request.method()==='GET') return route.fulfill({json:{factors:[]}});
     if (path.endsWith('/factors')) return route.fulfill({json:[]});
     const body = request.postDataJSON() || {};
     const signup = path.endsWith('/signup');
@@ -131,6 +132,7 @@ try {
   await isolateAuth(customerContext);
   const customer = await customerContext.newPage(); customer.on('pageerror',e => errors.push(e.message));
   await customer.goto(base+'/signup');
+  await customer.getByLabel('Password',{exact:true}).waitFor();
   assert.ok(await customer.getByLabel('Password',{exact:true}).isVisible());
   await customer.getByLabel('Full name',{exact:true}).fill('Mobile Customer');
   await customer.getByLabel('Email address',{exact:true}).fill('mobile@example.test');
@@ -164,7 +166,7 @@ try {
     await customer.setViewportSize({width,height:900});
     for (const theme of ['dark','light']) {
       await customer.evaluate(value => localStorage.setItem('elite-theme',value),theme);
-      for (const path of ['/mt5','/bots','/subscription','/pool','/referrals','/settings','/support']) {
+      for (const path of ['/dashboard','/markets','/bots','/activity','/positions','/history','/notifications','/account','/mt5','/subscription','/pool','/referrals','/settings','/support']) {
         await customer.goto(base+path); await customer.locator('h1').waitFor();
         assert.ok(await customer.evaluate(() => document.documentElement.scrollWidth <= innerWidth+1),`Horizontal overflow: ${path}, ${width}px, ${theme}`);
       }
@@ -185,8 +187,27 @@ try {
   await customer.locator('body.light').waitFor();
   assert.equal(await customer.locator('.sidebar').isVisible(),false);
   await capture(customer,{path:'test-results/settings-mobile-light.png',fullPage:true});
+  await page.goto(base+'/dashboard'); await ready('Overview');
+  await capture(page,{path:'test-results/overview-desktop.png',fullPage:true});
+  await customer.goto(base+'/dashboard');await customer.getByRole('heading',{name:'Overview',exact:true}).waitFor();
+  assert.equal(await customer.getByRole('navigation',{name:'Mobile navigation'}).isVisible(),true);
+  await capture(customer,{path:'test-results/overview-mobile.png',fullPage:true});
+  await customer.getByRole('button',{name:'Switch language',exact:true}).click();
+  await customer.getByRole('heading',{name:'አጠቃላይ እይታ',exact:true}).waitFor();
+  assert.ok(await customer.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Amharic layout');
+  await capture(customer,{path:'test-results/overview-mobile-amharic.png',fullPage:true});
+  await customer.getByRole('button',{name:'ቋንቋ ይቀይሩ',exact:true}).click();
+  await customerContext.setOffline(true);
+  await customer.locator('#offline-banner:not([hidden])').waitFor();
+  assert.ok((await customer.locator('#offline-banner').innerText()).includes('Offline'));
+  await customerContext.setOffline(false);
   await page.goto(base+'/mt5'); await ready('MT5 terminal');
   await capture(page,{path:'test-results/terminal-desktop.png',fullPage:true});
+  await customer.goto(base+'/account');await customer.getByRole('heading',{name:'Account',exact:true}).waitFor();
+  await customer.getByRole('button',{name:'Sign out',exact:true}).click();
+  await customer.getByRole('heading',{name:'Welcome back.',exact:true}).waitFor();
+  await customer.goto(base+'/dashboard');
+  await customer.getByRole('heading',{name:'Welcome back.',exact:true}).waitFor();
   assert.deepEqual(errors,[]);
   console.log('PASS: desktop and mobile registration, profile persistence, administration, payment activation, MT5 details, bot settings, live support replies, navigation, theme, layout, and console checks.');
-} finally { await browser.close(); await app.close(); db.close(); }
+} catch(error) { console.log('Browser page:',page.url());console.log((await page.locator('body').innerText()).slice(-4000));await capture(page,{path:'test-results/browser-failure.png',fullPage:true});throw error; } finally { await browser.close(); await app.close(); db.close(); }

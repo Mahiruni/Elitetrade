@@ -158,8 +158,12 @@ export function createMetaApiGateway(env, fetchImpl = fetch) {
       return {accountId:id,connected:true};
     },
     async snapshot(id) {
-      const info = await figures(id);
-      return {connected:true,currency:info.currency,balance:info.balance,equity:info.equity,accountType:info.type === 'ACCOUNT_TRADE_MODE_REAL' ? 'real' : 'demo',history:[]};
+      const account=await metadata(id),info=await figures(id,account);
+      const base=`https://mt-client-api-v1.${account.region}.agiliumtrade.ai`;
+      // A positions permission/outage must not hide otherwise available account figures.
+      const positions=await call(base,`/users/current/accounts/${parse(id).remoteId}/positions?refreshTerminalState=true`).catch(()=>null);
+      const profit=Array.isArray(positions)&&positions.every(p=>Number.isFinite(p?.profit)) ? positions.reduce((total,p)=>total+p.profit,0) : undefined;
+      return {connected:true,currency:info.currency,balance:info.balance,equity:info.equity,...(Number.isFinite(profit)?{profit}:{}),...(Array.isArray(positions)?{positions}:{}),accountType:info.type === 'ACCOUNT_TRADE_MODE_REAL' ? 'real' : 'demo',history:[]};
     },
     async market(id,symbol,timeframe) {
       if (!/^[A-Za-z0-9._-]{3,30}$/.test(symbol) || !['5m','15m'].includes(timeframe)) throw error('Invalid strategy market request.',400);
