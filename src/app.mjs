@@ -1,3 +1,4 @@
+import {createSupportHandler,sqliteSupport,supportRoute} from './support.mjs';
 import { accountDetails } from './account-view.mjs';
 import { renderBlogPage } from './blog.mjs';
 import { createServer } from 'node:http';
@@ -92,12 +93,13 @@ export function createApplication(options = {}) {
   const broadcast = (userId = null, guestHash = null) => {
     for (const client of clients) if (client.role === 'admin' || (userId && client.userId === userId) || (guestHash && client.guestHash === guestHash)) client.res.write('event: refresh\ndata: {}\n\n');
   };
+  const support = createSupportHandler({call:sqliteSupport(db),env,rateLimit,local:true,notify:ctx=>broadcast(ctx.user.id)});
   const notifyAdmin = text => { const chat = setting('telegram_chat'); if (telegram && chat) telegram(chat, text).catch(() => console.error('Telegram notification delivery failed')); };
   const json = (res, value, status = 200) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(value)); };
   const safeBody = async req => {
     if (!req.headers['content-type']?.startsWith('application/json')) fail(415, 'Use JSON for this request.');
     let bytes = 0, chunks = [];
-    for await (const part of req) { bytes += part.length; if (bytes > 65536) fail(413, 'The request is too large.'); chunks.push(part); }
+    for await (const part of req) { bytes += part.length; if (bytes > 262144) fail(413, 'The request is too large.'); chunks.push(part); }
     try { const data = JSON.parse(Buffer.concat(chunks).toString()); if (!data || Array.isArray(data) || typeof data !== 'object') fail(400, 'Invalid JSON object.'); return data; }
     catch (error) { if (error.status) throw error; fail(400, 'Invalid JSON.'); }
   };
@@ -115,6 +117,7 @@ export function createApplication(options = {}) {
     const path = url.pathname, method = req.method, guest = cookies(req.headers.cookie).elite_guest;
     const ip = env.TRUST_PROXY === 'true' ? String(req.headers['x-forwarded-for'] || req.socket.remoteAddress).split(',')[0].trim() : req.socket.remoteAddress;
     if (method !== 'GET') rateLimit(`write:${ip}`, 90);
+    if (supportRoute(path)) {const user=needUser(context);return support(req,res,url,{user},body);}
     if (path === '/api/config' && method === 'GET') return json(res, {
       priceCents: Number(setting('price_cents')),
       emailConfigured: !!mailer,
@@ -539,7 +542,7 @@ export function createApplication(options = {}) {
   const pages = new Set(['/', '/ebook', '/login', '/signup', '/forgot-email', '/forgot-password', '/verify-device', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/dashboard', '/trade', '/markets', '/activity', '/positions', '/history', '/notifications', '/account', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
   const server = createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Referrer-Policy', 'no-referrer'); res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
     if (production) res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     res.setHeader('Cache-Control', 'no-store');
@@ -552,7 +555,7 @@ export function createApplication(options = {}) {
         if (req.method !== 'GET') {
           if (req.headers.origin && req.headers.origin !== origin || req.headers['sec-fetch-site'] === 'cross-site') fail(403, 'This request origin is not allowed.');
           if (context && req.headers['x-csrf-token'] !== context.session.csrf) fail(403, 'Refresh the page and try again.');
-          body = await safeBody(req);
+          body = /\/workspace\/[^/]+\/attachments$/.test(url.pathname) ? {} : await safeBody(req);
           // A slow request body must not retain authority after logout or role revocation.
           context = readSession(req);
           if (context && req.headers['x-csrf-token'] !== context.session.csrf) fail(403, 'Refresh the page and try again.');
@@ -580,6 +583,8 @@ export function createApplication(options = {}) {
       files['/ebook.css'] = ['ebook.css','text/css'];
       files['/ebooks/elitebot-strategy-preview.pdf'] = ['ebooks/elitebot-strategy-preview.pdf','application/pdf'];
       files['/navigation-data.js'] = ['navigation-data.js','text/javascript'];
+      files['/support.js'] = ['support.js','text/javascript'];
+      files['/support.css'] = ['support.css','text/css'];
       files['/workspace.js'] = ['workspace.js','text/javascript'];
       files['/trading.css'] = ['trading.css','text/css'];
       files['/market-chart.js'] = ['market-chart.js','text/javascript'];

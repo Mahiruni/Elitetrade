@@ -1,3 +1,4 @@
+import {createSupportHandler,supportRoute} from './support.mjs';
 import {marketDetails} from './market-view.mjs';
 import { accountDetails } from './account-view.mjs';
 import { renderBlogPage } from './blog.mjs';
@@ -97,7 +98,7 @@ export function createSupabaseApplication(options = {}) {
     let bytes = 0, chunks = [];
     for await (const part of req) {
       bytes += part.length;
-      if (bytes > 65536) fail(413, 'The request is too large.');
+      if (bytes > 262144) fail(413, 'The request is too large.');
       chunks.push(part);
     }
     try {
@@ -174,8 +175,9 @@ export function createSupabaseApplication(options = {}) {
   };
   const setting = async (name, token) => (await db.one('elitetrade_settings', `key=eq.${q(name)}&select=value`, token))?.value;
   const audit = (ctx, action, target) => db.rpc('elitetrade_audit', { p_action:action, p_target:String(target) }, ctx.token).catch(() => {});
+  const support = createSupportHandler({call:(ctx,action,id,data)=>db.rpc('elitetrade_support',{p_action:action,p_id:id||null,p_data:data},ctx.token),env,rateLimit});
   const mapDbError = error => {
-    if (error instanceof HttpError) return error;
+    if (error instanceof HttpError || error?.support) return error;
     const message = String(error?.message || '').toLowerCase();
     if (error?.status === 401 || error?.status === 403) return new HttpError(error.status, error.message);
     if (/duplicate|already|unique|reviewed|awaiting|not open|cannot remove|must stop|in progress|reconciliation/.test(message)) return new HttpError(409, error.message);
@@ -189,6 +191,7 @@ export function createSupabaseApplication(options = {}) {
     const method = req.method;
     const guest = cookies(req.headers.cookie).elite_guest;
 
+    if (supportRoute(path)) return support(req,res,url,await needUser(req),body);
     if (path === '/api/config' && method === 'GET') {
       const ctx = await authContext(req, true);
       let priceCents = 14000;
@@ -626,10 +629,7 @@ export function createSupabaseApplication(options = {}) {
       rateLimit(`chat-create:${req.socket.remoteAddress || 'guest'}`, 5, 900000);
       const ctx = await authContext(req, true);
       if (ctx && !ctx.requiresMfa && ctx.deviceVerified) {
-        const rows = await db.insert('elitetrade_conversations', {
-          user_id:ctx.user.id, name:ctx.user.name, email:ctx.user.email, created_at:now(), updated_at:now()
-        }, ctx.token);
-        return json(res, { id:rows?.[0]?.id }, 201);
+        const result=await db.rpc('elitetrade_support',{p_action:'create',p_data:{category:body.category||'Other'}},ctx.token);return json(res,result,201);
       }
       const name = string(body.name, 'Name', 2, 64);
       const email = body.email ? emailValue(body.email) : '';
@@ -653,14 +653,11 @@ export function createSupabaseApplication(options = {}) {
         }
         if (method === 'POST' && chatRoute[2] === 'messages') {
           if (chat.status !== 'open') fail(409, 'This conversation is closed. Start a new one for more help.');
-          const sender = ctx.user.role === 'admin' ? 'admin' : 'customer';
-          await db.insert('elitetrade_messages', { conversation_id:chat.id, sender, body:string(body.message, 'Message', 1, 4000), created_at:now() }, ctx.token);
-          await db.update('elitetrade_conversations', `id=eq.${q(chat.id)}`, { updated_at:now() }, ctx.token);
-          return json(res, { ok:true }, 201);
+          const result=await db.rpc('elitetrade_support',{p_action:'send',p_id:chat.id,p_data:{message:string(body.message,'Message',1,20000),clientId:body.clientId||crypto.randomUUID(),attachments:[]}},ctx.token);if(result.error)fail(result.status,result.error);return json(res,result,201);
         }
         if (method === 'POST' && chatRoute[2] === 'close') {
           if (ctx.user.role !== 'admin') fail(403, 'Administrator access is required.');
-          await db.update('elitetrade_conversations', `id=eq.${q(chat.id)}`, { status:'closed', updated_at:now() }, ctx.token);
+          await db.rpc('elitetrade_support',{p_action:'update',p_id:chat.id,p_data:{stage:'resolved'}},ctx.token);
           return json(res, { ok:true });
         }
       }
@@ -844,7 +841,7 @@ export function createSupabaseApplication(options = {}) {
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Content-Security-Policy',
-      `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' ${supabaseUrl}; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'`);
+      `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self' ${supabaseUrl}; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'`);
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
     if (production) res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     res.setHeader('Cache-Control', 'no-store');
@@ -856,7 +853,7 @@ export function createSupabaseApplication(options = {}) {
         let body = {};
         if (req.method !== 'GET') {
           if ((req.headers.origin && req.headers.origin !== origin) || req.headers['sec-fetch-site'] === 'cross-site') fail(403, 'This request origin is not allowed.');
-          body = await safeBody(req);
+          body = /\/workspace\/[^/]+\/attachments$/.test(url.pathname) ? {} : await safeBody(req);
         }
         const locksTrading = req.method !== 'GET' && /^\/api\/(?:admin\/)?(?:accounts|bots)(?:\/|$)/.test(url.pathname);
         if (locksTrading && tradingMutation) fail(409, 'A trading connection command is in progress. Wait for confirmation before trying again.');
@@ -899,6 +896,8 @@ export function createSupabaseApplication(options = {}) {
       files['/ebook.css'] = ['ebook.css','text/css'];
       files['/ebooks/elitebot-strategy-preview.pdf'] = ['ebooks/elitebot-strategy-preview.pdf','application/pdf'];
       files['/navigation-data.js'] = ['navigation-data.js','text/javascript'];
+      files['/support.js'] = ['support.js','text/javascript'];
+      files['/support.css'] = ['support.css','text/css'];
       files['/workspace.js'] = ['workspace.js','text/javascript'];
       files['/trading.css'] = ['trading.css','text/css'];
       files['/market-chart.js'] = ['market-chart.js','text/javascript'];
