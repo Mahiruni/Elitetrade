@@ -584,6 +584,7 @@ export function createApplication(options = {}) {
       files['/ebooks/elitebot-strategy-preview.pdf'] = ['ebooks/elitebot-strategy-preview.pdf','application/pdf'];
       files['/navigation-data.js'] = ['navigation-data.js','text/javascript'];
       files['/support.js'] = ['support.js','text/javascript'];
+      files['/support-view.js'] = ['support-view.js','text/javascript'];
       files['/support.css'] = ['support.css','text/css'];
       files['/workspace.js'] = ['workspace.js','text/javascript'];
       files['/trading.css'] = ['trading.css','text/css'];

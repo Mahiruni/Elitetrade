@@ -12,6 +12,21 @@ Customer route: `/support`. Administrator route: `/admin/support`. Both use the 
 - Server size/extension/MIME/signature checks, safe generated storage object names, Office ZIP central-directory/content-type checks, macro/embedded/encrypted Office rejection, text-content checks. Files download with `Content-Disposition: attachment`, `nosniff`, no-store, and sandbox headers. No uploaded HTML is rendered.
 - Whole-word NFKC moderation runs server-side. Legitimate complaints and substrings in broker/name/trading terms remain allowed. Admins manage the list and see repeat-block counts. Original rejected content is **never persisted**. Counts expire after 30 days; stale counts and presence records are cleaned on inbox reads.
 
+## Frontend refinement
+
+The support interface uses scoped charcoal/gold and warm neutral light-theme tokens. `public/support-view.js` provides reusable icons, avatars, file cards, English timestamps, safe HTTP(S) links, date separators, sender grouping, and message presentation. `public/support.js` retains the existing API contracts and state handling. The only server changes register this additional static JavaScript asset in both existing adapters; authentication, RPCs, permissions, storage, and moderation are unchanged.
+
+- Customer layouts emphasize the support contact and conversation. Admin layouts retain the compact searchable inbox and optional details with assignment, labels, presence, and private notes.
+- Compact phone header with back navigation and an action menu. Native modal bottom sheets handle attachments, conversation actions, details, and editable quick replies, including Escape dismissal and focus containment.
+- Integrated bordered composer with a near-limit counter, clear sending/disabled states, selected-file previews, upload failures/removal, polite moderation feedback, and an explicit failed-send retry that keeps the original client ID and draft.
+- Incoming/outgoing bubbles have 15px message text (16px mobile composer), readable metadata, reserved image-preview dimensions, document type/size/download cards, date separators, and an unread boundary derived from the existing unread count. No generated activity or extra receipt states.
+- Message-ID scroll anchoring preserves the visible message during older-history loading and incoming updates. Cached conversations restore drafts and reading positions. The jump control reports actual new messages while the user reads earlier history. Focus and text selection survive participant/status updates.
+- Motion is limited to 180–220ms panels, sheets, feedback, and new messages; reduced-motion settings disable it. The visual viewport resizes the workspace when a phone keyboard opens and keeps the composer clear of the existing bottom navigation.
+
+No new backend setup or migration is required for this refinement. Presence, file access, quick replies, moderation, resolution, and confirmed reads use existing authorized endpoints. The existing host upload limits, polling transport, and optional scanning infrastructure described below still apply.
+
+Verification covers both roles at 360, 390, 768, and 1440px in both themes, long names/messages/URLs/filenames, multiple attachments, modal file selection, upload rejection/removal, failed-send deduplication, search, quick replies, older-history anchoring, new-message positioning, draft/scroll restoration across conversations, restricted-access retry, resolution/reopening, desktop Enter/Shift+Enter, mobile multiline entry, reduced motion, and simulated visual-viewport keyboard shrink. Browser fixtures run only in an isolated in-memory SQLite database; the rapid layout/navigation matrix resets only its test IP write budget between phases. Physical Android/iOS keyboard behavior still requires a device check.
+
 ## Database setup
 
 Applied to the existing EliteTrade project `cgpvhayfwnpipktyltho`:
