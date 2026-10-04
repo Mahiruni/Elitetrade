@@ -29,7 +29,7 @@ await context.route('**/auth/v1/**',async route=>{
  await route.fulfill({response,json:{access_token:'isolated-session',refresh_token:'isolated-refresh',expires_in:3600}});
 });
 await context.route('**/api/**',async route=>{if(route.request().method()==='GET')return route.continue();const response=await route.fetch({headers:{...route.request().headers(),'x-csrf-token':csrf}});return route.fulfill({response});});
-const go=async path=>{await page.goto(base+path);await page.locator('h1').waitFor();};
+const go=async path=>{await page.goto(base+path);await page.locator('h1').waitFor();await page.locator('.workspace-loading').waitFor({state:'hidden'});};
 const screenshot=async name=>{await page.locator('#app-opening').waitFor({state:'hidden'});await page.evaluate(()=>document.fonts.ready);await page.screenshot({path:`test-results/${name}.png`,fullPage:true});};
 mkdirSync('test-results',{recursive:true});
 try {
@@ -50,6 +50,46 @@ try {
  await context.setOffline(true);assert.equal(await page.getByRole('button',{name:'Start bot',exact:true}).isDisabled(),true);await context.setOffline(false);
  await go('/dashboard');const first=db.prepare("SELECT id FROM accounts WHERE login='111111'").get().id;await page.locator('#workspace-account').selectOption(first);await page.getByText('Broker equity history',{exact:true}).waitFor();assert.ok(await page.locator('.financial-stats').innerText().then(t=>t.includes('$1,250.00')&&t.includes('-$3.00')));assert.equal(await page.getByRole('cell',{name:/XAUUSD/}).count(),1);
  await page.getByRole('button',{name:'7D',exact:true}).click();await go('/activity');assert.equal(await page.locator('#workspace-account').inputValue(),first);await go('/dashboard');assert.equal(await page.getByRole('button',{name:'7D',exact:true}).getAttribute('aria-pressed'),'true');
+
+ // Hold account reads indefinitely: navigation must display useful content without them.
+ const endpoints=/\/api\/(accounts|bots)$/;
+ for(const width of [390,1440]) {
+  await page.setViewportSize({width,height:900});await go('/dashboard');
+  let release;const gate=new Promise(r=>release=r),reads={accounts:0,bots:0};
+  await page.route(endpoints,async route=>{reads[new URL(route.request().url()).pathname.split('/').at(-1)]++;await gate;await route.continue();});
+  const nav=width<760?'.bottom-nav':'.sidebar nav';
+  const switchTo=async(path,title)=>{
+   await page.locator(`${nav} a[href="${path}"]`).click();
+   await page.getByRole('heading',{name:title,exact:true}).waitFor({timeout:600});
+   await page.locator('.account-strip').waitFor({timeout:600});
+   assert.equal(await page.locator('#snapshot-banner').isVisible(),true);
+   assert.ok((await page.locator('.account-strip-state').innerText()).toLowerCase().includes('last known: connected'));
+   assert.equal(await page.locator('.workspace-loading').count(),0);
+  };
+  await switchTo('/markets','Markets');await switchTo('/activity','Activity');await switchTo('/bots','Trading bots');
+  assert.equal(await page.getByRole('button',{name:'Start bot',exact:true}).isDisabled(),true);
+  assert.equal(await page.getByRole('button',{name:'Configure',exact:true}).isDisabled(),true);
+  const chrome=await page.locator('.topbar').elementHandle();
+  await page.waitForFunction(()=>document.querySelector('#snapshot-banner').textContent.includes('Refreshing'));
+  release();await page.locator('#snapshot-banner').waitFor({state:'hidden'});
+  assert.equal(await page.getByRole('heading',{name:'Trading bots',exact:true}).count(),1,'Old requests cannot replace the current page');
+  assert.equal(await page.getByRole('button',{name:'Start bot',exact:true}).isEnabled(),true,'Fresh account confirmation restores valid controls');
+  assert.equal(await page.getByRole('button',{name:'Configure',exact:true}).isEnabled(),true);
+  assert.equal(await chrome.evaluate(el=>el===document.querySelector('.topbar')),true,'Background updates preserve the shell');
+  assert.deepEqual(reads,{accounts:1,bots:1},'Rapid route changes share in-flight reads');
+  await page.unroute(endpoints);
+  await page.locator(`${nav} a[href="/account"]`).click();await page.getByRole('heading',{name:'Account',exact:true}).waitFor({timeout:600});
+  await page.locator('#main a[href="/settings"]').click();await page.getByRole('heading',{name:'Account settings',exact:true}).waitFor({timeout:600});
+  assert.equal(await page.evaluate(()=>document.activeElement.id),'main','Static page navigation restores keyboard focus');
+ }
+ // A failed update keeps the last view visibly stale with a retry, never enabled controls.
+ await page.route(endpoints,route=>route.fulfill({status:503,json:{error:'Fixture service unavailable'}}));
+ await page.locator('.sidebar nav a[href="/dashboard"]').click();
+ await page.getByText('Previously loaded data · Update unavailable',{exact:true}).waitFor();
+ assert.equal(await page.locator('.account-strip').isVisible(),true);
+ await page.unroute(endpoints);await page.locator('#snapshot-banner [data-action="refresh"]').click();
+ await page.locator('#snapshot-banner').waitFor({state:'hidden'});
+ console.log('PASS: immediate mobile/desktop navigation with blocked backend reads, request coalescing, stale control locks, safe refresh, preserved shell, and retry.');
  await screenshot('overview-connected-desktop');
  await go('/bots');await page.getByRole('button',{name:'Configure',exact:true}).click();await d.getByLabel('MT5 account',{exact:true}).selectOption({label:'Fixture Broker · 222222'});await d.getByRole('button',{name:'Save configuration',exact:true}).click();assert.equal(await d.isVisible(),true);await d.getByRole('button',{name:'Confirm live risk settings',exact:true}).click();await d.waitFor({state:'hidden'});
  for(const width of [320,390,768,1440])for(const theme of ['light','dark'])for(const lang of ['en','am']) {

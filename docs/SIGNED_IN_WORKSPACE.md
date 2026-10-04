@@ -16,6 +16,14 @@ Selection and date/activity filters are stored per user in session storage. Fina
 
 English and Amharic labels share the same layouts. Bundled Noto Sans Ethiopic supplies the fallback when Benaiah Amharic is not installed; its SIL OFL license is included alongside the font files. User-entered credentials and broker symbols are not translated.
 
+## Navigation performance
+
+Internal links open through the existing client router. Trading screens show memory-only snapshots immediately when available, with a “Previously loaded data” banner and last-known status labels, then refresh from the authenticated API. First visits show the screen heading and skeleton immediately. Profile/settings screens render directly without a loading flash. Background updates replace the workspace content while preserving its navigation shell.
+
+Simultaneous account/bot reads share their in-flight request. Every new read after completion still contacts the server; this is not a financial-data TTL cache. Snapshots are cloned and cleared on logout, identity change, or API mutation. Responses from before invalidation cannot repopulate them. Cached views never enable start/pause, risk editing, or account removal. Failed updates retain the clearly stale view with a retry action. Route versions prevent late updates from replacing a newer page.
+
+`test/navigation-data.test.mjs` covers request sharing, isolated snapshots, fresh reads, retry, and invalidation during pending reads. The workspace browser test blocks account/bot responses while switching Markets → Activity → Bot on mobile/desktop; useful content must appear within 600 ms without the backend response. It also checks stale control locks, refresh recovery, shared requests, unchanged navigation shell, and unavailable-service retries.
+
 ## Data and controls
 
 MetaApi snapshot reads now include open positions when allowed by the provider. Public account responses allowlist position fields; no provider credentials or metadata are exposed. Position retrieval failures preserve available balance/equity and show positions as unavailable rather than zero.

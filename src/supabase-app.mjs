@@ -898,6 +898,7 @@ export function createSupabaseApplication(options = {}) {
       files['/ebook.css'] = ['ebook.css','text/css'];
       files['/ebooks/elitebot-strategy-preview.pdf'] = ['ebooks/elitebot-strategy-preview.pdf','application/pdf'];
       for (const weight of [400,500,600]) files[`/fonts/noto-ethiopic-${weight}.woff`] = [`fonts/noto-ethiopic-${weight}.woff`,'font/woff'];
+      files['/navigation-data.js'] = ['navigation-data.js','text/javascript'];
       files['/workspace.js'] = ['workspace.js','text/javascript'];
       files['/workspace-i18n.js'] = ['workspace-i18n.js','text/javascript'];
       files['/blog.js'] = ['blog.js','text/javascript'];

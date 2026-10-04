@@ -1,3 +1,4 @@
+import { createNavigationData } from './navigation-data.js';
 import { createWorkspace } from './workspace.js';
 import { translateWorkspace, language } from './workspace-i18n.js';
 import { createAuthExperience } from './auth.js';
@@ -24,6 +25,8 @@ const readStoredAuth = () => {
   try { return JSON.parse(localStorage.getItem(AUTH_KEY) || 'null'); }
   catch { return null; }
 };
+const navigationData = createNavigationData();
+const navigationEndpoints = new Set(['/accounts','/bots']);
 const submitLocks = new Set();
 const state = { user: null, csrf: null, config: {}, data: {}, chat: null, adminTab: 'payments', version: 0, stream: null, auth: readStoredAuth(), pendingMfa: null, requiresDeviceVerification:false,deviceEmail:'',deviceDestination:'/mt5',deviceEmailSession:'' };
 function saveAuth(session) {
@@ -33,6 +36,7 @@ function saveAuth(session) {
   try { localStorage.setItem(AUTH_KEY, JSON.stringify(state.auth)); } catch {}
 }
 function clearAuth() {
+  navigationData.clear();state.showingSnapshot=false;
   state.auth = null;
   state.pendingMfa = null;
   state.requiresDeviceVerification = false;
@@ -49,7 +53,10 @@ function decodeJwt(jwt) {
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 const money = (value, currency = 'USD') => new Intl.NumberFormat('en', { style:'currency', currency }).format(Number(value || 0) / 100);
 const date = value => value ? new Date(value).toLocaleString([], { dateStyle:'medium', timeStyle:'short' }) : '—';
-const badge = value => `<span class="badge ${esc(value)}">${esc(value)}</span>`;
+const badge = value => {
+  const previous=state.showingSnapshot && ['connected','running','paused','stopped'].includes(value);
+  return `<span class="badge ${esc(previous?'unknown':value)}">${previous?'Last known: ':''}${esc(value)}</span>`;
+};
 const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${({ terminal:'<path d="m5 7 5 5-5 5m8 0h6"/>', bots:'<rect x="4" y="6" width="16" height="14" rx="4"/><path d="M12 2v4M8 11v2m8-2v2m-8 4h8M1 11h3m16 0h3"/>', pool:'<path d="M3 20h18M5 20V10m7 10V4m7 16v-7M3 7l8-5 10 5"/>', referrals:'<circle cx="9" cy="7" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3m2-17a3 3 0 0 1 0 6m2 4a5 5 0 0 1 2 4v3"/>', lock:'<rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/>', settings:'<path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="10" cy="18" r="2"/>', wallet:'<rect x="3" y="5" width="18" height="15" rx="3"/><path d="M3 8V5l14-3v3m4 7h-6v5h6"/>', support:'<path d="M4 13v-2a8 8 0 0 1 16 0v2M4 11H2v7h4v-7zm16 0h2v7h-4v-7zm0 7v3h-7"/>', shield:'<path d="m12 2 8 4v6c0 5-8 10-8 10S4 17 4 12V6zm-4 9 3 3 5-6"/>', menu:'<path d="M4 6h16M4 12h16M4 18h16"/>', theme:'<path d="M21 13A9 9 0 0 1 11 3a9 9 0 1 0 10 10Z"/>', close:'<path d="m6 6 12 12M6 18 18 6"/>', arrow:'<path d="M4 12h16m-6-6 6 6-6 6"/>', logout:'<path d="M9 3H4v18h5m6-15 6 6-6 6m-7-6h13"/>', plus:'<path d="M12 4v16M4 12h16"/>', eye:'<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>', refresh:'<path d="M20 7v5h-5M4 17v-5h5M5 7a8 8 0 0 1 14-1l1 6M4 12l1 6a8 8 0 0 0 14-1"/>' })[name] || ''}</svg>`;
 const wordmark = `<span class="brand-wordmark"><span class="brand-name">EliteBot</span><span class="wordmark-sub">Your Trading Bot</span></span>`;
 const brand = `<a href="/dashboard" class="brand">${wordmark}</a>`;
@@ -73,7 +80,15 @@ const table = (heads, rows) => {
 const stat = (label, value, note = '', symbol = 'pool') => `<div class="stat"><div class="stat-label"><span class="metric-icon">${icon(symbol)}</span><small>${label}</small></div><div class="value">${value}</div>${note ? `<span class="metric-note">${note}</span>` : ''}</div>`;
 function toast(message) { const el = document.querySelector('#toast'); el.textContent = message; el.classList.add('visible'); clearTimeout(state.toastTimer); state.toastTimer = setTimeout(() => el.classList.remove('visible'), 5000); }
 function openModal(title, body) { modal.innerHTML = `<div class="dialog-head"><h2>${title}</h2>${btn(icon('close'), 'close', '', 'class="icon ghost" aria-label="Close dialog"')}</div><div class="dialog-body">${body}</div>`; modal.showModal(); translateWorkspace(modal); }
-async function api(path, method = 'GET', body) {
+async function api(path, method = 'GET', body, {snapshot=false} = {}) {
+  if(method==='GET' && navigationEndpoints.has(path)) {
+    if(snapshot)return navigationData.snapshot(path);
+    return navigationData.read(path,()=>fetchApi(path,method,body));
+  }
+  if(method!=='GET')navigationData.clear();
+  return fetchApi(path,method,body);
+}
+async function fetchApi(path, method = 'GET', body) {
   if(method!=='GET'&&!navigator.onLine)throw new Error('Reconnect before sending changes or trading commands.');
   const accessToken = path === '/config' ? '' : await ensureAccessToken();
   const response = await fetch(`/api${path}`, {
@@ -135,6 +150,7 @@ async function ensureAccessToken() {
 }
 async function identity() {
   const me = await api('/me');
+  if(state.user?.id!==me.user?.id)navigationData.clear();
   state.user = me.user;
   state.requiresMfa = me.requiresMfa;
   state.requiresDeviceVerification = !!me.requiresDeviceVerification;
@@ -152,6 +168,12 @@ function connectEvents() {
 const workspaceUI = createWorkspace({state,api,esc,money,date,icon,btn,badge,heading,empty,stat,table});
 function shell(content) {
   const path = location.pathname;
+  const signature=JSON.stringify([state.user.id,state.user.name,state.user.role,state.user.active,language()]);
+  const existing=root.querySelector('.layout');
+  if(existing?.dataset.route===path && existing.dataset.signature===signature) {
+    const main=existing.querySelector('#main');main.innerHTML=content;
+    syncSnapshotStatus();syncOffline();translateWorkspace(main);return;
+  }
   const mainLinks = [['/dashboard','pool','Home'],['/markets','terminal','Markets'],['/bots','bots','Bot'],['/activity','refresh','Activity'],['/account','referrals','Account']];
   const secondary = [['/mt5','terminal','MT5 terminal'],['/positions','pool','Positions'],['/notifications','shield','Notifications'],['/subscription','wallet','Subscription'],['/pool','pool','Live pool'],['/referrals','referrals','Referrals'],['/settings','settings','Settings'],['/support','support','Support']];
   if (state.user.role === 'admin') secondary.push(['/admin','shield','Administration'],['/admin/support','support','Support inbox']);
@@ -161,8 +183,9 @@ function shell(content) {
   const navLink = ([href,i,title]) => `<a href="${href}" class="${current?.[0]===href?'active':''}" ${current?.[0]===href?'aria-current="page"':''}>${icon(i)}<span>${href==='/bots'?'Trading bots':title}</span></a>`;
   const initials = String(state.user.name || state.user.email || 'E').trim().split(/\s+/).slice(0,2).map(part => part[0]).join('').toUpperCase();
   const online = navigator.onLine;
-  root.innerHTML = `<div class="layout" data-page="${esc(path.split('/')[1] || 'home')}"><div class="menu-scrim" data-action="menu"></div><aside class="sidebar" id="workspace-navigation"><div class="sidebar-brand">${brand}${btn(icon('close'),'menu','','class="icon ghost mobile-only" aria-label="Close navigation"')}</div><nav aria-label="Main navigation"><div class="nav-group">${mainLinks.map(navLink).join('')}</div><div class="nav-group"><div class="nav-label">Workspace</div>${secondary.map(navLink).join('')}</div></nav><div class="sidebar-bottom"><div class="sidebar-member"><span class="avatar">${esc(initials)}</span><span><strong>${esc(state.user.name)}</strong><small>${state.user.role==='admin'?'Administrator':'Member'}</small></span></div>${btn(`${icon('logout')} Sign out`,'logout','','class="ghost logout"')}</div></aside><div class="workspace"><header class="topbar"><div class="desktop-crumb"><span>Workspace</span><span class="crumb-divider">/</span><strong>${current?.[2] || 'Home'}</strong></div>${brand}<div class="topbar-actions">${btn(icon('refresh'),'refresh','','class="icon ghost topbar-refresh" aria-label="Refresh workspace"')}${btn(language()==='am'?'EN':'አማ','language','','class="language-button ghost" aria-label="Switch language"')}${themeButton()}<a href="/notifications" class="icon-link" aria-label="View account alerts">${icon('shield')}</a><a href="/account" class="profile-link" aria-label="Account"><span class="avatar">${esc(initials)}</span></a>${btn(icon('menu'),'menu','','class="icon ghost mobile-only" aria-label="Open navigation" aria-controls="workspace-navigation" aria-expanded="false"')}</div></header><div id="offline-banner" class="offline-banner" role="status" ${online?'hidden':''}>Offline · Data may be stale. Trading actions are unavailable.</div><main id="main" class="content" tabindex="-1">${content}</main><footer class="workspace-footer"><span>EliteBot · Trading workspace</span><span>Trading involves risk.</span></footer></div><nav class="bottom-nav" aria-label="Mobile navigation">${mainLinks.map(([href,i,title])=>`<a href="${href}" class="${activeMain===href?'active':''}" ${activeMain===href?'aria-current="page"':''}>${icon(i)}<span>${title}</span></a>`).join('')}</nav></div>`;
-  syncOffline(); translateWorkspace(root);
+  root.innerHTML = `<div class="layout" data-page="${esc(path.split('/')[1] || 'home')}"><div class="menu-scrim" data-action="menu"></div><aside class="sidebar" id="workspace-navigation"><div class="sidebar-brand">${brand}${btn(icon('close'),'menu','','class="icon ghost mobile-only" aria-label="Close navigation"')}</div><nav aria-label="Main navigation"><div class="nav-group">${mainLinks.map(navLink).join('')}</div><div class="nav-group"><div class="nav-label">Workspace</div>${secondary.map(navLink).join('')}</div></nav><div class="sidebar-bottom"><div class="sidebar-member"><span class="avatar">${esc(initials)}</span><span><strong>${esc(state.user.name)}</strong><small>${state.user.role==='admin'?'Administrator':'Member'}</small></span></div>${btn(`${icon('logout')} Sign out`,'logout','','class="ghost logout"')}</div></aside><div class="workspace"><header class="topbar"><div class="desktop-crumb"><span>Workspace</span><span class="crumb-divider">/</span><strong>${current?.[2] || 'Home'}</strong></div>${brand}<div class="topbar-actions">${btn(icon('refresh'),'refresh','','class="icon ghost topbar-refresh" aria-label="Refresh workspace"')}${btn(language()==='am'?'EN':'አማ','language','','class="language-button ghost" aria-label="Switch language"')}${themeButton()}<a href="/notifications" class="icon-link" aria-label="View account alerts">${icon('shield')}</a><a href="/account" class="profile-link" aria-label="Account"><span class="avatar">${esc(initials)}</span></a>${btn(icon('menu'),'menu','','class="icon ghost mobile-only" aria-label="Open navigation" aria-controls="workspace-navigation" aria-expanded="false"')}</div></header><div id="snapshot-banner" class="snapshot-banner" role="status" hidden></div><div id="offline-banner" class="offline-banner" role="status" ${online?'hidden':''}>Offline · Data may be stale. Trading actions are unavailable.</div><main id="main" class="content" tabindex="-1">${content}</main><footer class="workspace-footer"><span>EliteBot · Trading workspace</span><span>Trading involves risk.</span></footer></div><nav class="bottom-nav" aria-label="Mobile navigation">${mainLinks.map(([href,i,title])=>`<a href="${href}" class="${activeMain===href?'active':''}" ${activeMain===href?'aria-current="page"':''}>${icon(i)}<span>${title}</span></a>`).join('')}</nav></div>`;
+  root.querySelector('.layout').dataset.signature=signature;root.querySelector('.layout').dataset.route=path;
+  syncSnapshotStatus();syncOffline(); translateWorkspace(root);
 }
 const publicBrand = `<a href="/" class="brand site-brand">${wordmark}</a>`;
 function marketingHeader() {
@@ -392,15 +415,15 @@ function authPage(path) {
 }
 
 const activation = () => state.user.active || state.user.role === 'admin' ? '' : '<div class="notice">Activate your subscription to connect an MT5 account and start trading bots. <a href="/subscription">View subscription</a></div>';
-async function terminalPage() {
-  const data = await api('/accounts'); state.data.accounts = data.accounts;
+async function terminalPage({snapshot=false} = {}) {
+  const data = await api('/accounts','GET',undefined,{snapshot}); state.data.accounts = data.accounts;
   const connected = data.accounts.filter(a => a.status === 'connected').length;
   const pending = data.accounts.filter(a => a.status === 'pending').length;
   const accounts = data.accounts.length ? data.accounts.map(account => `<article class="card account-card"><div class="terminal-status"><div class="account-identity"><span class="broker-icon">${icon('terminal')}</span><div><h2>${esc(account.broker)}</h2><span class="meta">MT5 account <span class="mono">${esc(account.login)}</span></span></div></div>${badge(account.status)}</div><p class="account-kind">${workspaceUI.type(account)}</p><div class="account-server"><span>Broker server</span><strong class="mono">${esc(account.server)}</strong></div><div class="account-balances"><div><small>Balance</small><div class="value">${account.snapshot?.balance === undefined ? '—' : money(account.snapshot.balance * 100,account.snapshot.currency)}</div></div><div><small>Equity</small><div class="value">${account.snapshot?.equity === undefined ? '—' : money(account.snapshot.equity * 100,account.snapshot.currency)}</div></div></div>${account.snapshot ? `<p class="meta snapshot-time">Updated ${date(account.snapshot.updatedAt)}</p>` : '<p class="account-note"><span class="status-dot" aria-hidden="true"></span>Account figures appear after the trading connection is confirmed.</p>'}${account.note ? `<p class="account-review-note">${esc(account.note)}</p>` : ''}<div class="account-footer"><a href="/bots" class="button-link">Manage bots ${icon('arrow')}</a>${btn('Remove account','account-delete',account.id,'class="danger ghost"')}</div></article>`).join('') : `<section class="card">${empty('Connect your first MT5 account','Add your broker and terminal details to request a connection.',btn(`${icon('plus')} Add MT5 account`,'account-add','','class="primary"'))}</section>`;
   return heading('MT5 terminal','Every broker connection, in one clear view.',btn(`${icon('plus')} Add account`,'account-add','','class="primary"')) + activation() + `<div class="stats">${stat('Connected accounts',connected,'Confirmed broker connections','terminal')}${stat('Accounts in review',pending,'Awaiting administrator approval','shield')}${stat('Connection service',state.config.tradingEnabled === false && state.config.gatewayConfigured ? 'Account data' : data.gatewayConfigured ? 'Configured' : 'Not connected','Demo and real MT5 accounts','settings')}</div><div class="dashboard-columns"><section class="account-list" aria-label="Your MT5 accounts"><div class="section-heading"><div><h2>Broker accounts</h2><p>${data.accounts.length} ${data.accounts.length === 1 ? 'account' : 'accounts'} in your workspace</p></div><span class="section-icon">${icon('terminal')}</span></div>${accounts}</section><aside class="workspace-aside"><section class="card connection-guide"><span class="section-icon">${icon('shield')}</span><h2>A clear path to connection</h2><p class="meta">Each account follows the same review process.</p><ol class="connection-steps"><li><span>01</span><div><strong>Add your MT5 details</strong><p>Use the login, password, and exact server assigned by your broker.</p></div></li><li><span>02</span><div><strong>Administrator review</strong><p>Your details are reviewed before the provider connects your account.</p></div></li><li><span>03</span><div><strong>See your account data</strong><p>Balance and equity appear after the broker connection is confirmed.</p></div></li></ol><a href="/support" class="button-link">Get connection help ${icon('arrow')}</a></section>${state.config.tradingEnabled === false && state.config.gatewayConfigured ? '<div class="notice"><strong>Account data mode</strong><p>MT5 demo and real accounts are supported. Account data is available after review; automated trading is not enabled.</p></div>' : ''}${!data.gatewayConfigured ? '<div class="notice"><strong>Connection service required</strong><p>Live account data and trading will become available when your administrator connects the MT5 service. You can save account details for review after activation.</p></div>' : ''}</aside></div>`;
 }
-async function botsPage() {
-  const [data, accounts] = await Promise.all([api('/bots'),api('/accounts')]); state.data.bots = data.bots; state.data.accounts = accounts.accounts;
+async function botsPage({snapshot=false} = {}) {
+  const [data, accounts] = await Promise.all([api('/bots','GET',undefined,{snapshot}),api('/accounts','GET',undefined,{snapshot})]); state.data.bots = data.bots; state.data.accounts = accounts.accounts;
   if(typeof data.engineReady === 'boolean')state.config.tradingEnabled=data.engineReady;
   const engineOffline = !state.config.gatewayConfigured || state.config.tradingEnabled === false;
   const demoMode=state.config.connectionMode==='account-data';
@@ -484,7 +507,7 @@ async function adminPage() {
   if (state.adminTab === 'audit') content = d.audit.length ? table(['Time','Administrator','Action','Record'],d.audit.map(a => `<tr><td>${date(a.created_at)}</td><td>${esc(a.email || 'System')}</td><td>${esc(a.action)}</td><td class="mono">${esc(a.target)}</td></tr>`)) : empty('No administrative activity','Changes to access, payments, and configuration will be recorded here.');
   return heading('Administration','A focused view of members, payments, and connected services.') + `<div class="stats">${stat('Members',d.users.length,'Registered workspace members','referrals')}${stat('Pending payments',pending.payments,'Submissions awaiting verification','wallet')}${stat('Pending connections',pending.accounts,'MT5 accounts awaiting review','terminal')}</div><div class="admin-section-picker"><label for="admin-section-select">Administration section</label><select id="admin-section-select">${tabs.map(([id,label]) => `<option value="${id}" ${state.adminTab === id ? 'selected' : ''}>${label}${pending[id] ? ` · ${pending[id]} pending` : ''}</option>`).join('')}</select></div><div class="admin-layout"><div class="tabs admin-nav" role="tablist" aria-label="Administration sections" aria-orientation="vertical">${tabs.map(([id,label]) => btn(`${icon(sections[id][0])}<span>${label}</span>${pending[id] ? `<span class="tab-count" aria-hidden="true">${pending[id]}</span>` : ''}`,'admin-tab',id,`id="admin-tab-${id}" role="tab" aria-label="${label}" aria-controls="admin-panel" aria-selected="${state.adminTab === id}" tabindex="${state.adminTab === id ? '0' : '-1'}" class="${state.adminTab === id ? 'selected' : ''}"`)).join('')}</div><section class="card admin-panel" id="admin-panel" role="tabpanel" aria-labelledby="admin-panel-title"><div class="admin-panel-heading"><div><h2 id="admin-panel-title">${tabs.find(([id]) => id === state.adminTab)[1]}</h2><p>${sections[state.adminTab][1]}</p></div></div>${content}</section></div>`;
 }
-async function render({ quiet = false } = {}) {
+async function render({ quiet = false, navigation = false } = {}) {
   stopHeroMarket(); stopHeroMarket = () => {};
   const focused=document.activeElement;
   const restoreAction=quiet && focused?.dataset?.action ? {action:focused.dataset.action,id:focused.dataset.id}:null;
@@ -500,21 +523,36 @@ async function render({ quiet = false } = {}) {
   if (path.startsWith('/admin') && state.user?.role !== 'admin') { shell(empty('Administrator access required','This page is available to administrators only.')); return; }
   if (path === '/ebook' && (state.requiresMfa || state.requiresDeviceVerification)) {state.deviceDestination='/ebook';navigate(state.requiresDeviceVerification ? '/verify-device' : '/login?next=/ebook',true);return;}
   const pageShell = ['/', '/ebook'].includes(path) ? publicShell : state.user ? shell : publicShell;
-  if (!quiet) pageShell('<div class="workspace-loading" role="status" aria-busy="true"><span class="sr-only">Loading your workspace…</span><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-account"></div><div class="skeleton-metrics"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div><div class="skeleton skeleton-panel"></div></div>');
+  const snapshotRoutes=['/dashboard','/markets','/activity','/history','/positions','/notifications','/bots','/mt5'];
+  const canShowSnapshot=(navigation || state.showingSnapshot) && state.user && snapshotRoutes.includes(path) && navigationData.has('/accounts') && (path==='/mt5'||navigationData.has('/bots'));
+  const titles={'/dashboard':'Overview','/markets':'Markets','/activity':'Activity','/history':'Activity','/positions':'Positions','/notifications':'Notifications','/bots':'Trading bots','/mt5':'MT5 terminal','/subscription':'Your subscription','/subscribe':'Your subscription','/pool':'Live pool','/referrals':'Grow your network','/support':'Support','/admin':'Administration','/admin/support':'Support inbox'};
+  state.showingSnapshot=!!canShowSnapshot;state.snapshotError='';
+  if (!quiet && !canShowSnapshot && !['/account','/settings','/','/terms','/privacy','/risk-disclosure','/refund-policy','/cookies'].includes(path)) pageShell((titles[path]?heading(titles[path]):'')+'<div class="workspace-loading" role="status" aria-busy="true"><span class="sr-only">Loading your workspace…</span><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-account"></div><div class="skeleton-metrics"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div><div class="skeleton skeleton-panel"></div></div>');
   try {
     const pages = { '/':marketingPage,'/ebook':()=>ebookPage({state,api,esc,money,date,badge,form,field,btn}),'/terms':()=>legalPage('/terms'),'/privacy':()=>legalPage('/privacy'),'/risk-disclosure':()=>legalPage('/risk-disclosure'),'/refund-policy':()=>legalPage('/refund-policy'),'/cookies':()=>legalPage('/cookies'),'/dashboard':workspaceUI.home,'/markets':workspaceUI.markets,'/activity':workspaceUI.activity,'/history':workspaceUI.activity,'/positions':workspaceUI.positionsPage,'/notifications':workspaceUI.notifications,'/account':workspaceUI.accountPage,'/mt5':terminalPage,'/bots':botsPage,'/subscription':subscriptionPage,'/subscribe':subscriptionPage,'/pool':poolPage,'/referrals':referralsPage,'/settings':settingsPage,'/support':supportPage,'/admin':adminPage,'/admin/support':() => supportPage(true) };
-    const content = pages[path] ? await pages[path]() : empty('Page not found','<a href="/mt5">Return to your workspace</a>');
+    if(canShowSnapshot) {
+      const previous=await pages[path]({snapshot:true});
+      if(version!==state.version)return;
+      pageShell(previous);document.querySelector('#main')?.focus({preventScroll:true});
+      document.title=`${document.querySelector('h1')?.textContent || 'Workspace'} · Elite Bot`;
+    }
+    let content = pages[path] ? await pages[path]() : empty('Page not found','<a href="/mt5">Return to your workspace</a>');
     if (version !== state.version) return;
+    state.showingSnapshot=false;
+    // Rebuild from the newly fetched values so status labels and risk gates use fresh data.
+    if(canShowSnapshot)content=await pages[path]({snapshot:true});
+    if(version!==state.version)return;
     pageShell(content); connectEvents();
+    if(navigation && document.activeElement===document.body)document.querySelector('#main')?.focus({preventScroll:true});
     if(restoreAction)[...root.querySelectorAll('[data-action]')].find(el=>el.dataset.action===restoreAction.action&&el.dataset.id===restoreAction.id)?.focus({preventScroll:true});
     if (path === '/ebook' && state.user) { try { sessionStorage.removeItem('elite-auth-return'); } catch {} }
     stopHeroMarket = mountHeroMarket(document.querySelector('[data-hero-market]'));
     const messages = document.querySelector('#messages'); if (messages) messages.scrollTop = messages.scrollHeight;
     const pageTitle = path === '/' ? 'Elite Bot · MT5 Trading Automation Platform' : `${document.querySelector('h1')?.textContent || 'Workspace'} · Elite Bot`;
     document.title = pageTitle;
-  } catch (error) { if (version !== state.version) return; if (error.code==='browser_verification_required' && state.auth) {await finishAuth(state.auth,path);} else if (error.status === 401) { state.user = null; navigate('/login',true); } else pageShell(empty('Unable to load this page',esc(error.message),btn('Try again','refresh'))); }
+  } catch (error) { if (version !== state.version) return; if (error.code==='browser_verification_required' && state.auth) {await finishAuth(state.auth,path);} else if (error.status === 401) { state.user = null; navigate('/login',true); } else if(canShowSnapshot){state.showingSnapshot=true;state.snapshotError=error.message;syncSnapshotStatus();syncOffline();} else {state.showingSnapshot=false;pageShell(empty('Unable to load this page',esc(error.message),btn('Try again','refresh')));} }
 }
-function navigate(path, replace = false) { if (modal.open) modal.close(); history[replace ? 'replaceState' : 'pushState'](null,'',path); window.scrollTo(0,0); render().then(() => document.querySelector('#main')?.focus({preventScroll:true})); }
+function navigate(path, replace = false) { if (modal.open) modal.close(); history[replace ? 'replaceState' : 'pushState'](null,'',path); window.scrollTo(0,0); render({navigation:true});document.querySelector('#main')?.focus({preventScroll:true}); }
 async function logout() {
   const accessToken = state.auth?.access_token || '';
   if (accessToken) await supabaseAuth('logout','POST',{},accessToken).catch(() => {});
@@ -553,8 +591,8 @@ const actions = {
   },
   demo: async () => { const d = await api('/auth/demo','POST'); state.user = d.user; state.requiresMfa = false; navigate('/mt5',true); },
   language: async () => { try { localStorage.setItem('elite-language',language()==='am'?'en':'am'); } catch {} await render({quiet:true}); },
-  'performance-range': async r => {workspaceUI.setRange(r);await render({quiet:true});},
-  'activity-filter': async f => {workspaceUI.setActivity(f);await render({quiet:true});},
+  'performance-range': async r => {workspaceUI.setRange(r);await render({quiet:true,navigation:true});},
+  'activity-filter': async f => {workspaceUI.setActivity(f);await render({quiet:true,navigation:true});},
   'market-refresh': async id => {
     if(!navigator.onLine)throw new Error('Reconnect before requesting broker data.');
     const owner=state.user.id;
@@ -613,7 +651,7 @@ document.addEventListener('click',async event => {
   try { await action(button.dataset.id,button); } catch (error) { toast(error.message); } finally { button.disabled = false; }
 });
 document.addEventListener('change',async event => {
-  if (event.target.id === 'workspace-account') { await workspaceUI.selectAccount(event.target.value); await render({quiet:true}); }
+  if (event.target.id === 'workspace-account') { await workspaceUI.selectAccount(event.target.value); await render({quiet:true,navigation:true}); }
   if (event.target.id === 'admin-section-select') { try { await actions['admin-tab'](event.target.value,event.target); } catch (error) { toast(error.message); } }
   if (event.target.name === 'methodId') { const m = state.data.methods.find(m => m.id === event.target.value); const info = event.target.form.querySelector('#payment-info'); if (info && m) info.innerHTML = methodInfo(m); }
 });
@@ -626,6 +664,7 @@ document.addEventListener('submit',async event => {
   const errorBox = el.querySelector('.error'); errorBox.textContent = ''; button.disabled = true; const label = button.textContent; button.textContent = 'Please wait…'; el.setAttribute('aria-busy','true');
   try {
     if (!navigator.onLine) throw new Error('You are offline. Reconnect before saving changes or sending commands.');
+    if (state.showingSnapshot && ['bot','bot-control'].includes(action)) throw new Error('Wait for the account update before changing risk or sending trading commands.');
     if (action==='bot' && !el.dataset.riskConfirmed) {
       const account=state.data.accounts.find(a=>a.id===data.accountId);
       if (account?.snapshot?.accountType==='real') {
@@ -736,7 +775,7 @@ document.addEventListener('submit',async event => {
   }
   finally { submitLocks.delete(lockKey); button.disabled = false; button.textContent = action==='bot' && el.dataset.riskConfirmed ? 'Confirm live risk settings' : label; el.removeAttribute('aria-busy'); translateWorkspace(modal); }
 });
-window.addEventListener('popstate',() => render());
+window.addEventListener('popstate',() => render({navigation:true}));
 function setWorkspaceMenu(open,restoreFocus = true) {
   const opener = document.querySelector('[data-action="menu"][aria-expanded]');
   const wasOpen = document.body.classList.contains('menu-open');
@@ -835,8 +874,9 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshCry
 
 function syncOffline() {
   const banner=document.querySelector('#offline-banner');if(banner)banner.hidden=navigator.onLine;
-  document.querySelectorAll('[data-online-action]').forEach(button=>{button.disabled=!navigator.onLine;});
-  modal.querySelectorAll('form[data-form="bot-control"] button[type="submit"]').forEach(button=>{button.disabled=!navigator.onLine;});
+  document.querySelectorAll('[data-online-action]').forEach(button=>{button.disabled=!navigator.onLine || !!state.showingSnapshot;});
+  if(state.showingSnapshot)document.querySelectorAll('[data-action="bot-edit"],[data-action="bot-control"],[data-action="account-delete"]').forEach(button=>{button.disabled=true;});
+  modal.querySelectorAll('form[data-form="bot-control"] button[type="submit"]').forEach(button=>{button.disabled=!navigator.onLine || !!state.showingSnapshot;});
   if(!navigator.onLine)document.querySelectorAll('.market-card .badge').forEach(el=>{el.textContent='stale';el.className='badge stale';});
   if(!navigator.onLine)document.querySelectorAll('.account-strip-state .badge').forEach(el=>{el.textContent='offline';el.className='badge offline';});
 }
@@ -845,3 +885,10 @@ window.addEventListener('online',()=>{syncOffline();if(state.user&&!modal.open)r
 
 document.addEventListener('invalid',event=>{event.target.setAttribute('aria-invalid','true');const details=event.target.closest('details');if(details)details.open=true;},true);
 document.addEventListener('input',event=>event.target.removeAttribute('aria-invalid'));
+
+function syncSnapshotStatus() {
+  const banner=document.querySelector('#snapshot-banner');if(!banner)return;
+  banner.hidden=!state.showingSnapshot;
+  banner.innerHTML=state.snapshotError ? `<span>Previously loaded data · Update unavailable</span><span class="meta">${esc(state.snapshotError)}</span>${btn('Try again','refresh','','class="ghost"')}` : '<span>Previously loaded data · Refreshing…</span>';
+  translateWorkspace(banner);
+}

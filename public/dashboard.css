@@ -542,3 +542,6 @@ html[lang=am] .layout,html[lang=am] #modal { font-family:"Benaiah Amharic","Noto
 .layout .summary-row { flex-wrap:wrap }.summary-row>.badge { max-width:100% }
 
 .layout .language-button { font-family:"Noto Sans Ethiopic",var(--font-ui) }
+.snapshot-banner { display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 28px;border-bottom:1px solid var(--border);background:var(--panel);color:var(--muted);font-size:.8125rem }
+.snapshot-banner .meta { flex:1;min-width:0;overflow-wrap:anywhere }
+@media(max-width:760px) { .snapshot-banner { padding:10px 16px } }
