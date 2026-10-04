@@ -14,7 +14,7 @@ Desktop uses a compact sidebar and top bar. Mobile uses Home, Markets, Bot, Acti
 
 Selection and date/activity filters are stored per user in session storage. Financial data and quotes are not persisted in browser storage. API responses retain `no-store`. Offline command submissions are blocked, confirmed start buttons are disabled, and displayed data is marked stale. No service worker was active in the editable app; the recovered original manifest is not installed by this change.
 
-English and Amharic labels share the same layouts. Bundled Noto Sans Ethiopic supplies the fallback when Benaiah Amharic is not installed; its SIL OFL license is included alongside the font files. User-entered credentials and broker symbols are not translated.
+The interface is English-only. The language switch, translation module, and Ethiopic font assets have been removed. A previous language preference is cleared on startup; user-entered text and existing account data are preserved.
 
 ## Navigation performance
 
@@ -38,7 +38,7 @@ All bot commands require explicit confirmation, report pending/success/error sta
 
 - `npm run check`: JavaScript syntax and entrypoint checks.
 - `npm test`: API/security/auth/trading/position sanitizer and provider outage tests.
-- `node test/browser.mjs`: isolated registration, profile, administration, payments, MT5 forms, bot configuration, support, theme, mobile menu, signed-in routes, language, offline banner, and sign-out. 320–1728px, both themes.
-- `node test/workspace-browser.mjs`: isolated broker fixture for confirmed MT5 connections, financial rendering/positions, selected-account/filter persistence, start/pause confirmation, duplicate prevention, live-risk confirmation, offline controls, password sign-in to Overview, and sign-out. 320px, 390px, 768px, and 1440px in both themes and English/Amharic.
+- `node test/browser.mjs`: isolated registration, profile, administration, payments, MT5 forms, bot configuration, support, theme, mobile menu, signed-in routes, English-only labels despite a legacy language preference, offline banner, and sign-out. 320–1728px, both themes.
+- `node test/workspace-browser.mjs`: isolated broker fixture for confirmed MT5 connections, financial rendering/positions, selected-account/filter persistence, start/pause confirmation, duplicate prevention, live-risk confirmation, offline controls, password sign-in to Overview, and sign-out. 320px, 390px, 768px, and 1440px in both themes with English labels.
 
 Browser verification uses an in-memory database and controlled auth/gateway adapters. It does not verify production email delivery, live Supabase sign-in with a customer account, or actual broker execution. No production users, schemas, or account data were changed.

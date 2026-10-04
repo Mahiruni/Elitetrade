@@ -92,17 +92,17 @@ try {
  console.log('PASS: immediate mobile/desktop navigation with blocked backend reads, request coalescing, stale control locks, safe refresh, preserved shell, and retry.');
  await screenshot('overview-connected-desktop');
  await go('/bots');await page.getByRole('button',{name:'Configure',exact:true}).click();await d.getByLabel('MT5 account',{exact:true}).selectOption({label:'Fixture Broker · 222222'});await d.getByRole('button',{name:'Save configuration',exact:true}).click();assert.equal(await d.isVisible(),true);await d.getByRole('button',{name:'Confirm live risk settings',exact:true}).click();await d.waitFor({state:'hidden'});
- for(const width of [320,390,768,1440])for(const theme of ['light','dark'])for(const lang of ['en','am']) {
-  await page.setViewportSize({width,height:900});await page.evaluate(({theme,lang})=>{localStorage.setItem('elite-theme',theme);localStorage.setItem('elite-language',lang);},{theme,lang});
+ for(const width of [320,390,768,1440])for(const theme of ['light','dark']) {
+  await page.setViewportSize({width,height:900});await page.evaluate(theme=>localStorage.setItem('elite-theme',theme),theme);
   for(const path of ['/dashboard','/bots','/positions','/account','/settings','/markets']) {
    await go(path);await page.locator('.workspace-loading').waitFor({state:'hidden'});
-   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`Overflow ${width}/${theme}/${lang}/${path}`);
+   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`Overflow ${width}/${theme}/${path}`);
    const overlap=await page.evaluate(()=>{const nav=document.querySelector('.bottom-nav');return getComputedStyle(nav).display!=='none'&&document.querySelector('.workspace').getBoundingClientRect().bottom>document.documentElement.scrollHeight+1;});assert.equal(overlap,false);
   }
  }
- await page.setViewportSize({width:390,height:844});await go('/dashboard');await screenshot('overview-connected-mobile-amharic');
- await page.evaluate(()=>localStorage.setItem('elite-language','en'));await go('/account');await page.getByRole('button',{name:'Sign out',exact:true}).click();await page.getByRole('heading',{name:'Welcome back.',exact:true}).waitFor();
+ await page.setViewportSize({width:390,height:844});await go('/dashboard');await screenshot('overview-connected-mobile');
+ await go('/account');await page.getByRole('button',{name:'Sign out',exact:true}).click();await page.getByRole('heading',{name:'Welcome back.',exact:true}).waitFor();
  await page.getByLabel('Email address',{exact:true}).fill('workspace@example.test');await page.getByLabel('Password',{exact:true}).fill('Workspace password 42!');await page.getByRole('button',{name:'Continue',exact:true}).click();await page.getByRole('heading',{name:'Overview',exact:true}).waitFor();
- assert.deepEqual(errors,[]);console.log('PASS: sign-in to Overview, confirmed MT5 connections, real fixture balances and positions, account/filter persistence, confirmed start/pause, duplicate prevention, live risk review, offline lock, English/Amharic, both themes, mobile/tablet/desktop, and sign-out.');
+ assert.deepEqual(errors,[]);console.log('PASS: sign-in to Overview, confirmed MT5 connections, real fixture balances and positions, account/filter persistence, confirmed start/pause, duplicate prevention, live risk review, offline lock, English-only, both themes, mobile/tablet/desktop, and sign-out.');
 } catch(e) {console.log('Failed at',page.url());console.log((await page.locator('body').innerText()).slice(-4000));await screenshot('workspace-browser-failure');throw e;}
 finally {await browser.close();await app.close();db.close();}

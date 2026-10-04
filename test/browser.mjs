@@ -192,11 +192,10 @@ try {
   await customer.goto(base+'/dashboard');await customer.getByRole('heading',{name:'Overview',exact:true}).waitFor();
   assert.equal(await customer.getByRole('navigation',{name:'Mobile navigation'}).isVisible(),true);
   await capture(customer,{path:'test-results/overview-mobile.png',fullPage:true});
-  await customer.getByRole('button',{name:'Switch language',exact:true}).click();
-  await customer.getByRole('heading',{name:'አጠቃላይ እይታ',exact:true}).waitFor();
-  assert.ok(await customer.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Amharic layout');
-  await capture(customer,{path:'test-results/overview-mobile-amharic.png',fullPage:true});
-  await customer.getByRole('button',{name:'ቋንቋ ይቀይሩ',exact:true}).click();
+  await customer.evaluate(()=>localStorage.setItem('elite-language','am'));
+  await customer.goto(base+'/dashboard');await customer.getByRole('heading',{name:'Overview',exact:true}).waitFor();
+  assert.equal(await customer.locator('html').getAttribute('lang'),'en','Legacy language preference cannot translate the interface');
+  assert.equal(await customer.locator('[data-action="language"]').count(),0,'Language switch removed');
   await customerContext.setOffline(true);
   await customer.locator('#offline-banner:not([hidden])').waitFor();
   assert.ok((await customer.locator('#offline-banner').innerText()).includes('Offline'));

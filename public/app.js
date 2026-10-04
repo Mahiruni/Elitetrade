@@ -1,9 +1,10 @@
 import { createNavigationData } from './navigation-data.js';
 import { createWorkspace } from './workspace.js';
-import { translateWorkspace, language } from './workspace-i18n.js';
 import { createAuthExperience } from './auth.js';
 import { ebookOffer, ebookPage, downloadEbook } from './ebook.js';
 import { mountHeroMarket } from './hero-market.js';
+// Retire the old language preference; all product labels are English.
+try { localStorage.removeItem('elite-language'); } catch {}
 const openingScreen = document.querySelector('#app-opening');
 if (openingScreen) {
   const dismissOpening = () => {
@@ -79,7 +80,7 @@ const table = (heads, rows) => {
 };
 const stat = (label, value, note = '', symbol = 'pool') => `<div class="stat"><div class="stat-label"><span class="metric-icon">${icon(symbol)}</span><small>${label}</small></div><div class="value">${value}</div>${note ? `<span class="metric-note">${note}</span>` : ''}</div>`;
 function toast(message) { const el = document.querySelector('#toast'); el.textContent = message; el.classList.add('visible'); clearTimeout(state.toastTimer); state.toastTimer = setTimeout(() => el.classList.remove('visible'), 5000); }
-function openModal(title, body) { modal.innerHTML = `<div class="dialog-head"><h2>${title}</h2>${btn(icon('close'), 'close', '', 'class="icon ghost" aria-label="Close dialog"')}</div><div class="dialog-body">${body}</div>`; modal.showModal(); translateWorkspace(modal); }
+function openModal(title, body) { modal.innerHTML = `<div class="dialog-head"><h2>${title}</h2>${btn(icon('close'), 'close', '', 'class="icon ghost" aria-label="Close dialog"')}</div><div class="dialog-body">${body}</div>`; modal.showModal(); }
 async function api(path, method = 'GET', body, {snapshot=false} = {}) {
   if(method==='GET' && navigationEndpoints.has(path)) {
     if(snapshot)return navigationData.snapshot(path);
@@ -168,11 +169,11 @@ function connectEvents() {
 const workspaceUI = createWorkspace({state,api,esc,money,date,icon,btn,badge,heading,empty,stat,table});
 function shell(content) {
   const path = location.pathname;
-  const signature=JSON.stringify([state.user.id,state.user.name,state.user.role,state.user.active,language()]);
+  const signature=JSON.stringify([state.user.id,state.user.name,state.user.role,state.user.active]);
   const existing=root.querySelector('.layout');
   if(existing?.dataset.route===path && existing.dataset.signature===signature) {
     const main=existing.querySelector('#main');main.innerHTML=content;
-    syncSnapshotStatus();syncOffline();translateWorkspace(main);return;
+    syncSnapshotStatus();syncOffline();return;
   }
   const mainLinks = [['/dashboard','pool','Home'],['/markets','terminal','Markets'],['/bots','bots','Bot'],['/activity','refresh','Activity'],['/account','referrals','Account']];
   const secondary = [['/mt5','terminal','MT5 terminal'],['/positions','pool','Positions'],['/notifications','shield','Notifications'],['/subscription','wallet','Subscription'],['/pool','pool','Live pool'],['/referrals','referrals','Referrals'],['/settings','settings','Settings'],['/support','support','Support']];
@@ -183,9 +184,9 @@ function shell(content) {
   const navLink = ([href,i,title]) => `<a href="${href}" class="${current?.[0]===href?'active':''}" ${current?.[0]===href?'aria-current="page"':''}>${icon(i)}<span>${href==='/bots'?'Trading bots':title}</span></a>`;
   const initials = String(state.user.name || state.user.email || 'E').trim().split(/\s+/).slice(0,2).map(part => part[0]).join('').toUpperCase();
   const online = navigator.onLine;
-  root.innerHTML = `<div class="layout" data-page="${esc(path.split('/')[1] || 'home')}"><div class="menu-scrim" data-action="menu"></div><aside class="sidebar" id="workspace-navigation"><div class="sidebar-brand">${brand}${btn(icon('close'),'menu','','class="icon ghost mobile-only" aria-label="Close navigation"')}</div><nav aria-label="Main navigation"><div class="nav-group">${mainLinks.map(navLink).join('')}</div><div class="nav-group"><div class="nav-label">Workspace</div>${secondary.map(navLink).join('')}</div></nav><div class="sidebar-bottom"><div class="sidebar-member"><span class="avatar">${esc(initials)}</span><span><strong>${esc(state.user.name)}</strong><small>${state.user.role==='admin'?'Administrator':'Member'}</small></span></div>${btn(`${icon('logout')} Sign out`,'logout','','class="ghost logout"')}</div></aside><div class="workspace"><header class="topbar"><div class="desktop-crumb"><span>Workspace</span><span class="crumb-divider">/</span><strong>${current?.[2] || 'Home'}</strong></div>${brand}<div class="topbar-actions">${btn(icon('refresh'),'refresh','','class="icon ghost topbar-refresh" aria-label="Refresh workspace"')}${btn(language()==='am'?'EN':'አማ','language','','class="language-button ghost" aria-label="Switch language"')}${themeButton()}<a href="/notifications" class="icon-link" aria-label="View account alerts">${icon('shield')}</a><a href="/account" class="profile-link" aria-label="Account"><span class="avatar">${esc(initials)}</span></a>${btn(icon('menu'),'menu','','class="icon ghost mobile-only" aria-label="Open navigation" aria-controls="workspace-navigation" aria-expanded="false"')}</div></header><div id="snapshot-banner" class="snapshot-banner" role="status" hidden></div><div id="offline-banner" class="offline-banner" role="status" ${online?'hidden':''}>Offline · Data may be stale. Trading actions are unavailable.</div><main id="main" class="content" tabindex="-1">${content}</main><footer class="workspace-footer"><span>EliteBot · Trading workspace</span><span>Trading involves risk.</span></footer></div><nav class="bottom-nav" aria-label="Mobile navigation">${mainLinks.map(([href,i,title])=>`<a href="${href}" class="${activeMain===href?'active':''}" ${activeMain===href?'aria-current="page"':''}>${icon(i)}<span>${title}</span></a>`).join('')}</nav></div>`;
+  root.innerHTML = `<div class="layout" data-page="${esc(path.split('/')[1] || 'home')}"><div class="menu-scrim" data-action="menu"></div><aside class="sidebar" id="workspace-navigation"><div class="sidebar-brand">${brand}${btn(icon('close'),'menu','','class="icon ghost mobile-only" aria-label="Close navigation"')}</div><nav aria-label="Main navigation"><div class="nav-group">${mainLinks.map(navLink).join('')}</div><div class="nav-group"><div class="nav-label">Workspace</div>${secondary.map(navLink).join('')}</div></nav><div class="sidebar-bottom"><div class="sidebar-member"><span class="avatar">${esc(initials)}</span><span><strong>${esc(state.user.name)}</strong><small>${state.user.role==='admin'?'Administrator':'Member'}</small></span></div>${btn(`${icon('logout')} Sign out`,'logout','','class="ghost logout"')}</div></aside><div class="workspace"><header class="topbar"><div class="desktop-crumb"><span>Workspace</span><span class="crumb-divider">/</span><strong>${current?.[2] || 'Home'}</strong></div>${brand}<div class="topbar-actions">${btn(icon('refresh'),'refresh','','class="icon ghost topbar-refresh" aria-label="Refresh workspace"')}${themeButton()}<a href="/notifications" class="icon-link" aria-label="View account alerts">${icon('shield')}</a><a href="/account" class="profile-link" aria-label="Account"><span class="avatar">${esc(initials)}</span></a>${btn(icon('menu'),'menu','','class="icon ghost mobile-only" aria-label="Open navigation" aria-controls="workspace-navigation" aria-expanded="false"')}</div></header><div id="snapshot-banner" class="snapshot-banner" role="status" hidden></div><div id="offline-banner" class="offline-banner" role="status" ${online?'hidden':''}>Offline · Data may be stale. Trading actions are unavailable.</div><main id="main" class="content" tabindex="-1">${content}</main><footer class="workspace-footer"><span>EliteBot · Trading workspace</span><span>Trading involves risk.</span></footer></div><nav class="bottom-nav" aria-label="Mobile navigation">${mainLinks.map(([href,i,title])=>`<a href="${href}" class="${activeMain===href?'active':''}" ${activeMain===href?'aria-current="page"':''}>${icon(i)}<span>${title}</span></a>`).join('')}</nav></div>`;
   root.querySelector('.layout').dataset.signature=signature;root.querySelector('.layout').dataset.route=path;
-  syncSnapshotStatus();syncOffline(); translateWorkspace(root);
+  syncSnapshotStatus();syncOffline();
 }
 const publicBrand = `<a href="/" class="brand site-brand">${wordmark}</a>`;
 function marketingHeader() {
@@ -590,7 +591,6 @@ const actions = {
     toast('If this address is awaiting confirmation, a new confirmation email has been requested. Check your inbox and spam folder.');
   },
   demo: async () => { const d = await api('/auth/demo','POST'); state.user = d.user; state.requiresMfa = false; navigate('/mt5',true); },
-  language: async () => { try { localStorage.setItem('elite-language',language()==='am'?'en':'am'); } catch {} await render({quiet:true}); },
   'performance-range': async r => {workspaceUI.setRange(r);await render({quiet:true,navigation:true});},
   'activity-filter': async f => {workspaceUI.setActivity(f);await render({quiet:true,navigation:true});},
   'market-refresh': async id => {
@@ -773,7 +773,7 @@ document.addEventListener('submit',async event => {
     }
     errorBox.scrollIntoView({block:'nearest'});
   }
-  finally { submitLocks.delete(lockKey); button.disabled = false; button.textContent = action==='bot' && el.dataset.riskConfirmed ? 'Confirm live risk settings' : label; el.removeAttribute('aria-busy'); translateWorkspace(modal); }
+  finally { submitLocks.delete(lockKey); button.disabled = false; button.textContent = action==='bot' && el.dataset.riskConfirmed ? 'Confirm live risk settings' : label; el.removeAttribute('aria-busy'); }
 });
 window.addEventListener('popstate',() => render({navigation:true}));
 function setWorkspaceMenu(open,restoreFocus = true) {
@@ -890,5 +890,4 @@ function syncSnapshotStatus() {
   const banner=document.querySelector('#snapshot-banner');if(!banner)return;
   banner.hidden=!state.showingSnapshot;
   banner.innerHTML=state.snapshotError ? `<span>Previously loaded data · Update unavailable</span><span class="meta">${esc(state.snapshotError)}</span>${btn('Try again','refresh','','class="ghost"')}` : '<span>Previously loaded data · Refreshing…</span>';
-  translateWorkspace(banner);
 }
