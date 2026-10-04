@@ -1,3 +1,7 @@
+# Current trading frontend
+
+See [TRADING_FRONTEND.md](TRADING_FRONTEND.md) for the current charcoal/gold identity, five-destination navigation, Trade workspace, data boundaries and verification. The earlier implementation notes below describe the initial workspace design.
+
 # Signed-in workspace
 
 The application now opens `/dashboard` after password or passkey sign-in. Existing signup/subscription, ebook returns, MFA, and unfamiliar-browser verification remain intact.

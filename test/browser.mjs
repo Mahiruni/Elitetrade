@@ -180,7 +180,9 @@ try {
   await customer.getByRole('button',{name:'Open navigation',exact:true}).click();
   await customer.getByRole('button',{name:'Close navigation',exact:true}).click();
   assert.equal(await customer.locator('.workspace').evaluate(el => el.inert),false);
-  await customer.getByRole('button',{name:'Toggle light and dark theme',exact:true}).click();
+  await customer.getByRole('button',{name:'Open navigation',exact:true}).click();
+  await customer.getByRole('dialog',{name:'Workspace navigation'}).getByRole('button',{name:'Toggle light and dark theme',exact:true}).click();
+  await customer.keyboard.press('Escape');
   await customer.evaluate(() => localStorage.setItem('elite-theme','light'));
   await customer.goto(base+'/settings');
   await customer.getByRole('heading',{name:'Account settings',exact:true}).waitFor();

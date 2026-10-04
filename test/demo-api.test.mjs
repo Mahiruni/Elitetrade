@@ -37,5 +37,5 @@ test('production demo control requires heartbeat and verified demo permissions; 
 });
 test('strategy preview uses broker data but does not arm or execute',async t=>{
  const f=await fixture(t);const r=await f.call('/api/bots/bot/preview',{});
- assert.equal(r.status,200);assert.equal(r.data.message,'Preview only. No order sent.');assert.equal(r.data.signal.side,null);assert.equal(f.controls,0);assert.equal(f.orders,0);
+ assert.equal(r.status,200);assert.equal(r.data.message,'Preview only. No order sent.');assert.equal(r.data.signal.side,null);assert.equal(r.data.timeframe,'15m');assert.equal(r.data.candles.length,26);assert.equal(r.data.orders,null);assert.ok(r.data.candles.every(c=>Object.keys(c).length===5));assert.equal(f.controls,0);assert.equal(f.orders,0);
 });

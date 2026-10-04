@@ -1,0 +1,283 @@
+/* EliteBot trading identity: charcoal, warm gold, restrained surfaces. */
+:root {
+  --brand-primary:#e5bb62; --brand-primary-hover:#f0cb7c;
+  --bg:#101113; --panel:#191b1f; --surface:#23262b; --border:#34373e;
+  --text:#f2f3f5; --muted:#acb0ba; --accent:#e5bb62;
+  --button:var(--brand-primary); --button-hover:var(--brand-primary-hover); --accent-ink:#17130b;
+  --green:#42d5a1; --red:#ff7885; --control-border:#626772;
+  --brand-gradient:radial-gradient(ellipse at 52% 0%,#d9b15b14,transparent 64%),linear-gradient(110deg,#111214,#202126);
+}
+body.light {
+  --bg:#f4f5f7; --panel:#fff; --surface:#eef0f3; --border:#d8dbe2;
+  --text:#191c22; --muted:#5c6370; --accent:#795612; --accent-ink:#17130b;
+  --green:#087a53; --red:#bb293b; --control-border:#7a828f;
+  --button:#e5bb62; --button-hover:#d6a846;
+}
+body { background-image:none }
+button.primary,.marketing-cta,.auth-submit { color:var(--accent-ink) }
+body:has(.layout) #modal {
+  --bg:#101113;--panel:#191b1f;--surface:#23262b;--border:#34373e;--text:#f2f3f5;--muted:#acb0ba;--accent:#e5bb62;--button:#e5bb62;--button-hover:#f0cb7c;--accent-ink:#17130b;
+  color:var(--text);background:var(--panel);border:1px solid var(--border);border-radius:16px;
+}
+body.light:has(.layout) #modal { --bg:#f4f5f7;--panel:#fff;--surface:#eef0f3;--border:#d8dbe2;--text:#191c22;--muted:#5c6370;--accent:#795612;background:var(--panel) }
+.layout {
+  --bg:#101113; --panel:#191b1f; --surface:#23262b; --border:#34373e;
+  --text:#f2f3f5; --muted:#acb0ba; --accent:#e5bb62; --button:#e5bb62; --button-hover:#f0cb7c;
+  --green:#42d5a1;--red:#ff7885;--control-border:#626772;--radius:12px;
+  --nav-accent:var(--accent);--nav-text:var(--text);--nav-muted:var(--muted);--nav-border:var(--border);
+  --nav-bg:#191b1f;--nav-chrome:#15171a;--nav-glass:#191b1fe8;
+  --nav-hover:#e5bb6209;--nav-selected:#e5bb6212;
+  --type-title:1.75rem;--type-card:1rem;--type-metric:1.625rem;--type-metric-compact:1.5rem;
+  grid-template-columns:200px minmax(0,1fr);font-size:14px;line-height:1.5;
+}
+body.light .layout {
+  --bg:#f4f5f7;--panel:#fff;--surface:#eef0f3;--border:#d8dbe2;
+  --text:#191c22;--muted:#5c6370;--accent:#795612;--button:#e5bb62;--button-hover:#d6a846;
+  --green:#087a53;--red:#bb293b;--control-border:#7a828f;
+  --nav-bg:#fff;--nav-chrome:#fff;--nav-glass:#fffffff0;--nav-hover:#79561208;--nav-selected:#7956120d;
+}
+.layout .sidebar { padding:18px 10px 12px }
+.layout .sidebar-brand { margin-bottom:22px }
+.layout .sidebar .brand { padding:0 12px }
+.layout .brand-logo { width:64px;height:30px;object-fit:contain }
+.layout .sidebar nav { gap:20px }
+.layout .sidebar nav a { min-height:44px;padding:10px 12px;border-radius:8px;font-size:13px;gap:10px }
+.layout .sidebar nav a svg { width:19px;height:19px }
+.layout .sidebar nav a.active { box-shadow:inset 2px 0 0 var(--accent) }
+.layout .nav-label { font-size:12px;letter-spacing:.04em }
+.layout .sidebar-member { padding:8px 4px }
+.layout .topbar { min-height:60px;padding:8px 24px;gap:12px }
+.layout .desktop-crumb { font-size:13px }
+.layout .topbar-actions { gap:2px }
+.layout .avatar { width:32px;height:32px;font-size:12px }
+.mobile-page-title { display:none }
+.layout .content { padding:24px;max-width:1600px }
+.layout .page-heading { margin-bottom:18px;gap:12px }
+.layout .page-heading h1 { font-size:28px;letter-spacing:-.035em;line-height:1.2 }
+.layout .page-heading p { font-size:14px;margin-top:5px;line-height:1.5;color:var(--muted) }
+.layout .page-heading .eyebrow { display:none }
+.layout .card,.layout .account-card,.layout .connection-guide { padding:18px;border-radius:12px;box-shadow:none;border:1px solid var(--border) }
+.layout .card h2,.layout .account-identity h2,.layout .section-heading h2 { font-size:15px;letter-spacing:-.015em;font-weight:650 }
+.layout .card-head,.layout .section-heading { margin-bottom:14px }
+.layout .card p.meta,.layout .card small,.layout .meta { font-size:12px;line-height:1.6 }
+.layout .grid { gap:14px }
+.layout .overview-grid { gap:16px;grid-template-columns:minmax(0,1fr) 300px }
+.layout .overview-main,.layout .overview-aside { gap:16px }
+.layout .stats { margin-bottom:16px;border-radius:12px;padding:18px 0 }
+.layout .stat { padding-inline:18px }
+.layout .stat .value { font-size:26px;font-weight:650;line-height:1.2;letter-spacing:-.035em }
+.layout .stat:first-child .value { font-size:30px }
+.layout .stat small,.layout .metric-note { font-size:12px;line-height:1.5 }
+.layout .financial-stats .stat:last-child { padding-inline:18px }
+.layout .numeric,.layout .value,.layout .risk-metrics strong,.layout .account-balances { font-variant-numeric:tabular-nums }
+.layout .metric-icon { color:var(--muted) }
+.layout button { font-size:13px;min-height:44px;padding:10px 14px;border-radius:8px }
+.layout button.primary { color:#17130b;box-shadow:none;font-weight:650 }
+.layout button.danger { color:var(--red) }
+.layout button.icon,.layout .icon-link { min-height:44px;min-width:44px;width:44px }
+.layout input,.layout select,.layout textarea { border-radius:8px;padding:10px 12px;font-size:16px;min-height:44px;background:var(--bg) }
+.layout label { font-size:12px;font-weight:500 }
+.layout .button-link { font-size:13px;min-height:44px }
+.layout .account-strip { padding:14px 16px;margin-bottom:16px;border-radius:12px;gap:14px;background:var(--panel);border:1px solid var(--border) }
+.layout .account-picker { min-width:0 }
+.layout .account-picker label { font-size:12px }
+.layout .account-picker select { font-size:13px }
+.layout .account-strip-state { flex-wrap:wrap;gap:6px 10px }
+.layout .account-kind,.layout .account-strip-state small { font-size:12px }
+.layout .badge { background:var(--surface);color:var(--muted);font-size:12px;font-weight:500;line-height:1.35;padding:5px 8px }
+.layout .badge.connected,.layout .badge.active,.layout .badge.approved,.layout .badge.paid,.layout .badge.running { background:var(--surface);color:var(--text) }
+.layout .badge.connected:before,.layout .badge.running:before { background:var(--accent) }
+.layout .badge.pending,.layout .badge.open,.layout .badge.unknown,.layout .badge.updated { color:var(--accent);background:var(--nav-selected) }
+.layout .badge.disconnected,.layout .badge.disabled { color:var(--muted);background:var(--surface) }
+.layout .badge.error,.layout .badge.rejected { color:var(--red);background:color-mix(in srgb,var(--red) 9%,transparent) }
+.layout .empty { padding:24px 8px;font-size:13px;line-height:1.65 }
+.layout .empty:before { display:none }
+.layout .empty strong { font-size:14px;font-weight:600 }
+.layout .empty .actions { margin-top:12px }
+.layout .notice { padding:14px;border-radius:10px;font-size:13px }
+.layout .section-icon,.layout .broker-icon { border-radius:8px;background:var(--surface);color:var(--muted) }
+.layout .risk-metrics { margin-top:16px;padding:16px 0;gap:14px }
+.layout .risk-metrics strong { font-size:24px;letter-spacing:-.025em }
+.layout .risk-metrics>div+div { padding-left:14px }
+.layout .bot-control { margin-top:16px;gap:14px }
+.layout .bot-engine-note { padding-top:12px;margin-top:16px;font-size:12px }
+.layout .strategy-guide { font-size:12px }
+.layout .summary-row { padding:12px 0;gap:10px }
+.layout .summary-copy strong { font-size:13px }
+.layout .activity-list { gap:12px }
+.layout .issue-list { gap:14px }
+.layout .issue { padding-bottom:14px }
+.layout .performance-chart { max-height:160px }
+.layout .chart-line { stroke:var(--accent) }
+.layout .account-balances { padding:16px 0;margin:16px 0 }
+.layout .account-balances .value { font-size:24px }
+.layout .connection-steps { gap:16px;margin-top:18px }
+.layout .workspace-footer { margin-inline:24px;font-size:12px;padding:14px 0 }
+.layout :focus-visible { outline:2px solid var(--accent);outline-offset:3px }
+.quick-actions { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:20px }
+.quick-action { display:flex;gap:10px;align-items:center;justify-content:center;padding:12px;min-height:52px;border:1px solid var(--border);border-radius:10px;background:var(--panel);color:var(--text);font-weight:600;font-size:13px }
+.quick-action svg { width:19px;height:19px;color:var(--accent);flex:none }
+.quick-action:hover { background:var(--surface);text-decoration:none;border-color:var(--control-border) }
+.watchlist { display:flex;flex-direction:column }
+.watch-row { display:grid;grid-template-columns:minmax(130px,1fr) minmax(90px,.7fr) 85px 100px 44px;gap:12px;align-items:center;padding:13px 0;border-top:1px solid var(--border) }
+.watch-row:first-child { border-top:0 }
+.watch-row[hidden] { display:none }
+.watch-symbol { display:flex;gap:10px;align-items:center;color:var(--text);min-width:0 }
+.watch-symbol strong { font-size:13px }
+.watch-symbol small,.watch-price small,.watch-change small { display:block;font-size:12px;color:var(--muted) }
+.watch-symbol span:last-child { min-width:0;overflow-wrap:anywhere }
+.instrument-mark { width:30px;height:30px;flex:none;display:grid;place-items:center;font-size:11px;font-weight:650;border-radius:8px;background:var(--surface);color:var(--accent) }
+.watch-price,.watch-change { text-align:right;font-size:13px }
+.market-sparkline { display:block;width:100%;height:32px }
+.spark-unavailable { font-size:12px;color:var(--muted);line-height:1.3;display:block;text-align:center }
+.market-search { margin-bottom:12px;max-width:360px }
+.market-search label { display:block;margin-bottom:6px }
+.market-strip { display:flex;gap:24px;align-items:center;flex-wrap:wrap;margin-bottom:16px }
+.instrument-select { min-width:180px;flex:1 }
+.instrument-select label { display:block;margin-bottom:4px }
+.instrument-select select { width:100%;max-width:310px }
+.market-strip-price { display:flex;flex-direction:column;font-size:13px }
+.market-strip-price strong { font-size:20px;font-weight:600 }
+.market-strip>.icon { margin-left:auto }
+.trade-tabs { display:flex;gap:8px;border-bottom:1px solid var(--border);margin-bottom:16px }
+.layout .trade-tabs button { background:transparent;color:var(--muted);border:0;border-bottom:2px solid transparent;border-radius:0;padding:12px 16px;min-height:46px }
+.layout .trade-tabs button[aria-selected="true"] { color:var(--accent);border-bottom-color:var(--accent) }
+.trade-grid { display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:16px;align-items:start }
+.trade-grid>aside { min-width:0 }
+.trade-chart-panel { min-height:350px }
+.chart-toolbar { display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);padding-bottom:10px;margin-bottom:12px;flex-wrap:wrap }
+.timeframe-pill { display:inline-flex;padding:6px 10px;background:var(--surface);font-size:12px;border-radius:6px;color:var(--text) }
+.chart-tools { margin-left:auto;display:flex;gap:6px;align-items:center }
+.layout .chart-tools button { background:transparent;border-color:var(--border);font-size:12px }
+.layout .chart-tools button[aria-pressed="true"] { color:var(--accent);background:var(--nav-selected) }
+.chart-canvas { min-height:280px;display:grid;align-items:center }
+.candlestick-chart { display:block;width:100%;height:auto;max-height:460px }
+.candle-grid { stroke:var(--border);stroke-width:.7 }
+.candle-axis { fill:var(--muted);font-size:12px;font-variant-numeric:tabular-nums }
+.chart-caption { border-top:1px solid var(--border);padding-top:12px;margin-top:12px }
+.execution-mode { display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:12px;flex-wrap:wrap }
+.execution-details { display:flex;flex-direction:column;gap:12px;margin:18px 0;border-block:1px solid var(--border);padding-block:16px }
+.execution-details>div { display:flex;justify-content:space-between;gap:10px;font-size:12px }
+.execution-details dt { color:var(--muted) }
+.execution-details dd { margin:0;font-weight:600;overflow-wrap:anywhere;text-align:right }
+.desktop-positions { margin-top:16px }
+.layout .chart-expanded { position:fixed;inset:74px 18px 18px 218px;z-index:21;overflow:auto;box-shadow:0 0 0 100vmax #0009 }
+.chart-expanded .chart-canvas { min-height:65vh }
+.chart-expanded .candlestick-chart { max-height:70vh }
+@media(min-width:761px) and (max-width:1100px) {
+  .layout { grid-template-columns:180px minmax(0,1fr) }
+  .layout .content,.layout .topbar { padding-inline:18px }
+  .layout .overview-grid { grid-template-columns:1fr }
+  .layout .overview-aside { display:grid;grid-template-columns:1fr 1fr }
+  .trade-grid { grid-template-columns:1fr }
+  .trade-grid>aside .execution-details { display:grid;grid-template-columns:1fr 1fr }
+  .layout .chart-expanded { left:198px }
+}
+@media(max-width:760px) {
+  .layout { display:flex;flex-direction:column;min-height:100dvh }
+  .layout .sidebar { padding:18px 12px;max-height:85dvh;top:auto;bottom:0;left:0;right:0;width:100%;height:auto;border-radius:18px 18px 0 0;border:1px solid var(--border);transform:translateY(110%);transition:transform 200ms ease,visibility 200ms;overflow:auto;z-index:40 }
+  body.menu-open .layout .sidebar { transform:translateY(0) }
+  .layout .sidebar-brand { margin-bottom:14px }
+  .layout .sidebar nav { gap:14px }
+  .layout .sidebar .nav-group { display:grid;grid-template-columns:1fr 1fr;gap:4px }
+  .layout .sidebar .nav-label { grid-column:1/-1 }
+  .layout .sidebar-bottom { display:none }
+  .layout .drawer-intro { padding:12px;margin-bottom:12px }
+  .layout .workspace { min-height:100dvh;padding-bottom:calc(72px + env(safe-area-inset-bottom)) }
+  .layout .topbar { min-height:58px;padding:6px 10px;gap:8px }
+  .layout .topbar>.brand { display:flex;padding:0;flex:none }
+  .layout .topbar .brand-logo { width:48px;height:25px }
+  .mobile-page-title { display:block;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
+  .layout .desktop-crumb,.layout .topbar-refresh,.layout .topbar-actions>[data-action="theme"] { display:none }
+  .layout .topbar-actions { gap:0;margin-left:auto;flex:none }
+  .layout .topbar .profile-link { padding:0;margin:0;border:0;min-width:44px;display:flex;justify-content:center }
+  .layout .content { padding:18px 14px }
+  .layout .page-heading { margin-bottom:16px }
+  .layout .page-heading h1 { font-size:24px }
+  .layout .page-heading p { font-size:13px }
+  .layout .card,.layout .account-card,.layout .connection-guide { padding:14px;border-radius:10px }
+  .layout .account-strip { padding:12px;margin-bottom:14px;gap:8px;display:grid;grid-template-columns:1fr auto }
+  .layout .account-picker { grid-column:1/-1 }
+  .layout .account-picker select { width:100%;font-size:16px }
+  .layout .account-strip-state { display:flex;align-items:center;gap:6px }
+  .layout .account-strip-state small { width:100% }
+  .layout .account-strip .button-link { font-size:12px;justify-self:end }
+  .layout .financial-stats { grid-template-columns:1fr 1fr;padding:0;gap:0;overflow:hidden }
+  .layout .financial-stats .stat,.layout .financial-stats .stat:last-child { padding:14px;margin:0;border-right:0;display:block;grid-column:auto }
+  .layout .financial-stats .stat:nth-child(odd) { border-right:1px solid var(--border) }
+  .layout .financial-stats .stat:nth-child(n+3) { border-top:1px solid var(--border) }
+  .layout .financial-stats .stat .value { font-size:24px;margin-top:8px;text-align:left }
+  .layout .financial-stats .stat:first-child .value { font-size:26px }
+  .layout .financial-stats .metric-note { font-size:12px;margin-top:6px }
+  .quick-actions { gap:8px;margin-bottom:16px }
+  .quick-action { flex-direction:column;gap:6px;font-size:12px;min-height:70px;padding:10px 4px;text-align:center }
+  .layout .overview-grid,.layout .overview-aside,.layout .grid { grid-template-columns:1fr;gap:14px }
+  .watch-row { grid-template-columns:minmax(100px,1fr) 80px 72px 44px;gap:6px;padding:12px 0 }
+  .watch-spark { display:none }
+  .watch-symbol { gap:7px }
+  .watch-symbol .instrument-mark { display:none }
+  .watch-price,.watch-change { font-size:12px }
+  .watch-symbol small,.watch-price small,.watch-change small { font-size:12px }
+  .market-strip { gap:12px;display:grid;grid-template-columns:1fr 1fr auto }
+  .instrument-select { grid-column:1/-1;min-width:0 }
+  .instrument-select select { max-width:none }
+  .market-strip>.badge { grid-column:1/3;grid-row:3;justify-self:start }
+  .market-strip>.icon { grid-column:3;grid-row:2/4 }
+  .market-strip-price strong { font-size:20px }
+  .trade-tabs { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0 }
+  .layout .trade-tabs button { padding:12px 4px;font-size:13px }
+  .trade-grid { grid-template-columns:1fr;gap:14px }
+  .chart-canvas { min-height:210px }
+  .trade-chart-panel { min-height:300px }
+  .chart-toolbar { gap:6px }
+  .chart-toolbar>small { display:none }
+  .chart-tools { gap:2px }
+  .desktop-positions { display:none }
+  .layout .chart-expanded { inset:68px 8px calc(80px + env(safe-area-inset-bottom));border-radius:12px }
+  .layout .chart-expanded .chart-canvas { min-height:50vh }
+  .layout .workspace-footer { margin:0 14px;padding:14px 0;font-size:12px }
+  .bottom-nav { padding:4px max(6px,env(safe-area-inset-right)) calc(4px + env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left));background:var(--nav-glass);border-color:var(--border);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:0 -4px 18px #00000012 }
+  .bottom-nav a { flex-direction:column;gap:4px;padding:7px 2px;min-height:60px;font-size:12px;line-height:1.2;border-radius:8px;color:var(--muted) }
+  .bottom-nav a svg { width:22px;height:22px }
+  .bottom-nav a:before { display:none }
+  .bottom-nav a.active { color:var(--accent);background:var(--nav-selected) }
+  .nav-caption { display:block;font-size:12px }
+  .layout .bottom-nav a:focus-visible { outline-color:var(--accent) }
+  body:has(.layout) #modal { padding:0;border-radius:16px 16px 0 0;max-height:90dvh;width:100%;max-width:100%;margin:auto 0 0 }
+  body:has(.layout) #modal .dialog-head { padding:16px;border-bottom:1px solid var(--border) }
+  body:has(.layout) #modal .dialog-body { padding:16px 16px calc(20px + env(safe-area-inset-bottom)) }
+}
+@media(max-width:380px) {
+  .layout .topbar { gap:4px;padding-inline:6px }
+  .layout .topbar-actions { gap:0 }
+  .layout .content { padding-inline:12px }
+  .layout .financial-stats .stat,.layout .financial-stats .stat:last-child { padding:12px }
+  .layout .risk-metrics { grid-template-columns:repeat(3,minmax(0,1fr)) }
+  .layout .risk-metrics>div { display:block }
+  .layout .risk-metrics>div+div { border-left:1px solid var(--border);padding-left:10px }
+  .layout .risk-metrics strong { font-size:22px;margin-top:6px }
+}
+@media(prefers-reduced-motion:reduce) { .layout * { transition:none!important;animation:none!important } }
+@media(prefers-reduced-transparency:reduce) { .bottom-nav { background:var(--nav-bg);backdrop-filter:none;-webkit-backdrop-filter:none } }
+
+.auth-experience .auth-primary,.auth-experience .auth-primary:disabled { color:#17130b }
+.auth-experience .auth-spinner { border-color:#17130b44;border-top-color:#17130b }
+@media(max-width:760px) { .layout .sidebar-brand>.mobile-only { margin-left:auto;display:flex }.layout .sidebar-bottom { display:flex;justify-content:flex-end;padding-top:8px }.layout .sidebar-bottom .sidebar-member { display:none } }
+
+.layout .trade-tabs button[data-action][role] { background:transparent }
+.layout .chart-tools button[data-action]:not(.primary) { background:transparent }
+.layout .chart-tools button[data-action][aria-pressed="true"] { background:var(--nav-selected) }
+.layout .bot-performance { margin-top:12px }
+
+@media(max-width:760px) { .layout .topbar .icon-link { display:flex;align-items:center;justify-content:center } }
+/* Keep the phone chart close to the header without hiding account context. */
+@media(max-width:760px) {
+  .layout[data-page="trade"] .page-heading p { display:none }
+  .layout[data-page="trade"] .page-heading { margin-bottom:12px }
+  .layout[data-page="trade"] .account-picker label,.layout[data-page="trade"] .instrument-select label { position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%) }
+  .layout[data-page="trade"] .market-strip { grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:8px;padding:12px }
+  .layout[data-page="trade"] .instrument-select { grid-column:1/3;grid-row:1 }
+  .layout[data-page="trade"] .market-strip>.icon { grid-column:3;grid-row:1;margin:0 }
+  .layout[data-page="trade"] .market-strip-price { grid-row:2 }
+  .layout[data-page="trade"] .market-strip>.badge { grid-column:3;grid-row:2;align-self:center;justify-self:center }
+}

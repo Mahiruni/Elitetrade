@@ -1,3 +1,4 @@
+import {marketDetails} from './market-view.mjs';
 import { accountDetails } from './account-view.mjs';
 import { renderBlogPage } from './blog.mjs';
 import { createServer } from 'node:http';
@@ -562,7 +563,7 @@ export function createSupabaseApplication(options = {}) {
       let order=null,riskMessage='No current entry signal.';
       if(signal.side)try {order=planTrade({bot,...market,side:signal.side});riskMessage='Preliminary risk check passed. Worker rechecks risk, exposure and margin before execution.';}
       catch(error){riskMessage=error.message;}
-      return json(res,{signal,order,riskMessage,accountType:market.info.type==='ACCOUNT_TRADE_MODE_DEMO'?'demo':'real',message:'Preview only. No order sent.',quote:{...Object.fromEntries(['bid','ask'].filter(k=>Number.isFinite(market.quote?.[k])).map(k=>[k,market.quote[k]]))},updatedAt:typeof market.quote?.time==='string'&&Number.isFinite(Date.parse(market.quote.time))?market.quote.time:null,retrievedAt:now()});
+      return json(res,{...marketDetails(market,preset.timeframe),signal,order,riskMessage,accountType:market.info.type==='ACCOUNT_TRADE_MODE_DEMO'?'demo':market.info.type==='ACCOUNT_TRADE_MODE_REAL'?'real':null,message:'Preview only. No order sent.',quote:{...Object.fromEntries(['bid','ask'].filter(k=>Number.isFinite(market.quote?.[k])).map(k=>[k,market.quote[k]]))},updatedAt:typeof market.quote?.time==='string'&&Number.isFinite(Date.parse(market.quote.time))?market.quote.time:null,retrievedAt:now()});
     }
 
     const botControl = path.match(/^\/api\/bots\/([^/]+)\/control$/);
@@ -837,7 +838,7 @@ export function createSupabaseApplication(options = {}) {
   }
 
   const publicPath = resolve(options.publicPath || new URL('../public/', import.meta.url).pathname);
-  const pages = new Set(['/', '/ebook', '/login', '/signup', '/forgot-email', '/forgot-password', '/verify-device', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/dashboard', '/markets', '/activity', '/positions', '/history', '/notifications', '/account', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
+  const pages = new Set(['/', '/ebook', '/login', '/signup', '/forgot-email', '/forgot-password', '/verify-device', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/dashboard', '/trade', '/markets', '/activity', '/positions', '/history', '/notifications', '/account', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
   const server = createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -899,6 +900,8 @@ export function createSupabaseApplication(options = {}) {
       files['/ebooks/elitebot-strategy-preview.pdf'] = ['ebooks/elitebot-strategy-preview.pdf','application/pdf'];
       files['/navigation-data.js'] = ['navigation-data.js','text/javascript'];
       files['/workspace.js'] = ['workspace.js','text/javascript'];
+      files['/trading.css'] = ['trading.css','text/css'];
+      files['/market-chart.js'] = ['market-chart.js','text/javascript'];
       files['/blog.js'] = ['blog.js','text/javascript'];
       files['/blog.css'] = ['blog.css','text/css'];
       const entry = files[url.pathname] || (pages.has(url.pathname) ? ['index.html','text/html'] : null);

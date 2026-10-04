@@ -66,7 +66,7 @@ try {
    assert.ok((await page.locator('.account-strip-state').innerText()).toLowerCase().includes('last known: connected'));
    assert.equal(await page.locator('.workspace-loading').count(),0);
   };
-  await switchTo('/markets','Markets');await switchTo('/activity','Activity');await switchTo('/bots','Trading bots');
+  await switchTo('/markets','Markets');await switchTo('/trade','Trade');await switchTo('/bots','Trading bots');
   assert.equal(await page.getByRole('button',{name:'Start bot',exact:true}).isDisabled(),true);
   assert.equal(await page.getByRole('button',{name:'Configure',exact:true}).isDisabled(),true);
   const chrome=await page.locator('.topbar').elementHandle();
@@ -91,10 +91,38 @@ try {
  await page.locator('#snapshot-banner').waitFor({state:'hidden'});
  console.log('PASS: immediate mobile/desktop navigation with blocked backend reads, request coalescing, stale control locks, safe refresh, preserved shell, and retry.');
  await screenshot('overview-connected-desktop');
+ // Read-only market fixtures verify rendering; no production prices or orders are used.
+ let previewCalls=0;
+ await page.route('**/api/bots/*/preview',route=>{previewCalls++;return route.fulfill({json:{accountType:'demo',timeframe:'15m',updatedAt:new Date().toISOString(),retrievedAt:Date.now(),quote:{bid:2001.5,ask:2001.8},orders:[{id:'fixture-order',symbol:'XAUUSD',type:'ORDER_TYPE_BUY_LIMIT',volume:.01,openPrice:1998,stopLoss:1990,takeProfit:2014}],candles:Array.from({length:60},(_,i)=>({time:new Date(Date.now()-(60-i)*900000).toISOString(),open:2000+i*.2,high:2001+i*.2,low:1999+i*.2,close:2000.5+i*.2})),signal:{side:null,description:'Controlled test fixture'},riskMessage:'No current entry signal.',order:null,message:'Preview only. No order sent.'}});});
+ await go('/trade');await page.getByRole('heading',{name:'Chart data unavailable',exact:true}).count();
+ const before=commands.length;await page.getByRole('button',{name:'Load broker chart',exact:true}).click();
+ await page.locator('.candlestick-chart').waitFor();assert.equal(previewCalls,1);assert.equal(commands.length,before,'Chart refresh must never send a trading command');
+ assert.equal(await page.locator('.candlestick-chart rect').count(),60);
+ await page.getByRole('button',{name:'SMA 20',exact:true}).click();await page.locator('.candlestick-chart polyline').waitFor();
+ await page.getByRole('button',{name:'Expand chart',exact:true}).click();assert.equal(await page.locator('.chart-expanded').count(),1);await page.keyboard.press('Escape');assert.equal(await page.locator('.chart-expanded').count(),0);
+ await page.getByRole('tab',{name:'Positions',exact:true}).click();assert.ok((await page.locator('#trade-panel').innerText()).includes('XAUUSD'));
+ await page.getByRole('tab',{name:'Orders',exact:true}).click();assert.ok((await page.locator('#trade-panel').innerText()).includes('1,998'));
+ await page.getByRole('tab',{name:'History',exact:true}).click();assert.ok((await page.locator('#trade-panel').innerText()).includes('Trade history unavailable'));
+ await page.getByRole('tab',{name:'History',exact:true}).focus();await page.keyboard.press('Home');await page.getByRole('tab',{name:'Chart',exact:true}).waitFor();await page.locator('.candlestick-chart').waitFor();
+ await screenshot('trade-connected-desktop');
+ for(const width of [360,390,768,1440])for(const theme of ['dark','light']) {
+  await page.setViewportSize({width,height:900});await page.evaluate(t=>document.body.classList.toggle('light',t==='light'),theme);
+  await page.locator('.candlestick-chart').waitFor();
+  await page.waitForFunction(()=>document.querySelector('.candlestick-chart')?.viewBox.baseVal.width===Math.max(240,Math.round(document.querySelector('[data-market-chart]').clientWidth)));
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`Trade chart overflow ${width}/${theme}`);
+  if(width===390 || width===1440)await screenshot(`trade-chart-${width}-${theme}`,false);
+ }
+ await page.setViewportSize({width:1440,height:1000});await page.evaluate(()=>document.body.classList.add('light'));
+ await page.locator('.sidebar nav a[href="/markets"]').click();await page.getByRole('heading',{name:'Markets',exact:true}).waitFor();await page.getByLabel('Search instruments',{exact:true}).fill('no-match');assert.equal(await page.locator('.watch-row:visible').count(),0);await page.getByLabel('Search instruments',{exact:true}).fill('XAU');assert.equal(await page.locator('.watch-row:visible').count(),1);
+ await page.locator('.watch-symbol').click();await page.locator('.candlestick-chart').waitFor();
+ await page.route('**/api/bots/*/preview',route=>route.fulfill({status:503,json:{error:'Fixture broker outage'}}));
+ await page.getByRole('button',{name:'Refresh broker data',exact:true}).click();await page.getByText(/Fixture broker outage.*Retry/).waitFor();assert.equal((await page.locator('.market-strip>.badge').innerText()).toLowerCase(),'stale');
+ await page.unroute('**/api/bots/*/preview');
+ console.log('PASS: lazy broker candlesticks, SMA overlay, expansion, keyboard Trade tabs, pending orders, instrument search, provider outage, and no commands on chart refresh.');
  await go('/bots');await page.getByRole('button',{name:'Configure',exact:true}).click();await d.getByLabel('MT5 account',{exact:true}).selectOption({label:'Fixture Broker · 222222'});await d.getByRole('button',{name:'Save configuration',exact:true}).click();assert.equal(await d.isVisible(),true);await d.getByRole('button',{name:'Confirm live risk settings',exact:true}).click();await d.waitFor({state:'hidden'});
- for(const width of [320,390,768,1440])for(const theme of ['light','dark']) {
+ for(const width of [320,360,390,768,1440])for(const theme of ['light','dark']) {
   await page.setViewportSize({width,height:900});await page.evaluate(theme=>localStorage.setItem('elite-theme',theme),theme);
-  for(const path of ['/dashboard','/bots','/positions','/account','/settings','/markets']) {
+  for(const path of ['/dashboard','/bots','/positions','/account','/settings','/markets','/trade']) {
    await go(path);await page.locator('.workspace-loading').waitFor({state:'hidden'});
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`Overflow ${width}/${theme}/${path}`);
    const overlap=await page.evaluate(()=>{const nav=document.querySelector('.bottom-nav');return getComputedStyle(nav).display!=='none'&&document.querySelector('.workspace').getBoundingClientRect().bottom>document.documentElement.scrollHeight+1;});assert.equal(overlap,false);
@@ -110,6 +138,7 @@ try {
   assert.ok(await nav.locator('a').evaluateAll(links=>links.every(a=>a.getBoundingClientRect().height>=44&&a.getBoundingClientRect().width>=44)));
   assert.equal(await nav.getByRole('link',{name:'Home',exact:true}).locator('svg').getAttribute('fill'),'currentColor');
   await screenshot(`navigation-mobile-${theme}`,false);
+  assert.equal(await page.locator('.topbar').getByRole('link',{name:'View account alerts',exact:true}).isVisible(),true);
   const opener=page.getByRole('button',{name:'Open navigation',exact:true});await opener.click();
   const drawer=page.getByRole('dialog',{name:'Workspace navigation'});await drawer.waitFor();
   assert.equal(await opener.getAttribute('aria-expanded'),'true');

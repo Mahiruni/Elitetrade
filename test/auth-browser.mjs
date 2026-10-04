@@ -22,7 +22,7 @@ await context.route('**/auth/v1/**',async route=>{
  if(path.endsWith('/factors') && req.method()==='GET')return route.fulfill({status:405,json:{msg:'Method not allowed'}});
  if(path.endsWith('/user') && req.method()==='GET')return route.fulfill({json:{id:'isolated-member',factors:scenario==='mfa' ? [{id:'isolated-factor',factor_type:'totp',status:'verified'}] : []}});
  if(scenario==='mfa' && path.endsWith('/challenge'))return route.fulfill({json:{id:'isolated-mfa-challenge'}});
- if(scenario==='mfa' && path.endsWith('/verify'))return route.fulfill({json:{access_token:'isolated-mfa-session',refresh_token:'isolated-refresh',expires_in:3600}});
+ if(scenario==='mfa' && path.endsWith('/verify'))return route.fulfill({json:{access_token:'e30.'+Buffer.from(JSON.stringify({aal:'aal2'})).toString('base64url')+'.isolated',refresh_token:'isolated-refresh',expires_in:3600}});
  if(path.endsWith('/settings'))return route.fulfill({json:{external:{apple:false,google:false}}});
  if(scenario==='passkey-enroll' && path.endsWith('/registration/options'))return route.fulfill({json:{challenge_id:'isolated-registration-challenge',options:{challenge:randomBytes(32).toString('base64url'),rp:{id:'localhost',name:'EliteBot'},user:{id:randomBytes(16).toString('base64url'),name:'auth-browser@example.test',displayName:'Auth Browser'},pubKeyCredParams:[{type:'public-key',alg:-7}],authenticatorSelection:{residentKey:'required',userVerification:'required'},attestation:'none'}}});
  if(scenario==='passkey-enroll' && path.endsWith('/registration/verify')){
@@ -44,7 +44,7 @@ await context.route('**/auth/v1/**',async route=>{
   if(scenario==='unknown')return route.fulfill({status:400,json:{msg:'User not found',error_code:'user_not_found'}});
   return route.fulfill({json:{}});
  }
- if(path.endsWith('/recover'))return route.fulfill({status:scenario==='unknown' ? 400 : 200,json:{}});
+ if(path.endsWith('/recover'))return route.fulfill({status:scenario==='unknown' ? 400 : 200,json:scenario==='unknown'?{msg:'User not found',error_code:'user_not_found'}:{}});
  if(path.endsWith('/resend'))return route.fulfill({json:{}});
  const signup=path.endsWith('/signup');
  const response=await route.fetch({url:base+(signup ? '/api/auth/signup' : path.endsWith('/logout') ? '/api/auth/logout' : '/api/auth/login'),method:'POST',headers:{...req.headers(),'x-csrf-token':csrf},postData:JSON.stringify(signup ? {name:body.data.full_name,email:body.email,password:body.password,referral:body.data.referral_code} : body)});
@@ -152,20 +152,20 @@ try{
  await page.getByRole('button',{name:'Google',exact:true}).click();await page.getByRole('alert').filter({hasText:'Google sign-in is unavailable'}).waitFor();
  // Reduced motion stops panel drift and transition animations.
  await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.locator('.drift').evaluate(el=>getComputedStyle(el).animationName),'none');await page.emulateMedia({reducedMotion:'no-preference'});
- // Real local password registration -> subscription -> sign out -> direct sign-in -> MT5.
+ // Real local password registration -> subscription -> sign out -> direct sign-in -> Overview.
  await go('/signup');await password();await page.getByLabel('Full name',{exact:true}).fill('Auth Browser');await page.getByLabel('Email address',{exact:true}).fill('auth-browser@example.test');await page.getByLabel('Password',{exact:true}).fill('Correct horse orbital river 42!');await page.getByRole('button',{name:'Continue',exact:true}).click();await page.getByRole('heading',{name:'Your subscription',exact:true}).waitFor();
- await page.getByRole('button',{name:'Sign out',exact:true}).click();await page.locator('#auth-title').waitFor();await password();await page.getByLabel('Email address',{exact:true}).fill('auth-browser@example.test');await page.getByLabel('Password',{exact:true}).fill('Correct horse orbital river 42!');await page.getByRole('button',{name:'Continue',exact:true}).click();await page.getByRole('heading',{name:'MT5 terminal',exact:true}).waitFor();
+ await page.getByRole('button',{name:'Sign out',exact:true}).click();await page.locator('#auth-title').waitFor();await password();await page.getByLabel('Email address',{exact:true}).fill('auth-browser@example.test');await page.getByLabel('Password',{exact:true}).fill('Correct horse orbital river 42!');await page.getByRole('button',{name:'Continue',exact:true}).click();await page.getByRole('heading',{name:'Overview',exact:true}).waitFor();
  // MFA sign-in preserves its pending session, challenges, verifies, and opens the workspace.
  await page.getByRole('button',{name:'Sign out',exact:true}).click();await page.locator('#auth-title').waitFor();await password();
  await page.getByLabel('Email address',{exact:true}).fill('auth-browser@example.test');await page.getByLabel('Password',{exact:true}).fill('Correct horse orbital river 42!');
  scenario='mfa';await page.getByRole('button',{name:'Continue',exact:true}).click();await page.getByRole('heading',{name:'One last check.',exact:true}).waitFor();
- await page.getByLabel('Authenticator code',{exact:true}).fill('123456');await page.getByRole('button',{name:'Verify and continue',exact:true}).click();await page.getByRole('heading',{name:'MT5 terminal',exact:true}).waitFor();
+ await page.getByLabel('Authenticator code',{exact:true}).fill('123456');await page.getByRole('button',{name:'Verify and continue',exact:true}).click();await page.getByRole('heading',{name:'Overview',exact:true}).waitFor();
  // Virtual device ceremonies verify the actual WebAuthn bridge and wire serialization.
  const cdp=await context.newCDPSession(page);await cdp.send('WebAuthn.enable');
  await cdp.send('WebAuthn.addVirtualAuthenticator',{options:{protocol:'ctap2',transport:'internal',hasResidentKey:true,hasUserVerification:true,isUserVerified:true,automaticPresenceSimulation:true}});
  scenario='passkey-enroll';await go('/passkey-setup');await page.getByRole('button',{name:'Create passkey',exact:true}).click();await page.getByRole('heading',{name:'Your subscription',exact:true}).waitFor();
  await page.getByRole('button',{name:'Sign out',exact:true}).click();await page.locator('#auth-title').waitFor();
- scenario='passkey-auth';await page.getByRole('button',{name:'Use a passkey',exact:true}).click();await page.getByRole('button',{name:'Continue',exact:true}).click();await page.getByRole('heading',{name:'MT5 terminal',exact:true}).waitFor();
+ scenario='passkey-auth';await page.getByRole('button',{name:'Use a passkey',exact:true}).click();await page.getByRole('button',{name:'Continue',exact:true}).click();await page.getByRole('heading',{name:'Overview',exact:true}).waitFor();
  assert.deepEqual(errors,[],'No browser script errors');
  writeFileSync(join(output,'verification.json'),JSON.stringify({browser:'Chromium',frames:'1440 × 1000 / 390 × 844',narrowWidths:[320,360,430,768,1024,1728],textReflow:'200%',javascriptErrors:errors,accessibility:audits},null,2));
  assert.equal(audits.flatMap(a=>a.violations).length,0,JSON.stringify(audits.filter(a=>a.violations.length)));
