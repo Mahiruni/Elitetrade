@@ -16,19 +16,24 @@ Customer route: `/support`. Administrator route: `/admin/support`. Both use the 
 
 Applied to the existing EliteTrade project `cgpvhayfwnpipktyltho`:
 
-1. `supabase/migrations/20261004145356_support_workspace.sql`
-2. `supabase/migrations/20261004151759_support_workspace_hardening.sql`
-3. `supabase/migrations/20261004153439_support_legacy_rollout_compatibility.sql` restores legacy writes while the new code awaits approval/deployment.
+1. `supabase/migrations/20261004150911_support_workspace.sql`
+2. `supabase/migrations/20261004151938_support_workspace_hardening.sql`
+3. `supabase/migrations/20261004153352_support_legacy_rollout_compatibility.sql` temporarily restored legacy writes during the staged rollout.
+4. `supabase/migrations/20261004154759_support_workspace_finalize.sql` removes those temporary grants after the RPC-based deployment is live.
 
 Existing conversation/message rows remain in place. Message sequence, author, and deduplication fields are additive. Assignments, presence, read cursors, internal notes, attachment metadata, moderation configuration, and rate counters live in the unexposed `elitetrade_private` schema with RLS and no direct client table grants.
 
-`public.elitetrade_support` is an authenticated invoker RPC delegating to an authorization-checked private function. It validates the existing browser-verification guard, current profile/disabled state, conversation ownership, and administrator privileges. Admin support follows the existing policy that administrators can access all support conversations. Customer APIs omit internal notes entirely. The final rollout revokes direct signed-in writes to the legacy conversation/message tables to prevent bypassing moderation/assignment/deduplication; authenticated legacy API writes in this branch call the RPC. During the pending rollout, the old deployment retains its original RLS-protected insert/update grants so its existing support API remains functional. The legacy guest APIs retain their existing secret-cookie access model; a database trigger applies message moderation/length enforcement to their writes too.
+`public.elitetrade_support` is an authenticated invoker RPC delegating to an authorization-checked private function. It validates the existing browser-verification guard, current profile/disabled state, conversation ownership, and administrator privileges. Admin support follows the existing policy that administrators can access all support conversations. Customer APIs omit internal notes entirely. The final rollout revokes direct signed-in writes to the legacy conversation/message tables to prevent bypassing moderation/assignment/deduplication; authenticated legacy API writes in this branch call the RPC. The staged rollout temporarily retained the old deployment’s RLS-protected insert/update grants; those grants are now revoked in production. The legacy guest APIs retain their existing secret-cookie access model; a database trigger applies message moderation/length enforcement to their writes too.
 
 SQLite automatically creates its additional support state tables for local development and isolated tests.
 
-## Pending rollout
+## Production rollout
 
-The implementation is prepared on `feat/elitetrade-support-workspace`. Publishing directly to production `main` was blocked by automatic approval review, so the current production frontend remains in place. Merge/deploy the reviewed branch first. Then run `db/support-finalize.sql` to revoke the temporary legacy write grants. This sequencing is required: revoking them before deploying the new RPC-based API breaks the old support send/create handlers. The committed compatibility migration records the current database rollout state.
+PR #1 was authorized and merged into `main` on October 4, 2026, at commit `80ade537090c8f025ca79412d47b4fd2190c75c0`. Vercel deployment `dpl_wQjPSdDjf2WH74jAVcRpV36SEeQn` reached READY and was assigned to `https://elitetradee.vercel.app`. The live support JavaScript and CSS matched the tested assets; customer/admin page routes returned HTTP 200, health confirmed Supabase, and unauthenticated workspace requests returned HTTP 401.
+
+The `support_workspace_finalize` database migration was then applied. Direct authenticated conversation/message writes are revoked, and the private attachment bucket remains nonpublic. Authenticated RPC rollback fixtures passed again after finalization and left no fixture users or conversations behind. The repository migration and `db/support-finalize.sql` record the same final restrictions.
+
+For another environment, deploy the RPC-based API before finalizing grants. Revoking them while the old send/create handlers are still live breaks those handlers. Rollbacks to the old API require restoring the compatibility grants first; do not silently restore them while the new deployment is active.
 
 ## Storage and environment
 
