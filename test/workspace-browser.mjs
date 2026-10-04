@@ -30,7 +30,7 @@ await context.route('**/auth/v1/**',async route=>{
 });
 await context.route('**/api/**',async route=>{if(route.request().method()==='GET')return route.continue();const response=await route.fetch({headers:{...route.request().headers(),'x-csrf-token':csrf}});return route.fulfill({response});});
 const go=async path=>{await page.goto(base+path);await page.locator('h1').waitFor();await page.locator('.workspace-loading').waitFor({state:'hidden'});};
-const screenshot=async name=>{await page.locator('#app-opening').waitFor({state:'hidden'});await page.evaluate(()=>document.fonts.ready);await page.screenshot({path:`test-results/${name}.png`,fullPage:true});};
+const screenshot=async (name,fullPage=true)=>{await page.locator('#app-opening').waitFor({state:'hidden'});await page.evaluate(async()=>{await document.fonts.ready;await Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{})));});await page.screenshot({path:`test-results/${name}.png`,fullPage});};
 mkdirSync('test-results',{recursive:true});
 try {
  await go('/signup');await page.getByLabel('Full name',{exact:true}).fill('Workspace QA');await page.getByLabel('Email address',{exact:true}).fill('workspace@example.test');await page.getByLabel('Password',{exact:true}).fill('Workspace password 42!');await page.getByRole('button',{name:'Continue',exact:true}).click();await page.getByRole('heading',{name:'Your subscription',exact:true}).waitFor();
@@ -100,6 +100,35 @@ try {
    const overlap=await page.evaluate(()=>{const nav=document.querySelector('.bottom-nav');return getComputedStyle(nav).display!=='none'&&document.querySelector('.workspace').getBoundingClientRect().bottom>document.documentElement.scrollHeight+1;});assert.equal(overlap,false);
   }
  }
+
+ await page.setViewportSize({width:390,height:844});
+ for(const theme of ['light','dark']) {
+  await page.evaluate(theme=>localStorage.setItem('elite-theme',theme),theme);await go('/dashboard');
+  const nav=page.getByRole('navigation',{name:'Mobile navigation'});
+  assert.equal(await nav.getByRole('link',{name:'Home',exact:true}).getAttribute('aria-current'),'page');
+  assert.equal(await nav.locator('a').count(),5);
+  assert.ok(await nav.locator('a').evaluateAll(links=>links.every(a=>a.getBoundingClientRect().height>=44&&a.getBoundingClientRect().width>=44)));
+  assert.equal(await nav.getByRole('link',{name:'Home',exact:true}).locator('svg').getAttribute('fill'),'currentColor');
+  await screenshot(`navigation-mobile-${theme}`,false);
+  const opener=page.getByRole('button',{name:'Open navigation',exact:true});await opener.click();
+  const drawer=page.getByRole('dialog',{name:'Workspace navigation'});await drawer.waitFor();
+  assert.equal(await opener.getAttribute('aria-expanded'),'true');
+  assert.equal(await page.locator('.workspace').evaluate(el=>el.inert),true);
+  await screenshot(`navigation-drawer-${theme}`,false);
+  await drawer.getByRole('button',{name:'Sign out',exact:true}).focus();await page.keyboard.press('Tab');
+  assert.equal(await page.evaluate(()=>document.activeElement.closest('.sidebar')!==null),true,'Focus stays inside the drawer');
+  await page.keyboard.press('Escape');assert.equal(await opener.getAttribute('aria-expanded'),'false');
+  assert.equal(await opener.evaluate(el=>el===document.activeElement),true,'Closing restores the menu trigger');
+  await opener.click();await page.locator('.menu-scrim').click({position:{x:380,y:100}});
+  assert.equal(await opener.getAttribute('aria-expanded'),'false','Backdrop dismisses the menu');
+  await opener.click();await drawer.getByRole('navigation',{name:'Main navigation'}).getByRole('link',{name:'Markets',exact:true}).click();
+  await page.getByRole('heading',{name:'Markets',exact:true}).waitFor();
+  assert.equal(await page.locator('body').evaluate(el=>el.classList.contains('menu-open')),false);
+  await page.locator('#snapshot-banner').waitFor({state:'hidden'});
+ }
+ await page.emulateMedia({reducedMotion:'reduce'});await go('/dashboard');
+ assert.equal(await page.locator('.sidebar').evaluate(el=>getComputedStyle(el).transitionDuration),'0s');
+ await page.emulateMedia({reducedMotion:'no-preference'});
  await page.setViewportSize({width:390,height:844});await go('/dashboard');await screenshot('overview-connected-mobile');
  await go('/account');await page.getByRole('button',{name:'Sign out',exact:true}).click();await page.getByRole('heading',{name:'Welcome back.',exact:true}).waitFor();
  await page.getByLabel('Email address',{exact:true}).fill('workspace@example.test');await page.getByLabel('Password',{exact:true}).fill('Workspace password 42!');await page.getByRole('button',{name:'Continue',exact:true}).click();await page.getByRole('heading',{name:'Overview',exact:true}).waitFor();
