@@ -115,9 +115,15 @@ body.light .layout {
 .layout .workspace-footer { margin-inline:24px;font-size:12px;padding:14px 0 }
 .layout :focus-visible { outline:2px solid var(--accent);outline-offset:3px }
 .quick-actions { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:20px }
-.quick-action { display:flex;gap:10px;align-items:center;justify-content:center;padding:12px;min-height:52px;border:1px solid var(--border);border-radius:10px;background:var(--panel);color:var(--text);font-weight:600;font-size:13px }
-.quick-action svg { width:19px;height:19px;color:var(--accent);flex:none }
-.quick-action:hover { background:var(--surface);text-decoration:none;border-color:var(--control-border) }
+.quick-action { display:flex;gap:10px;align-items:center;justify-content:center;padding:12px;min-height:52px;border:1px solid var(--quick-border,var(--border));border-radius:10px;background:var(--quick-bg,var(--panel));color:var(--quick-ink,var(--text));font-weight:600;font-size:13px }
+.quick-action[href="/mt5"] { --quick-bg:#243b56;--quick-border:#3b5878;--quick-ink:#d7e9ff }
+.quick-action[href="/bots"] { --quick-bg:#3e2e49;--quick-border:#675276;--quick-ink:#f1deff }
+.quick-action[href="/positions"] { --quick-bg:#1e403b;--quick-border:#34665d;--quick-ink:#d2f5e8 }
+.light .quick-action[href="/mt5"] { --quick-bg:#e2ecfa;--quick-border:#bdd0e8;--quick-ink:#244b79 }
+.light .quick-action[href="/bots"] { --quick-bg:#eee5f5;--quick-border:#d8c4e7;--quick-ink:#613c76 }
+.light .quick-action[href="/positions"] { --quick-bg:#e0f0e9;--quick-border:#b9d7c8;--quick-ink:#275c49 }
+.quick-action svg { width:19px;height:19px;color:currentColor;flex:none }
+.quick-action:hover { background:color-mix(in srgb,var(--quick-bg,var(--panel)) 85%,var(--quick-ink,var(--text)));text-decoration:none;border-color:var(--quick-ink,var(--control-border));color:var(--quick-ink,var(--text)) }
 .watchlist { display:flex;flex-direction:column }
 .watch-row { display:grid;grid-template-columns:minmax(130px,1fr) minmax(90px,.7fr) 85px 100px 44px;gap:12px;align-items:center;padding:13px 0;border-top:1px solid var(--border) }
 .watch-row:first-child { border-top:0 }
