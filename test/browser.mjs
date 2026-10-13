@@ -162,7 +162,7 @@ try {
   await page.getByRole('button',{name:/Refresh signal/}).click();
   await page.getByText('8 of 8 reviewed').waitFor({timeout:12000});
   await page.getByRole('heading',{name:'NO TRADE',exact:true}).waitFor();
-  assert.ok((await page.locator('.cb-check.unavailable').count())>=2,'Unsupported 5s/EMA checks must be unavailable');
+  assert.ok((await page.locator('.cb-check.cb-unavailable').count())>=2,'Unsupported 5s/EMA checks must be unavailable');
   await capture(page,{path:'test-results/claudebot-desktop.png',fullPage:true});
   await page.unroute('**/api/bots/*/preview');
 
