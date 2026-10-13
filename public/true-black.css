@@ -1,0 +1,141 @@
+/* EliteTrade's single dark-mode skin. Kept last in the cascade so the
+   existing gold, BUY/SELL, status and light-theme rules remain authoritative. */
+:root {
+  color-scheme: dark;
+  --bg: #000000;
+  --panel: #0a0a0a;
+  --surface: #0d0d0d;
+  --border: #262626;
+  --text: #ffffff;
+  --muted: #9ca3af;
+}
+html { background-color: #000000; }
+html:has(body.light) { background-color: #f4f5f7; }
+
+/* Keep all dark canvases truly black. Brand accents and semantic status
+   colors deliberately do not change. */
+body:not(.light) {
+  color-scheme: dark;
+  --bg: #000000;
+  --panel: #0a0a0a;
+  --surface: #0d0d0d;
+  --border: #262626;
+  --text: #ffffff;
+  --muted: #9ca3af;
+  --brand-gradient: none;
+  background: #000000;
+  color: var(--text);
+}
+body:not(.light) :is(.layout, .marketing-header, .marketing-footer,
+  .auth-brand-panel, .auth-mobile-top, .auth-experience, .auth-sheet) {
+  --bg: #000000;
+  --panel: #0a0a0a;
+  --surface: #0d0d0d;
+  --border: #262626;
+  --text: #ffffff;
+  --muted: #9ca3af;
+}
+body:not(.light) :is(.marketing-header, .marketing-footer,
+  .auth-brand-panel, .auth-mobile-top) {
+  --accent: var(--brand-primary);
+  --control-border: #626772;
+  background: #000000;
+  color: #ffffff;
+}
+body:not(.light) :is(.marketing-hero, .marketing-section, .marketing-main,
+  .public-content, .blog-main, .android-download-page, .ebook-page) {
+  background-color: #000000;
+}
+body:not(.light) :is(.auth-experience, .auth-sheet) {
+  --auth-bg: #000000;
+  --auth-panel: #0a0a0a;
+  --auth-input: #101010;
+  --auth-soft: #0d0d0d;
+  color: #ffffff;
+}
+body:not(.light) .layout {
+  --nav-bg: #000000;
+  --nav-chrome: #000000;
+  --nav-glass: rgba(10, 10, 10, .90);
+  --nav-text: #ffffff;
+  --nav-muted: #9ca3af;
+  --nav-border: #262626;
+  --premium-glass: rgba(10, 10, 10, .90);
+  --premium-glass-line: rgba(255, 255, 255, .13);
+  --workspace-shadow: none;
+  background-color: #000000;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+body:not(.light) .layout :is(.workspace, .content, .main-content) {
+  background-color: #000000;
+}
+body:not(.light) .layout .sidebar { background: #000000; }
+body:not(.light) .layout .topbar {
+  background: rgba(0, 0, 0, .92);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+body:not(.light) .layout .bottom-nav {
+  background: rgba(10, 10, 10, .90);
+  border-color: rgba(255, 255, 255, .13);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+body:not(.light) .layout :is(input, select, textarea) {
+  background: #101010;
+  color: #ffffff;
+}
+body:not(.light) :is(dialog, #modal) {
+  --bg: #000000;
+  --panel: #0a0a0a;
+  --surface: #0d0d0d;
+  --border: #262626;
+  --text: #ffffff;
+  --muted: #9ca3af;
+  background-color: #0a0a0a;
+  color: #ffffff;
+}
+body:not(.light) .support-workspace,
+body:not(.light) dialog[data-support-modal] {
+  --chat-bg: #000000;
+  --chat-panel: #0a0a0a;
+  --chat-surface: #0d0d0d;
+  --chat-line: #262626;
+  --chat-text: #ffffff;
+  --chat-muted: #9ca3af;
+  --chat-own: #19160f;
+  --bg: #000000;
+  --panel: #0a0a0a;
+  --surface: #0d0d0d;
+  --text: #ffffff;
+  --muted: #9ca3af;
+  color: #ffffff;
+}
+body:not(.light) .support-workspace { background: #000000; }
+body:not(.light) .claudebot {
+  --cb-ink: #000000;
+  --cb-surface: #0d0d0d;
+  --cb-border: #262626;
+  --cb-text: #ffffff;
+  --cb-muted: #9ca3af;
+}
+body:not(.light) .claudebot :is(.cb-primary, .cb-panel, .cb-status,
+  .cb-check, .cb-instrument select, .cb-controls .cb-secondary) {
+  background: #0d0d0d;
+  border-color: #262626;
+}
+body:not(.light) .claudebot .cb-signal:not(.buy):not(.sell):not(.busy) {
+  background: #0d0d0d;
+  border-color: #262626;
+}
+/* Trading signals retain distinct BUY/SELL/warning colors. */
+body:not(.light) :is(.download-release, .blog-cta) {
+  background: #0a0a0a;
+}
+body:not(.light) .ebook-art { background: transparent; }
+body:not(.light) .final-cta { background: #0a0a0a; }
+body:not(.light) :is(.app-opening, .opening-placeholder) {
+  background: #000000;
+  color: #ffffff;
+}
