@@ -155,11 +155,11 @@ try {
   await customer.getByRole('button',{name:'New conversation',exact:true}).first().click();
   await customer.getByRole('button',{name:'Start conversation',exact:true}).click();
   await customer.getByRole('textbox',{name:'Your message',exact:true}).fill('Please confirm my account.');
-  await customer.getByRole('button',{name:'Send',exact:true}).click();
+  await customer.getByRole('button',{name:'Send message',exact:true}).click();
   await customer.getByText('Please confirm my account.',{exact:true}).waitFor();
   await navigate('/admin/support');
   await page.getByRole('textbox',{name:'Your message',exact:true}).fill('Your account is active.');
-  await page.getByRole('button',{name:'Send',exact:true}).click();
+  await page.getByRole('button',{name:'Send message',exact:true}).click();
   await customer.getByText('Your account is active.',{exact:true}).waitFor({timeout:20000});
   await capture(customer,{path:'test-results/support-mobile.png',fullPage:true});
   for (const width of [320,360,390,430,768,1024,1280,1440,1728]) {
