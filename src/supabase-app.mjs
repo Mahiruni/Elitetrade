@@ -1,3 +1,4 @@
+import { createAndroidReleaseService } from './android-release.mjs';
 import {createSupportHandler,supportRoute} from './support.mjs';
 import {marketDetails} from './market-view.mjs';
 import { accountDetails } from './account-view.mjs';
@@ -187,11 +188,28 @@ export function createSupabaseApplication(options = {}) {
     return error;
   };
 
+  const androidReleases = createAndroidReleaseService({fetcher:options.androidReleaseFetcher});
+
   async function handleApi(req, res, url, body) {
     const path = url.pathname;
     const method = req.method;
     const guest = cookies(req.headers.cookie).elite_guest;
 
+    if (path === '/api/android-release' && method === 'GET') {
+      let metadata;
+      try { metadata = await androidReleases.getLatest(); }
+      catch { fail(503, 'The official Android release is temporarily unavailable. Try again shortly.'); }
+      res.setHeader('Cache-Control','public, max-age=60, s-maxage=300');
+      return json(res,metadata);
+    }
+    if (path === '/api/android-download' && method === 'GET') {
+      let metadata;
+      try { metadata = await androidReleases.getLatest(); }
+      catch { fail(503, 'The signed APK is temporarily unavailable. Please retry from the download page.'); }
+      res.writeHead(302,{'Location':metadata.downloadUrl,'Cache-Control':'no-store'});
+      res.end();
+      return;
+    }
     if (supportRoute(path)) return support(req,res,url,await needUser(req),body);
     if (path === '/api/config' && method === 'GET') {
       const ctx = await authContext(req, true);
@@ -845,7 +863,7 @@ export function createSupabaseApplication(options = {}) {
   }
 
   const publicPath = resolve(options.publicPath || new URL('../public/', import.meta.url).pathname);
-  const pages = new Set(['/', '/ebook', '/login', '/signup', '/forgot-email', '/forgot-password', '/verify-device', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/dashboard', '/trade', '/markets', '/activity', '/positions', '/history', '/notifications', '/account', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
+  const pages = new Set(['/', '/download', '/ebook', '/login', '/signup', '/forgot-email', '/forgot-password', '/verify-device', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/dashboard', '/trade', '/markets', '/activity', '/positions', '/history', '/notifications', '/account', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
   const server = createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -914,7 +932,9 @@ export function createSupabaseApplication(options = {}) {
       files['/market-chart.js'] = ['market-chart.js','text/javascript'];
       files['/blog.js'] = ['blog.js','text/javascript'];
       files['/blog.css'] = ['blog.css','text/css'];
-      const entry = files[url.pathname] || (pages.has(url.pathname) ? ['index.html','text/html'] : null);
+      files['/download.css'] = ['download.css','text/css'];
+      files['/android-download.js'] = ['android-download.js','text/javascript'];
+      const entry = files[url.pathname] || (url.pathname === '/download' ? ['download.html','text/html'] : pages.has(url.pathname) ? ['index.html','text/html'] : null);
       if (!entry) fail(404, 'Page not found.');
       res.setHeader('Content-Type', entry[1]);
       res.end(req.method === 'HEAD' ? '' : readFileSync(join(publicPath, entry[0])));

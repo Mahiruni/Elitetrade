@@ -4,6 +4,7 @@ import { createWorkspace } from './workspace.js';
 import { createAuthExperience } from './auth.js';
 import { ebookOffer, ebookPage, downloadEbook } from './ebook.js';
 import { mountHeroMarket } from './hero-market.js';
+import { androidDownloadPage, androidHomepageBanner, hydrateAndroidRelease } from './android-download.js';
 // Retire the old language preference; all product labels are English.
 try { localStorage.removeItem('elite-language'); } catch {}
 const openingScreen = document.querySelector('#app-opening');
@@ -60,7 +61,7 @@ const badge = value => {
   const previous=state.showingSnapshot && ['connected','running','paused','stopped'].includes(value);
   return `<span class="badge ${esc(previous?'unknown':value)}">${previous?'Last known: ':''}${esc(value)}</span>`;
 };
-const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${({ activity:'<circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/>', bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>', terminal:'<path d="m5 7 5 5-5 5m8 0h6"/>', bots:'<rect x="4" y="6" width="16" height="14" rx="4"/><path d="M12 2v4M8 11v2m8-2v2m-8 4h8M1 11h3m16 0h3"/>', pool:'<path d="M3 20h18M5 20V10m7 10V4m7 16v-7M3 7l8-5 10 5"/>', referrals:'<circle cx="9" cy="7" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3m2-17a3 3 0 0 1 0 6m2 4a5 5 0 0 1 2 4v3"/>', lock:'<rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/>', settings:'<path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="10" cy="18" r="2"/>', wallet:'<rect x="3" y="5" width="18" height="15" rx="3"/><path d="M3 8V5l14-3v3m4 7h-6v5h6"/>', support:'<path d="M4 13v-2a8 8 0 0 1 16 0v2M4 11H2v7h4v-7zm16 0h2v7h-4v-7zm0 7v3h-7"/>', shield:'<path d="m12 2 8 4v6c0 5-8 10-8 10S4 17 4 12V6zm-4 9 3 3 5-6"/>', menu:'<path d="M4 6h16M4 12h16M4 18h16"/>', theme:'<path d="M21 13A9 9 0 0 1 11 3a9 9 0 1 0 10 10Z"/>', close:'<path d="m6 6 12 12M6 18 18 6"/>', arrow:'<path d="M4 12h16m-6-6 6 6-6 6"/>', logout:'<path d="M9 3H4v18h5m6-15 6 6-6 6m-7-6h13"/>', plus:'<path d="M12 4v16M4 12h16"/>', eye:'<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>', refresh:'<path d="M20 7v5h-5M4 17v-5h5M5 7a8 8 0 0 1 14-1l1 6M4 12l1 6a8 8 0 0 0 14-1"/>' })[name] || ''}</svg>`;
+const icon = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${({ activity:'<circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/>', bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>', terminal:'<path d="m5 7 5 5-5 5m8 0h6"/>', bots:'<rect x="4" y="6" width="16" height="14" rx="4"/><path d="M12 2v4M8 11v2m8-2v2m-8 4h8M1 11h3m16 0h3"/>', pool:'<path d="M3 20h18M5 20V10m7 10V4m7 16v-7M3 7l8-5 10 5"/>', referrals:'<circle cx="9" cy="7" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3m2-17a3 3 0 0 1 0 6m2 4a5 5 0 0 1 2 4v3"/>', lock:'<rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/>', settings:'<path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="10" cy="18" r="2"/>', wallet:'<rect x="3" y="5" width="18" height="15" rx="3"/><path d="M3 8V5l14-3v3m4 7h-6v5h6"/>', support:'<path d="M4 13v-2a8 8 0 0 1 16 0v2M4 11H2v7h4v-7zm16 0h2v7h-4v-7zm0 7v3h-7"/>', shield:'<path d="m12 2 8 4v6c0 5-8 10-8 10S4 17 4 12V6zm-4 9 3 3 5-6"/>', menu:'<path d="M4 6h16M4 12h16M4 18h16"/>', theme:'<path d="M21 13A9 9 0 0 1 11 3a9 9 0 1 0 10 10Z"/>', close:'<path d="m6 6 12 12M6 18 18 6"/>', arrow:'<path d="M4 12h16m-6-6 6 6-6 6"/>', logout:'<path d="M9 3H4v18h5m6-15 6 6-6 6m-7-6h13"/>', plus:'<path d="M12 4v16M4 12h16"/>', eye:'<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>', download:'<path d="M12 3v12m-5-5 5 5 5-5M4 17v3h16v-3"/>', refresh:'<path d="M20 7v5h-5M4 17v-5h5M5 7a8 8 0 0 1 14-1l1 6M4 12l1 6a8 8 0 0 0 14-1"/>' })[name] || ''}</svg>`;
 // Outline / filled pairs keep the selected tab clear without a colored tile.
 const navigationIcon = (name,selected=false) => {
   const shapes = {
@@ -193,10 +194,10 @@ function shell(content) {
     syncSnapshotStatus();syncOffline();return;
   }
   const mainLinks = [['/dashboard','home','Home'],['/markets','markets','Markets'],['/trade','trade','Trade'],['/bots','bot','Bots'],['/account','account','Account']];
-  const secondary = [['/mt5','terminal','MT5 terminal'],['/activity','activity','Activity'],['/positions','pool','Positions'],['/notifications','shield','Notifications'],['/subscription','wallet','Payments & billing'],['/pool','pool','Live pool'],['/referrals','referrals','Referrals'],['/settings','settings','Settings'],['/support','support','Support']];
+  const secondary = [['/download','download','Android app'],['/mt5','terminal','MT5 terminal'],['/activity','activity','Activity'],['/positions','pool','Positions'],['/notifications','shield','Notifications'],['/subscription','wallet','Payments & billing'],['/pool','pool','Live pool'],['/referrals','referrals','Referrals'],['/settings','settings','Settings'],['/support','support','Support']];
   if (state.user.role === 'admin') secondary.push(['/admin','shield','Administration'],['/admin/support','support','Support inbox']);
   const current = [...mainLinks,...secondary].find(([href]) => path === href || href === '/subscription' && path === '/subscribe');
-  const accountArea = ['/account','/mt5','/subscription','/subscribe','/settings','/pool','/referrals','/support','/admin','/admin/support','/notifications'].includes(path);
+  const accountArea = ['/account','/download','/mt5','/subscription','/subscribe','/settings','/pool','/referrals','/support','/admin','/admin/support','/notifications'].includes(path);
   const activeMain = accountArea ? '/account' : ['/positions','/history'].includes(path) ? '/trade' : path;
   const navLink = ([href,i,title]) => `<a href="${href}" class="${current?.[0]===href?'active':''}" ${current?.[0]===href?'aria-current="page"':''}>${mainLinks.some(([link])=>link===href)?navigationIcon(i,current?.[0]===href):icon(i)}<span>${href==='/bots'?'Trading bots':title}</span></a>`;
   const initials = String(state.user.name || state.user.email || 'E').trim().split(/\s+/).slice(0,2).map(part => part[0]).join('').toUpperCase();
@@ -209,13 +210,13 @@ const publicBrand = `<a href="/" class="brand site-brand">${wordmark}</a>`;
 function marketingHeader() {
   const accountLink = state.user ? '<a class="nav-login" href="/mt5">Workspace</a>' : '<a class="nav-login" href="/login">Sign in</a>';
   const cta = state.user ? '<a class="marketing-cta small" href="/mt5">Open terminal</a>' : '<a class="marketing-cta small" href="/signup">Get started</a>';
-  return `<header class="marketing-header"><div class="marketing-nav">${publicBrand}<nav class="marketing-links" aria-label="Marketing navigation"><a href="/#platform">Platform</a><a href="/#workflow">How it works</a><a href="/#security">Security</a><a href="/#pricing">Access</a><a href="/ebook">Ebook</a><a href="/blog">Blog</a></nav><div class="marketing-actions">${themeButton()}${accountLink}${cta}<details class="public-menu"><summary aria-label="Navigation menu">${icon("menu")}</summary><nav aria-label="Mobile site navigation"><a href="/#platform">Platform</a><a href="/#workflow">How it works</a><a href="/#security">Security</a><a href="/#pricing">Access</a><a href="/ebook">Ebook</a><a href="/blog">Blog</a><a href="/support">Support</a><a href="${state.user ? "/mt5" : "/login"}">${state.user ? "Workspace" : "Sign in"}</a>${cta}</nav></details></div></div></header>`;
+  return `<header class="marketing-header"><div class="marketing-nav">${publicBrand}<nav class="marketing-links" aria-label="Marketing navigation"><a href="/#platform">Platform</a><a href="/#workflow">How it works</a><a href="/#security">Security</a><a href="/#pricing">Access</a><a href="/ebook">Ebook</a><a href="/blog">Blog</a><a class="android-nav-item" href="/download">Android app</a></nav><div class="marketing-actions">${themeButton()}<a class="android-header-download" href="/api/android-download">${icon("download")} Android App</a>${accountLink}${cta}<details class="public-menu"><summary aria-label="Navigation menu">${icon("menu")}</summary><nav aria-label="Mobile site navigation"><a href="/#platform">Platform</a><a href="/#workflow">How it works</a><a href="/#security">Security</a><a href="/#pricing">Access</a><a href="/ebook">Ebook</a><a href="/blog">Blog</a><a href="/download">Android app details</a><a href="/api/android-download">${icon("download")} Download Android App</a><a href="/support">Support</a><a href="${state.user ? "/mt5" : "/login"}">${state.user ? "Workspace" : "Sign in"}</a>${cta}</nav></details></div></div></header>`;
 }
 function publicFooter() {
-  return `<footer class="marketing-footer"><div class="footer-grid"><div><div class="footer-brand">${publicBrand}</div><p>Tools for managing MT5 connections, automation controls, account access, payments, and support from one focused workspace.</p></div><div><strong>Platform</strong><a href="/#platform">Overview</a><a href="/#security">Security</a><a href="/ebook">Strategy ebook</a><a href="/blog">Blog</a><a href="/support">Support</a><a href="/login">Sign in</a></div><div><strong>Legal</strong><a href="/terms">Terms of Service</a><a href="/privacy">Privacy Policy</a><a href="/risk-disclosure">Risk Disclosure</a><a href="/refund-policy">Refund Policy</a><a href="/cookies">Cookie Policy</a></div></div><div class="footer-bottom"><span>© ${new Date().getFullYear()} Elite Bot. All rights reserved.</span><span>Trading involves substantial risk. No performance is guaranteed.</span></div></footer>`;
+  return `<footer class="marketing-footer"><div class="footer-grid"><div><div class="footer-brand">${publicBrand}</div><p>Tools for managing MT5 connections, automation controls, account access, payments, and support from one focused workspace.</p></div><div><strong>Platform</strong><a href="/#platform">Overview</a><a href="/#security">Security</a><a href="/ebook">Strategy ebook</a><a href="/blog">Blog</a><a href="/download">Android app</a><a href="/api/android-download">Download signed APK</a><a href="/support">Support</a><a href="/login">Sign in</a></div><div><strong>Legal</strong><a href="/terms">Terms of Service</a><a href="/privacy">Privacy Policy</a><a href="/risk-disclosure">Risk Disclosure</a><a href="/refund-policy">Refund Policy</a><a href="/cookies">Cookie Policy</a></div></div><div class="footer-bottom"><span>© ${new Date().getFullYear()} Elite Bot. All rights reserved.</span><span>Trading involves substantial risk. No performance is guaranteed.</span></div></footer>`;
 }
 function publicShell(content) {
-  root.innerHTML = `${marketingHeader()}<main id="main" class="marketing-main" tabindex="-1">${content}</main>${publicFooter()}`;
+  root.innerHTML = `${marketingHeader()}<main id="main" class="marketing-main" tabindex="-1">${androidHomepageBanner(icon)}${content}</main>${publicFooter()}`;
 }
 function marketingPage() {
   const dashboardHref = state.user ? '/mt5' : '/signup';
@@ -227,7 +228,7 @@ function marketingPage() {
       <div class="hero-copy">
         <h1 id="hero-title" class="hero-title-animated">${heroLine('Your strategy.')} ${heroLine('Your limits.')} ${heroLine('Your control.','em')}</h1>
         <p class="hero-lead">Bring your MT5 accounts, automation and risk settings into one focused workspace. Configure with intention. Stay in control.</p>
-        <div class="hero-actions"><a class="marketing-cta" href="${dashboardHref}">${dashboardLabel}</a><a class="marketing-secondary" href="#platform">Explore the platform</a></div>
+        <div class="hero-actions"><a class="marketing-cta" href="${dashboardHref}">${dashboardLabel}</a><a class="marketing-secondary hero-app-cta" href="/api/android-download">${icon("download")} Download Android App</a><a class="marketing-secondary hero-explore-link" href="#platform">Explore the platform</a></div>
         <div class="hero-trust hero-trust-marquee" role="region" aria-label="Platform safeguards">
           <div class="trust-marquee-window"><div class="hero-trust-track" id="hero-feature-track"><ul class="hero-trust-group">${trustItems}</ul><ul class="hero-trust-group" aria-hidden="true">${trustItems}</ul></div></div>
           ${btn('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 5v14m6-14v14"/></svg>','trust-motion','','class="trust-motion-toggle" aria-label="Pause text animations" aria-pressed="false" aria-controls="hero-title hero-feature-track" title="Pause text animations"')}
@@ -541,20 +542,20 @@ async function render({ quiet = false, navigation = false } = {}) {
   if (path === '/logout') { await logout(); return; }
   const auth = ['/login','/signup','/forgot-email','/verify-device','/resend-confirmation','/forgot-password','/reset-password','/passkey-setup'].includes(path);
   if (!auth) authUI.dispose();
-  const publicRoutes = ['/','/ebook','/support','/terms','/privacy','/risk-disclosure','/refund-policy','/cookies'];
+  const publicRoutes = ['/','/download','/ebook','/support','/terms','/privacy','/risk-disclosure','/refund-policy','/cookies'];
   if (!state.user && !auth && !publicRoutes.includes(path)) { const next=state.requiresDeviceVerification ? '/verify-device' : '/login';history.replaceState(null,'',next);authPage(next);return; }
   if (path==='/verify-device' && !state.requiresDeviceVerification) {navigate(state.user ? state.deviceDestination : '/login',true);return;}
   if (auth) { if (path === '/passkey-setup' && !state.user) { navigate('/signup',true); return; } if (state.user && !state.requiresMfa && ['/login','/signup'].includes(path)) { navigate(ebookAuthReturn() || '/dashboard',true); return; } authPage(path); return; }
   if (path.startsWith('/admin') && state.user?.role !== 'admin') { shell(empty('Administrator access required','This page is available to administrators only.')); return; }
   if (path === '/ebook' && (state.requiresMfa || state.requiresDeviceVerification)) {state.deviceDestination='/ebook';navigate(state.requiresDeviceVerification ? '/verify-device' : '/login?next=/ebook',true);return;}
-  const pageShell = ['/', '/ebook'].includes(path) ? publicShell : state.user ? shell : publicShell;
+  const pageShell = ['/', '/download', '/ebook'].includes(path) ? publicShell : state.user ? shell : publicShell;
   const snapshotRoutes=['/dashboard','/trade','/markets','/activity','/history','/positions','/notifications','/bots','/mt5'];
   const canShowSnapshot=(navigation || state.showingSnapshot) && state.user && snapshotRoutes.includes(path) && navigationData.has('/accounts') && (path==='/mt5'||navigationData.has('/bots'));
   const titles={'/dashboard':'Overview','/trade':'Trade','/markets':'Markets','/activity':'Activity','/history':'Activity','/positions':'Positions','/notifications':'Notifications','/bots':'Trading bots','/mt5':'MT5 terminal','/subscription':'Your subscription','/subscribe':'Your subscription','/pool':'Live pool','/referrals':'Grow your network','/support':'Support','/admin':'Administration','/admin/support':'Support inbox'};
   state.showingSnapshot=!!canShowSnapshot;state.snapshotError='';
-  if (!quiet && !canShowSnapshot && !['/account','/settings','/','/terms','/privacy','/risk-disclosure','/refund-policy','/cookies'].includes(path)) pageShell((titles[path]?heading(titles[path]):'')+'<div class="workspace-loading" role="status" aria-busy="true"><span class="sr-only">Loading your workspace…</span><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-account"></div><div class="skeleton-metrics"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div><div class="skeleton skeleton-panel"></div></div>');
+  if (!quiet && !canShowSnapshot && !['/account','/settings','/','/download','/terms','/privacy','/risk-disclosure','/refund-policy','/cookies'].includes(path)) pageShell((titles[path]?heading(titles[path]):'')+'<div class="workspace-loading" role="status" aria-busy="true"><span class="sr-only">Loading your workspace…</span><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-account"></div><div class="skeleton-metrics"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div><div class="skeleton skeleton-panel"></div></div>');
   try {
-    const pages = { '/':marketingPage,'/ebook':()=>ebookPage({state,api,esc,money,date,badge,form,field,btn}),'/terms':()=>legalPage('/terms'),'/privacy':()=>legalPage('/privacy'),'/risk-disclosure':()=>legalPage('/risk-disclosure'),'/refund-policy':()=>legalPage('/refund-policy'),'/cookies':()=>legalPage('/cookies'),'/dashboard':workspaceUI.home,'/trade':workspaceUI.trade,'/markets':workspaceUI.markets,'/activity':workspaceUI.activity,'/history':workspaceUI.activity,'/positions':workspaceUI.positionsPage,'/notifications':workspaceUI.notifications,'/account':workspaceUI.accountPage,'/mt5':terminalPage,'/bots':botsPage,'/subscription':subscriptionPage,'/subscribe':subscriptionPage,'/pool':poolPage,'/referrals':referralsPage,'/settings':settingsPage,'/support':supportPage,'/admin':adminPage,'/admin/support':() => supportPage(true) };
+    const pages = { '/':marketingPage,'/download':()=>androidDownloadPage(icon),'/ebook':()=>ebookPage({state,api,esc,money,date,badge,form,field,btn}),'/terms':()=>legalPage('/terms'),'/privacy':()=>legalPage('/privacy'),'/risk-disclosure':()=>legalPage('/risk-disclosure'),'/refund-policy':()=>legalPage('/refund-policy'),'/cookies':()=>legalPage('/cookies'),'/dashboard':workspaceUI.home,'/trade':workspaceUI.trade,'/markets':workspaceUI.markets,'/activity':workspaceUI.activity,'/history':workspaceUI.activity,'/positions':workspaceUI.positionsPage,'/notifications':workspaceUI.notifications,'/account':workspaceUI.accountPage,'/mt5':terminalPage,'/bots':botsPage,'/subscription':subscriptionPage,'/subscribe':subscriptionPage,'/pool':poolPage,'/referrals':referralsPage,'/settings':settingsPage,'/support':supportPage,'/admin':adminPage,'/admin/support':() => supportPage(true) };
     if(canShowSnapshot) {
       const previous=await pages[path]({snapshot:true});
       if(version!==state.version)return;
@@ -568,6 +569,7 @@ async function render({ quiet = false, navigation = false } = {}) {
     if(canShowSnapshot)content=await pages[path]({snapshot:true});
     if(version!==state.version)return;
     pageShell(content); connectEvents();
+    if (path === '/download') void hydrateAndroidRelease();
     if((path === '/subscription' || path === '/subscribe') && ['#payment-methods','#payment-history'].includes(location.hash))
       requestAnimationFrame(() => document.getElementById(location.hash.slice(1))?.scrollIntoView({block:'start'}));
     if(state.user && path.includes('support')) supportUI.mount();
@@ -577,8 +579,20 @@ async function render({ quiet = false, navigation = false } = {}) {
     void workspaceUI.mountChart();
     stopHeroMarket = mountHeroMarket(document.querySelector('[data-hero-market]'));
     const messages = document.querySelector('#messages'); if (messages) messages.scrollTop = messages.scrollHeight;
-    const pageTitle = path === '/' ? 'Elite Bot · MT5 Trading Automation Platform' : `${document.querySelector('h1')?.textContent || 'Workspace'} · Elite Bot`;
+    const pageTitle = path === '/' ? 'Elite Bot · MT5 Trading Automation Platform' : path === '/download' ? 'EliteTrade for Android · Official Signed APK & Updates' : `${document.querySelector('h1')?.textContent || 'Workspace'} · Elite Bot`;
     document.title = pageTitle;
+    const canonical=document.querySelector('link[rel="canonical"]');
+    if(canonical)canonical.href=location.origin+(path==='/download'?'/download':'/');
+    const description=document.querySelector('meta[name="description"]');
+    const ogDescription=document.querySelector('meta[property="og:description"]');
+    const ogTitle=document.querySelector('meta[property="og:title"]');
+    const ogUrl=document.querySelector('meta[property="og:url"]');
+    const downloadDescription='Download the latest official signed EliteTrade Android APK. Review app version, SHA-256 checksum, Android compatibility, installation and secure in-app updates.';
+    const standardDescription='Elite Bot is a secure MT5 trading automation workspace for account connections, bot controls, risk settings, access management, and support.';
+    if(description)description.content=path==='/download'?downloadDescription:standardDescription;
+    if(ogDescription)ogDescription.content=description?.content || standardDescription;
+    if(ogTitle)ogTitle.content=pageTitle;
+    if(ogUrl)ogUrl.content=location.origin+(path==='/download'?'/download':'/');
   } catch (error) { if (version !== state.version) return; if (error.code==='browser_verification_required' && state.auth) {await finishAuth(state.auth,path);} else if (error.status === 401) { state.user = null; navigate('/login',true); } else if(canShowSnapshot){state.showingSnapshot=true;state.snapshotError=error.message;syncSnapshotStatus();syncOffline();} else {state.showingSnapshot=false;pageShell(empty('Unable to load this page',esc(error.message),btn('Try again','refresh')));} }
 }
 function navigate(path, replace = false) { if (modal.open) modal.close(); history[replace ? 'replaceState' : 'pushState'](null,'',path); window.scrollTo(0,0); render({navigation:true});document.querySelector('#main')?.focus({preventScroll:true}); }
@@ -672,11 +686,17 @@ const actions = {
   'telegram-test': async () => { await api('/admin/telegram-test','POST'); toast('Test alert delivered.'); }
 };
 document.addEventListener('click',async event => {
+  const dismiss=event.target.closest('.android-mobile-promo-dismiss');
+  if(dismiss) {
+    try { sessionStorage.setItem('elite-android-promo-dismissed','1'); } catch {}
+    dismiss.closest('.android-mobile-promo')?.remove();
+    return;
+  }
   const link = event.target.closest('a[href]');
   if(link?.dataset.instrument)workspaceUI.selectInstrument(link.dataset.instrument);
   if (link) document.querySelectorAll('.public-menu[open]').forEach(menu => menu.removeAttribute('open'));
   if (!event.target.closest('.public-menu')) document.querySelectorAll('.public-menu[open]').forEach(menu => menu.removeAttribute('open'));
-  if (!event.defaultPrevented && link && link.origin === location.origin && link.pathname !== '/blog' && !link.pathname.startsWith('/blog/') && !link.hash && !link.target && !link.hasAttribute('download') && !link.pathname.endsWith('.pdf') && !event.metaKey && !event.ctrlKey && event.button === 0) { event.preventDefault(); navigate(link.pathname + link.search); return; }
+  if (!event.defaultPrevented && link && link.origin === location.origin && !link.pathname.startsWith('/api/') && link.pathname !== '/blog' && !link.pathname.startsWith('/blog/') && !link.hash && !link.target && !link.hasAttribute('download') && !link.pathname.endsWith('.pdf') && !event.metaKey && !event.ctrlKey && event.button === 0) { event.preventDefault(); navigate(link.pathname + link.search); return; }
   const button = event.target.closest('[data-action]'); if (!button || button.disabled) return;
   const action = actions[button.dataset.action]; if (!action) return;
   button.disabled = true;

@@ -10,7 +10,14 @@ let chromium;
 try { ({chromium} = require('playwright')); }
 catch { ({chromium} = require(`${process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES}/playwright`)); }
 const db = openDatabase(':memory:');
-const app = createApplication({ db,key:randomBytes(32),env:{APP_ORIGIN:'http://127.0.0.1:4389',SUPABASE_URL:'http://127.0.0.1:4389',SUPABASE_PUBLISHABLE_KEY:'browser-test-only'} });
+const app = createApplication({ db,key:randomBytes(32),env:{APP_ORIGIN:'http://127.0.0.1:4389',SUPABASE_URL:'http://127.0.0.1:4389',SUPABASE_PUBLISHABLE_KEY:'browser-test-only'},
+  androidReleaseFetcher:async()=>({ok:true,json:async()=>({
+    tag_name:'android-v1.0.5',draft:false,prerelease:false,published_at:'2026-10-13T18:33:15Z',
+    assets:[{name:'elitetrade-release.apk',state:'uploaded',size:11779672,
+      digest:'sha256:193eeed0a0a1fa74412dc3dbf043761cc9591f0493457a6e52ef7a638cfe4121',
+      browser_download_url:'https://github.com/Mahiruni/Elitetrade/releases/download/android-v1.0.5/elitetrade-release.apk'}]
+  })})
+});
 await new Promise(resolve => app.server.listen(4389,'127.0.0.1',resolve));
 const browser = await chromium.launch({headless:true,args:['--no-sandbox'],...(process.env.CHROMIUM_EXECUTABLE ? {executablePath:process.env.CHROMIUM_EXECUTABLE} : {})});
 const base = 'http://127.0.0.1:4389', errors = [];
@@ -60,12 +67,22 @@ try {
       await page.goto(base+'/');
       await page.locator('h1').waitFor();
       await page.evaluate(value => { localStorage.setItem('elite-theme',value); document.body.classList.toggle('light',value === 'light'); },theme);
-      for (const path of ['/','/signup','/login','/terms','/support']) {
+      for (const path of ['/','/download','/signup','/login','/terms','/support']) {
         await navigate(path);
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth+1),`Horizontal overflow: ${path}, ${width}px, ${theme}`);
       }
     }
   }
+  await page.setViewportSize({width:390,height:844});
+  await navigate('/download');
+  await page.locator('[data-release-version]').getByText('v1.0.5').waitFor();
+  assert.equal(await page.getByRole('link',{name:'Download the latest signed EliteTrade Android APK'}).getAttribute('href'),'/api/android-download');
+  assert.equal(await page.locator('[data-release-sha]').innerText(),'193eeed0a0a1fa74412dc3dbf043761cc9591f0493457a6e52ef7a638cfe4121');
+  await capture(page,{path:'test-results/android-download-mobile.png',fullPage:true});
+  await page.setViewportSize({width:1440,height:1000});
+  await navigate('/download');
+  await page.locator('[data-release-version]').getByText('v1.0.5').waitFor();
+  await capture(page,{path:'test-results/android-download-desktop.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});
   await navigate('/');
   await page.getByLabel('Navigation menu',{exact:true}).click();
