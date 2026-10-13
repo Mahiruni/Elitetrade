@@ -152,6 +152,8 @@ class EliteUpdateManager(private val activity: Activity) {
             .setDataAndType(uri, "application/vnd.android.package-archive")
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
         install.clipData = ClipData.newUri(activity.contentResolver, "EliteTrade update", uri)
+        // Do not reopen the installer each time the user returns to the app.
+        readyFile = null
         activity.startActivity(install)
     }
     fun resumePendingInstaller() {
