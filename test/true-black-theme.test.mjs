@@ -25,3 +25,10 @@ test('Android uses a matching dark canvas and retains light-mode support', () =>
   assert.match(native, /val bg = if \(lightTheme\)/);
   assert.match(theme, /<item name="android:statusBarColor">#000000<\/item>/);
 });
+
+test('both HTTP application modes serve the true-black stylesheet with the correct MIME type', () => {
+  for (const path of ['../src/app.mjs', '../src/supabase-app.mjs']) {
+    const source = file(path);
+    assert.match(source, /['"]\/true-black\.css['"]\s*:\s*\['true-black\.css','text\/css'\]/);
+  }
+});
