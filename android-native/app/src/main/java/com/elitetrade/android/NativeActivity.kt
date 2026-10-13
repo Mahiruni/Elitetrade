@@ -1,5 +1,6 @@
 package com.elitetrade.android
 
+import android.content.Context
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -25,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -40,11 +42,11 @@ import org.json.JSONObject
 import java.text.NumberFormat
 import java.util.Locale
 
-private val Night = Color(0xFF0B111A)
-private val Surface = Color(0xFF151D29)
-private val Raised = Color(0xFF1C2735)
-private val Ink = Color(0xFFF2F5FB)
-private val Muted = Color(0xFF9EADC3)
+private val Night = Color(0xFF000000)
+private val Surface = Color(0xFF0A0A0A)
+private val Raised = Color(0xFF0D0D0D)
+private val Ink = Color(0xFFFFFFFF)
+private val Muted = Color(0xFF9CA3AF)
 private val Blue = Color(0xFF528BF9)
 private val Gold = Color(0xFFD8B16A)
 private val Up = Color(0xFF34D399)
@@ -58,8 +60,8 @@ class NativeActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         api = EliteApi(applicationContext)
         updater = EliteUpdateManager(this)
-        window.statusBarColor = android.graphics.Color.rgb(11,17,26)
-        window.navigationBarColor = android.graphics.Color.rgb(11,17,26)
+        window.statusBarColor = android.graphics.Color.BLACK
+        window.navigationBarColor = android.graphics.Color.BLACK
         window.decorView.systemUiVisibility = 0
         if (Build.VERSION.SDK_INT >= 30) window.setDecorFitsSystemWindows(false)
         setContent { EliteTradeNative(api, updater) }
@@ -121,7 +123,29 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
     var pendingControl by remember { mutableStateOf<JSONObject?>(null) }
     var selectedConversation by remember { mutableStateOf("") }
     var thread by remember { mutableStateOf<JSONObject?>(null) }
-    var lightTheme by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val themePrefs = remember(context) { context.getSharedPreferences("elitetrade_appearance", Context.MODE_PRIVATE) }
+    var lightTheme by remember { mutableStateOf(themePrefs.getBoolean("light_theme", false)) }
+    val toggleTheme: () -> Unit = {
+        lightTheme = !lightTheme
+        themePrefs.edit().putBoolean("light_theme", lightTheme).apply()
+    }
+    val hostWindow = (context as? ComponentActivity)?.window
+    SideEffect {
+        hostWindow?.let { window ->
+            val chrome = if (lightTheme) android.graphics.Color.rgb(244, 246, 250) else android.graphics.Color.BLACK
+            window.statusBarColor = chrome
+            window.navigationBarColor = chrome
+            if (Build.VERSION.SDK_INT >= 30) {
+                val iconMask = android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
+                    android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+                window.insetsController?.setSystemBarsAppearance(if (lightTheme) iconMask else 0, iconMask)
+            } else {
+                window.decorView.systemUiVisibility = if (lightTheme)
+                    (View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR) else 0
+            }
+        }
+    }
     val scope = rememberCoroutineScope()
     val bg = if (lightTheme) Color(0xFFF4F6FA) else Night
     val panel = if (lightTheme) Color.White else Surface
@@ -395,7 +419,7 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                             "ClaudeBot" -> ClaudeBotPage(api,bots,accounts,
                                 api.user?.optBoolean("active")==true || api.user?.str("role")=="admin")
                             "Account" -> AccountPage(api.user,panel,textColor,mutedColor,lightTheme,
-                                onNavigate={screen=it},onTheme={lightTheme=!lightTheme},onCheckUpdates={checkForUpdates()},
+                                onNavigate={screen=it},onTheme=toggleTheme,onCheckUpdates={checkForUpdates()},
                                 onSignOut={
                                     scope.launch {api.signOut();accounts.clear();bots.clear();signedIn=false;screen="Home"}
                                 })
@@ -443,13 +467,13 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                                 onRefresh={refreshBilling()},
                                 onSupport={screen="Support"}
                             )
-                            "Settings" -> SettingsPage(lightTheme,panel,textColor,onTheme={lightTheme=!lightTheme},
+                            "Settings" -> SettingsPage(lightTheme,panel,textColor,onTheme=toggleTheme,
                                 onSupport={screen="Support"},onCheckUpdates={checkForUpdates()})
                             "Admin" -> AdminPage(adminData,panel,textColor,mutedColor,onReview={payment,approved->
                                 pendingReview=JSONObject().put("id",payment.str("id")).put("status",if(approved)"approved" else "rejected")
                             })
                             else -> AccountPage(api.user,panel,textColor,mutedColor,lightTheme,onNavigate={screen=it},
-                                onTheme={lightTheme=!lightTheme},onCheckUpdates={checkForUpdates()},onSignOut={
+                                onTheme=toggleTheme,onCheckUpdates={checkForUpdates()},onSignOut={
                                     scope.launch {api.signOut();signedIn=false;screen="Home"}
                                 })
                         }
@@ -781,9 +805,9 @@ private fun NativeHeader(title:String,selected:JSONObject?,onBack:(()->Unit)?,on
 @Composable
 private fun FloatingTabs(tabs:List<String>,selected:String,light:Boolean,onSelect:(String)->Unit) {
     val icons=listOf(Icons.Default.Home,Icons.Default.TrendingUp,Icons.Default.ShowChart,Icons.Default.SmartToy,Icons.Default.Person)
-    val panel=if(light) Color(0xF9FFFFFF) else Color(0xEE192534)
+    val panel=if(light) Color(0xF9FFFFFF) else Color(0xEE0A0A0A)
     Surface(Modifier.fillMaxWidth().padding(start=12.dp,end=12.dp,bottom=9.dp,top=5.dp),
-        color=panel,shape=RoundedCornerShape(24.dp),border=BorderStroke(1.dp,if(light)Color(0xFFDCE3EC) else Color(0xFF3A4858)),
+        color=panel,shape=RoundedCornerShape(24.dp),border=BorderStroke(1.dp,if(light)Color(0xFFDCE3EC) else Color(0xFF262626)),
         shadowElevation=12.dp) {
         Row(Modifier.fillMaxWidth().padding(5.dp),horizontalArrangement=Arrangement.spacedBy(2.dp)) {
             tabs.forEachIndexed { index,tab ->
