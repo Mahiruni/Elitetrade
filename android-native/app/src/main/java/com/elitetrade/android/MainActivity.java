@@ -13,7 +13,7 @@ import android.view.WindowInsets;
 import android.graphics.Insets;
 import android.webkit.CookieManager;
 import android.webkit.SslErrorHandler;
-import android.webkit.SslError;
+import android.net.http.SslError;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
