@@ -696,7 +696,7 @@ document.addEventListener('click',async event => {
   if(link?.dataset.instrument)workspaceUI.selectInstrument(link.dataset.instrument);
   if (link) document.querySelectorAll('.public-menu[open]').forEach(menu => menu.removeAttribute('open'));
   if (!event.target.closest('.public-menu')) document.querySelectorAll('.public-menu[open]').forEach(menu => menu.removeAttribute('open'));
-  if (!event.defaultPrevented && link && link.origin === location.origin && !link.pathname.startsWith('/api/') && link.pathname !== '/blog' && !link.pathname.startsWith('/blog/') && !link.hash && !link.target && !link.hasAttribute('download') && !link.pathname.endsWith('.pdf') && !event.metaKey && !event.ctrlKey && event.button === 0) { event.preventDefault(); navigate(link.pathname + link.search); return; }
+  if (!event.defaultPrevented && link && link.origin === location.origin && !link.pathname.startsWith('/api/') && link.pathname !== '/blog' && !link.pathname.startsWith('/blog/') && !link.hash && !link.target && !link.hasAttribute('download') && !link.pathname.endsWith('.pdf') && !link.pathname.startsWith('/api/') && !event.metaKey && !event.ctrlKey && event.button === 0) { event.preventDefault(); navigate(link.pathname + link.search); return; }
   const button = event.target.closest('[data-action]'); if (!button || button.disabled) return;
   const action = actions[button.dataset.action]; if (!action) return;
   button.disabled = true;
