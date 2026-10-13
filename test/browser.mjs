@@ -76,7 +76,7 @@ try {
   await page.setViewportSize({width:390,height:844});
   await navigate('/download');
   await page.locator('[data-release-version]').getByText('v1.0.5').waitFor();
-  assert.equal(await page.getByRole('link',{name:'Download for Android'}).getAttribute('href'),'/api/android-download');
+  assert.equal(await page.getByRole('link',{name:'Download the latest signed EliteTrade Android APK'}).getAttribute('href'),'/api/android-download');
   assert.equal(await page.locator('[data-release-sha]').innerText(),'193eeed0a0a1fa74412dc3dbf043761cc9591f0493457a6e52ef7a638cfe4121');
   await capture(page,{path:'test-results/android-download-mobile.png',fullPage:true});
   await page.setViewportSize({width:1440,height:1000});
