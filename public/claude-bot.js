@@ -98,7 +98,7 @@ export function createClaudeBot({state,api,esc,date}) {
       accountNotice+
       '<section class="cb-signal cb-signal-'+stateClass+'" aria-live="polite"><span class="cb-signal-label">STRATEGY SIGNAL</span><div class="cb-signal-arrow" aria-hidden="true">'+(side==='buy'?'↗':side==='sell'?'↘':'◇')+'</div><h2>'+headline+'</h2><p>'+subline+'</p><div class="cb-signal-meta"><span>'+safe(bot?.symbol||'No instrument')+'</span><span>'+safe(preview?source():'Awaiting connection')+'</span></div></section>'+
       '<div class="cb-controls"><button type="button" class="cb-refresh" data-claude-action="refresh" '+(!bot||phase==='loading'?'disabled':'')+'>'+(phase==='loading'?'◌  Analyzing…':'↻  Refresh signal')+'</button><a href="/bots" class="cb-secondary">Open strategy settings ↗</a></div>'+
-      '<div class="cb-status"><div><strong>'+(phase==='complete'?'Analysis reviewed':phase==='loading'?'Analysis in progress':'Eight-stage technical review')+'</strong><span>'+completed+' of 8 checked'+(phase==='complete'?' · '+availability()+' available':'')+'</span></div><div class="cb-progress" role="progressbar" aria-valuemin="0" aria-valuemax="8" aria-valuenow="'+completed+'" aria-label="Analysis checks reviewed"><span style="width:'+(completed/8*100)+'%"></span></div></div>'+
+      '<div class="cb-status"><div><strong>'+(phase==='complete'?'Analysis reviewed':phase==='loading'?'Analysis in progress':'Eight-stage technical review')+'</strong><span>'+completed+' of 8 reviewed'+(phase==='complete'?' · '+availability()+' available':'')+'</span></div><div class="cb-progress" role="progressbar" aria-valuemin="0" aria-valuemax="8" aria-valuenow="'+completed+'" aria-label="Analysis checks reviewed"><span class="cb-progress-fill"></span></div></div>'+
       (error?'<div class="cb-error" role="alert">'+safe(error)+'</div>':'')+
       '<div class="cb-grid" aria-label="Eight technical-analysis checks">'+steps+'</div></section>'+
       '<aside class="cb-aside"><section class="cb-panel"><div class="cb-panel-heading"><h2>Broker market chart</h2><span>'+safe(preview?.timeframe||'—')+'</span></div><div class="cb-chart" data-claude-chart>'+(preview?.candles?.length?'Loading verified candles…':'<div class="cb-chart-empty">Broker candlesticks appear here after an analysis request.<span>No fabricated market chart.</span></div>')+'</div><div class="cb-caption">Read-only broker candles · '+safe(bot?.symbol||'—')+'</div></section>'+
@@ -116,6 +116,7 @@ export function createClaudeBot({state,api,esc,date}) {
   function update() {
     if(!host||!host.isConnected)return;
     host.innerHTML=renderContent();
+    const fill=host.querySelector('.cb-progress-fill');if(fill)fill.style.width=(completed/8*100)+'%';
     void mountChart();
   }
   async function runAnalysis() {
@@ -159,6 +160,7 @@ export function createClaudeBot({state,api,esc,date}) {
       if(event.target.id!=='cb-select')return;
       generation++;selected=event.target.value;preview=null;checks=[];completed=0;phase='idle';error='';update();
     },{signal:controller.signal});
+    const fill=host.querySelector('.cb-progress-fill');if(fill)fill.style.width=(completed/8*100)+'%';
     void mountChart();
   }
   function dispose() {
