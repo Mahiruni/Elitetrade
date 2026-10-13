@@ -4,6 +4,8 @@ plugins {
     id 'org.jetbrains.kotlin.plugin.compose'
 }
 def liveOrigin = providers.gradleProperty('eliteTradeOrigin').orElse('https://elitetradee.vercel.app').get()
+def eliteVersionCode = providers.gradleProperty('eliteTradeVersionCode').orElse('2').get().toInteger()
+def eliteVersionName = providers.gradleProperty('eliteTradeVersionName').orElse('0.2.0').get()
 if (!liveOrigin.startsWith('https://') || liveOrigin.endsWith('/')) {
     throw new GradleException('eliteTradeOrigin must be an HTTPS origin without a trailing slash')
 }
@@ -14,8 +16,8 @@ android {
         applicationId 'com.elitetrade.android'
         minSdk 26
         targetSdk 36
-        versionCode 2
-        versionName '0.2.0'
+        versionCode eliteVersionCode
+        versionName eliteVersionName
         buildConfigField 'String', 'WEB_ORIGIN', '"' + liveOrigin + '"'
     }
     buildFeatures { buildConfig true; compose true }
@@ -24,6 +26,16 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = '17' }
+    signingConfigs {
+        official {
+            if (System.getenv('ELITETRADE_KEYSTORE_PATH')) {
+                storeFile file(System.getenv('ELITETRADE_KEYSTORE_PATH'))
+                storePassword System.getenv('ELITETRADE_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('ELITETRADE_KEY_ALIAS')
+                keyPassword System.getenv('ELITETRADE_KEY_PASSWORD')
+            }
+        }
+    }
     buildTypes {
         debug {
             debuggable true
@@ -31,6 +43,7 @@ android {
             versionNameSuffix '-debug'
         }
         release {
+            if (System.getenv('ELITETRADE_KEYSTORE_PATH')) signingConfig signingConfigs.official
             minifyEnabled false
             debuggable false
             // A protected release-signing setup is required before production distribution.
@@ -47,5 +60,6 @@ dependencies {
     implementation 'androidx.compose.material:material-icons-extended'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
     implementation 'com.google.zxing:core:3.5.4'
+    implementation 'androidx.core:core:1.16.0'
     debugImplementation 'androidx.compose.ui:ui-tooling'
 }
