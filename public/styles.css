@@ -811,3 +811,34 @@ body.light .trust-icon-risk { color:#945008 }
   .support-empty { min-height:240px; padding:1.5rem 0 }
 }
 @media(prefers-reduced-motion:reduce) { .security-proof-list li { animation:none } .security-proof-icon { transition:none } }
+
+
+/* Billing: prominent but restrained institutional checkout. */
+.billing-cta, .billing-overview {
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  gap:1rem;border:1px solid color-mix(in srgb,var(--accent,#d8b16a) 25%,transparent);
+  background:color-mix(in srgb,var(--surface,#151d29) 90%,var(--accent,#d8b16a) 10%);
+}
+.billing-cta h2,.billing-overview h2 {margin:.35rem 0;font-size:clamp(1.15rem,2.2vw,1.6rem);}
+.billing-cta p,.billing-overview p {max-width:62ch;margin:.3rem 0;}
+.billing-cta-primary {display:inline-flex;align-items:center;justify-content:center;padding:.8rem 1.1rem;
+  border-radius:.8rem;background:#336dcd;color:#fff!important;text-decoration:none;
+  font-weight:700;min-height:44px;}
+.billing-cta-primary:hover,.billing-cta-primary:focus-visible {background:#447fdb;}
+#payment-methods,#payment-history {scroll-margin-top:96px;}
+.billing-method-list {margin-top:1.4rem;border-top:1px solid var(--border,rgba(128,128,128,.18));padding-top:1rem;}
+.billing-method {border:1px solid var(--border,rgba(128,128,128,.2));padding:1rem;border-radius:1rem;margin:.75rem 0;overflow-wrap:anywhere;}
+.billing-method .card-head {display:flex;align-items:center;justify-content:space-between;gap:1rem;}
+.billing-method .payment-details {overflow-wrap:anywhere;}
+.billing-network-warning {font-size:.82rem;font-weight:650;color:#dd9934;line-height:1.5;}
+.billing-qr {display:block;max-width:100%;margin:1rem auto;padding:.75rem;border-radius:1rem;background:#fff;object-fit:contain;}
+.billing-invoices {border-top:1px solid var(--border,rgba(128,128,128,.2));margin-top:1.5rem;padding-top:1rem;}
+.billing-invoices h3 {font-size:1rem;}
+.billing-invoice {display:grid;gap:.4rem;padding:.8rem 0;border-bottom:1px solid var(--border,rgba(128,128,128,.16));overflow-wrap:anywhere;}
+.billing-invoice small {opacity:.68;}
+.billing-invoice a {width:fit-content;text-decoration:underline;}
+@media(max-width:760px) {
+  .billing-overview,.billing-cta {display:flex;align-items:flex-start;flex-direction:column;}
+  .billing-overview .actions,.billing-cta .actions {width:100%;}
+  .billing-cta-primary {max-width:100%;width:100%;text-align:center;}
+}
