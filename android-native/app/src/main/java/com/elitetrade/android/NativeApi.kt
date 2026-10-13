@@ -32,17 +32,17 @@ private class RefreshTokenVault(context: Context) {
             .setKeySize(256).build())
         return generator.generateKey()
     }
-    fun save(value: String) {
+    fun save(value: String, name: String = "refresh") {
         try {
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             cipher.init(Cipher.ENCRYPT_MODE, key())
             val data = cipher.iv + cipher.doFinal(value.toByteArray(Charsets.UTF_8))
-            prefs.edit().putString("refresh", Base64.encodeToString(data, Base64.NO_WRAP)).apply()
-        } catch (_: Exception) { prefs.edit().remove("refresh").apply() }
+            prefs.edit().putString(name, Base64.encodeToString(data, Base64.NO_WRAP)).apply()
+        } catch (_: Exception) { prefs.edit().remove(name).apply() }
     }
-    fun read(): String? {
+    fun read(name: String = "refresh"): String? {
         return try {
-            val stored = prefs.getString("refresh", null) ?: return null
+            val stored = prefs.getString(name, null) ?: return null
             val raw = Base64.decode(stored, Base64.NO_WRAP)
             if (raw.size < 29) return null
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
@@ -50,15 +50,25 @@ private class RefreshTokenVault(context: Context) {
             String(cipher.doFinal(raw.copyOfRange(12,raw.size)), Charsets.UTF_8)
         } catch (_: Exception) { null }
     }
-    fun clear() { prefs.edit().remove("refresh").apply() }
+    fun clear(name: String = "refresh") { prefs.edit().remove(name).apply() }
 }
 
 /** Server-side authorization always wins. Native UI must never infer MT5 execution success. */
 class EliteApi(context: Context) {
     private val origin = BuildConfig.WEB_ORIGIN
     private val vault = RefreshTokenVault(context.applicationContext)
-    private var cookie: String? = null
-    private var csrf = ""
+    // The live production API authenticates using the Supabase bearer token,
+    // not the legacy elite_session cookie. This device cookie is a second,
+    // server-issued proof and is encrypted with Android Keystore at rest.
+    private var deviceCookie: String? = vault.read("device")?.takeIf {
+        it.matches(Regex("__Host-elite_device=[A-Za-z0-9_-]{43}"))
+    }
+    var needsDeviceVerification: Boolean = false
+        private set
+    var needsMfa: Boolean = false
+        private set
+    var deviceEmail: String = ""
+        private set
     private var supabaseUrl = ""
     private var publishableKey = ""
     private var accessToken = ""
@@ -81,11 +91,9 @@ class EliteApi(context: Context) {
             con.setRequestProperty("apikey", publishableKey)
             con.setRequestProperty("Authorization", "Bearer " + (if (accessToken.isEmpty()) publishableKey else accessToken))
         } else {
-            cookie?.let { con.setRequestProperty("Cookie", it) }
-            if (method != "GET") {
-                con.setRequestProperty("Origin", origin)
-                if (csrf.isNotEmpty()) con.setRequestProperty("x-csrf-token", csrf)
-            }
+            if (accessToken.isNotEmpty()) con.setRequestProperty("Authorization", "Bearer " + accessToken)
+            deviceCookie?.let { con.setRequestProperty("Cookie", it) }
+            if (method != "GET") con.setRequestProperty("Origin", origin)
         }
         try {
             if (body != null) {
@@ -95,11 +103,12 @@ class EliteApi(context: Context) {
             }
             val status = con.responseCode
             if (!authApi) {
-                val raw = con.headerFields.entries.firstOrNull { it.key?.equals("Set-Cookie", true) == true }
-                    ?.value?.firstOrNull { it.startsWith("elite_session=") }
-                if (raw != null) {
-                    val first = raw.substringBefore(';')
-                    cookie = if (first == "elite_session=") null else first
+                val issued = con.headerFields.entries.firstOrNull { it.key?.equals("Set-Cookie", true) == true }
+                    ?.value?.firstOrNull { it.startsWith("__Host-elite_device=") }
+                    ?.substringBefore(';')
+                if (issued != null && issued.matches(Regex("__Host-elite_device=[A-Za-z0-9_-]{43}"))) {
+                    deviceCookie = issued
+                    vault.save(issued, "device")
                 }
             }
             val data = (if (status in 200..299) con.inputStream else con.errorStream)
@@ -136,21 +145,33 @@ class EliteApi(context: Context) {
         return request(supabaseUrl + "/auth/v1/" + path, "POST", body, true)
     }
 
-    private fun acceptSession(result: JSONObject) {
+    /** Returns true only after production verifies both Auth and this device. */
+    private fun acceptSession(result: JSONObject): Boolean {
         accessToken = result.optString("access_token")
         refreshToken = result.optString("refresh_token")
         if (accessToken.isBlank()) throw ApiProblem("Email confirmation may be required.")
-        val session = server("/api/auth/supabase-session", "POST", JSONObject().put("accessToken", accessToken))
-        cookie ?: throw ApiProblem("Secure session could not be established.")
-        csrf = session.optString("csrf")
-        user = session.optJSONObject("user") ?: throw ApiProblem("Account verification was unsuccessful.")
+        val session = server("/api/auth/supabase-session", "POST",
+            JSONObject().put("accessToken", accessToken))
+        needsMfa = session.optBoolean("requiresMfa")
+        needsDeviceVerification = session.optBoolean("requiresDeviceVerification")
+        deviceEmail = session.optString("deviceEmail")
+        user = session.optJSONObject("user")
+        if (needsMfa) {
+            user = null
+            throw ApiProblem("Authenticator verification is required. Sign in on the EliteTrade website to complete two-factor authentication.")
+        }
+        if (needsDeviceVerification) {
+            user = null
+            return false
+        }
+        if (user == null) throw ApiProblem("Account verification was unsuccessful. Please sign in again.")
         if (refreshToken.isNotBlank()) vault.save(refreshToken)
+        return true
     }
 
-    suspend fun signIn(email: String, password: String): JSONObject = withContext(Dispatchers.IO) {
-        val auth = auth("token?grant_type=password", JSONObject().put("email",email.trim()).put("password",password))
-        acceptSession(auth)
-        user ?: JSONObject()
+    suspend fun signIn(email: String, password: String): Boolean = withContext(Dispatchers.IO) {
+        val result = auth("token?grant_type=password", JSONObject().put("email",email.trim()).put("password",password))
+        acceptSession(result)
     }
 
     suspend fun signUp(name: String, email: String, password: String): Boolean = withContext(Dispatchers.IO) {
@@ -159,7 +180,7 @@ class EliteApi(context: Context) {
             JSONObject().put("email",email.trim()).put("password",password)
                 .put("data",JSONObject().put("full_name",name.trim())))
         if (!result.has("access_token") || result.isNull("access_token")) false
-        else { acceptSession(result); true }
+        else acceptSession(result)
     }
 
     /**
@@ -175,6 +196,20 @@ class EliteApi(context: Context) {
         Unit
     }
 
+    suspend fun requestDeviceVerification() = withContext(Dispatchers.IO) {
+        if (!needsDeviceVerification || accessToken.isBlank()) throw ApiProblem("Sign in first to verify this device.")
+        server("/api/auth/device/email", "POST", JSONObject().put("next", "/dashboard"))
+        Unit
+    }
+
+    suspend fun confirmDeviceCode(code: String): Boolean = withContext(Dispatchers.IO) {
+        if (!needsDeviceVerification || accessToken.isBlank()) throw ApiProblem("Sign in before verifying this device.")
+        if (!code.matches(Regex("[0-9]{8}"))) throw ApiProblem("Enter the eight-digit code from your email.")
+        val result = server("/api/auth/device/verify", "POST", JSONObject().put("code", code))
+        val session = result.optJSONObject("session") ?: throw ApiProblem("The verification response was incomplete.")
+        acceptSession(session)
+    }
+
     suspend fun recoverPassword(email: String) = withContext(Dispatchers.IO) {
         val redirect = java.net.URLEncoder.encode(origin + "/login", "UTF-8")
         auth("recover", JSONObject().put("email",email.trim()).put("redirect_to",origin + "/login"))
@@ -186,8 +221,13 @@ class EliteApi(context: Context) {
             val saved = vault.read() ?: return@withContext false
             val token = auth("token?grant_type=refresh_token", JSONObject().put("refresh_token",saved))
             acceptSession(token)
-            true
-        } catch (_: Exception) { vault.clear(); false }
+        } catch (e: Exception) {
+            // Expired/invalid refresh tokens are discarded; transient backend errors
+            // do not erase the user's locally protected authentication material.
+            if (e.message?.contains("refresh", true) == true ||
+                e.message?.contains("invalid", true) == true) vault.clear()
+            false
+        }
     }
 
     suspend fun accounts(): JSONArray = withContext(Dispatchers.IO) { server("/api/accounts").optJSONArray("accounts") ?: JSONArray() }
@@ -228,6 +268,8 @@ class EliteApi(context: Context) {
         try {
             if (accessToken.isNotBlank()) request(supabaseUrl + "/auth/v1/logout", "POST", JSONObject(), true)
         } catch (_: Exception) {}
-        accessToken = ""; refreshToken = ""; user = null; cookie = null; csrf = ""; vault.clear()
+        accessToken = ""; refreshToken = ""; user = null
+        needsDeviceVerification = false; needsMfa = false; deviceEmail = ""
+        deviceCookie = null; vault.clear(); vault.clear("device")
     }
 }

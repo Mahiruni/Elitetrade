@@ -92,6 +92,7 @@ private fun EliteTradeNative(api: EliteApi) {
     var error by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("") }
     var pendingConfirmationEmail by remember { mutableStateOf("") }
+    var awaitingDeviceVerification by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     val accounts = remember { mutableStateListOf<JSONObject>() }
     val bots = remember { mutableStateListOf<JSONObject>() }
@@ -130,7 +131,7 @@ private fun EliteTradeNative(api: EliteApi) {
     }
 
     LaunchedEffect(Unit) {
-        try { api.config(); signedIn=api.restore() }
+        try { api.config(); signedIn=api.restore(); awaitingDeviceVerification=api.needsDeviceVerification }
         catch (e:Exception) { error=e.message ?: "Service unavailable." }
         finally { booting=false }
     }
@@ -161,6 +162,49 @@ private fun EliteTradeNative(api: EliteApi) {
                     BrandEmblem()
                     CircularProgressIndicator(color=Gold,strokeWidth=2.dp)
                 }
+            } else if (!signedIn && awaitingDeviceVerification) {
+                DeviceVerificationPage(
+                    busy=busy,error=error,message=message,light=lightTheme,
+                    email=api.deviceEmail,
+                    onVerify={code->
+                        scope.launch {
+                            busy=true;error="";message=""
+                            try {
+                                if(api.confirmDeviceCode(code)){
+                                    awaitingDeviceVerification=false
+                                    signedIn=true
+                                    screen="Home"
+                                } else {
+                                    error="Your device verification could not be completed. Request a new code."
+                                }
+                            } catch(e:Exception){error=e.message ?: "Code verification failed."}
+                            finally {busy=false}
+                        }
+                    },
+                    onResend={
+                        scope.launch {
+                            busy=true;error="";message=""
+                            try {
+                                api.requestDeviceVerification()
+                                message="Verification requested. Check your inbox and spam folder for the eight-digit code."
+                            } catch(e:Exception){error=e.message ?: "Could not request a verification email."}
+                            finally {busy=false}
+                        }
+                    },
+                    onCancel={
+                        scope.launch {
+                            busy=true
+                            try { api.signOut() }
+                            finally {
+                                awaitingDeviceVerification=false
+                                pendingConfirmationEmail=""
+                                error=""
+                                message=""
+                                busy=false
+                            }
+                        }
+                    }
+                )
             } else if (!signedIn) {
                 AuthPage(
                     busy=busy,error=error,message=message,light=lightTheme,
@@ -179,7 +223,18 @@ private fun EliteTradeNative(api: EliteApi) {
                     onLogin={email,pass->
                         scope.launch {
                             busy=true;error="";message=""
-                            try { api.signIn(email,pass); signedIn=true;screen="Home" }
+                            try {
+                                if(api.signIn(email,pass)){signedIn=true;screen="Home"}
+                                else if(api.needsDeviceVerification){
+                                    awaitingDeviceVerification=true
+                                    try {
+                                        api.requestDeviceVerification()
+                                        message="A verification code was requested for this device."
+                                    } catch(e:Exception) {
+                                        error=e.message ?: "Choose Send code to verify this device."
+                                    }
+                                } else error="Unable to verify this account. Try signing in again."
+                            }
                             catch (e:Exception){error=e.message ?: "Unable to sign in."}
                             finally { busy=false }
                         }
@@ -188,8 +243,17 @@ private fun EliteTradeNative(api: EliteApi) {
                         scope.launch {
                             busy=true;error="";message=""
                             try {
-                                if(api.signUp(name,email,pass)){pendingConfirmationEmail="";signedIn=true;screen="Home"}
-                                else {
+                                if(api.signUp(name,email,pass)){
+                                    pendingConfirmationEmail="";signedIn=true;screen="Home"
+                                } else if(api.needsDeviceVerification) {
+                                    awaitingDeviceVerification=true
+                                    try {
+                                        api.requestDeviceVerification()
+                                        message="A verification code was requested for this device."
+                                    } catch(e:Exception) {
+                                        error=e.message ?: "Choose Send code to verify this device."
+                                    }
+                                } else {
                                     pendingConfirmationEmail=email.trim()
                                     message="Registration requested. If confirmation is required, check your inbox or spam folder."
                                 }
@@ -338,6 +402,57 @@ private fun BrandEmblem() {
         Brush.linearGradient(listOf(Color(0xFF29384B),Color(0xFF0F1620)))),
         contentAlignment=Alignment.Center) {
         Text("EB",color=Gold,fontSize=25.sp,fontWeight=FontWeight.Black,letterSpacing=(-1).sp)
+    }
+}
+
+
+@Composable
+private fun DeviceVerificationPage(
+    busy:Boolean,error:String,message:String,light:Boolean,email:String,
+    onVerify:(String)->Unit,onResend:()->Unit,onCancel:()->Unit
+) {
+    var code by remember { mutableStateOf("") }
+    val base=if(light) Color(0xFFF4F6FA) else Night
+    val headline=if(light) Color(0xFF15243A) else Ink
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).background(base)
+        .padding(horizontal=28.dp,vertical=28.dp),
+        verticalArrangement=Arrangement.spacedBy(18.dp)) {
+        Spacer(Modifier.height(12.dp))
+        BrandEmblem()
+        Text("Verify this device",fontSize=26.sp,fontWeight=FontWeight.Bold,color=headline)
+        Text(
+            if (email.isNotBlank()) "For account security, enter the eight-digit verification code sent to $email."
+            else "For account security, enter the eight-digit verification code sent to your registered email.",
+            fontSize=14.sp,color=if(light)Color(0xFF617188) else Muted
+        )
+        OutlinedTextField(
+            value=code,
+            onValueChange={code=it.filter(Char::isDigit).take(8)},
+            label={Text("Eight-digit email code")},
+            modifier=Modifier.fillMaxWidth(),
+            keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.NumberPassword),
+            singleLine=true
+        )
+        if(error.isNotBlank()) Text(error,color=Down,fontSize=13.sp)
+        if(message.isNotBlank()) Text(message,color=Up,fontSize=13.sp)
+        Button(
+            onClick={onVerify(code)},enabled=!busy&&code.length==8,
+            modifier=Modifier.fillMaxWidth().height(56.dp),
+            shape=RoundedCornerShape(16.dp),
+            colors=ButtonDefaults.buttonColors(containerColor=Blue)
+        ) {
+            if(busy) CircularProgressIndicator(color=Color.White,modifier=Modifier.size(22.dp),strokeWidth=2.dp)
+            else Text("Verify & open EliteTrade",fontWeight=FontWeight.SemiBold)
+        }
+        TextButton(onClick=onResend,enabled=!busy,modifier=Modifier.align(Alignment.CenterHorizontally)) {
+            Text("Send another code")
+        }
+        Text("Each code expires. For your security, verification cannot be skipped. Repeated email requests may be rate-limited.",
+            fontSize=12.sp,color=if(light)Color(0xFF617188) else Muted)
+        HorizontalDivider(color=if(light)Color(0xFFE1E6ED) else Raised)
+        TextButton(onClick=onCancel,enabled=!busy,modifier=Modifier.align(Alignment.CenterHorizontally)){
+            Text("Use another account")
+        }
     }
 }
 
