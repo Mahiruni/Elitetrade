@@ -145,6 +145,27 @@ try {
   await dialog.getByRole('button',{name:'Save configuration',exact:true}).click();
   await page.getByRole('heading',{name:'My gold bot',exact:true}).waitFor();
   await capture(page,{path:'test-results/bots-desktop.png',fullPage:true});
+  // ClaudeBot lives on its own route and does not send trading commands.
+  await navigate('/claudebot'); await ready('ClaudeBot');
+  assert.equal(await page.locator('#claudebot .cb-check').count(),8);
+  assert.equal(await page.locator('.sidebar nav a[href="/claudebot"]').innerText(),'ClaudeBot');
+  await page.route('**/api/bots/*/preview',route=>route.fulfill({json:{
+    accountType:'demo',timeframe:'15m',updatedAt:new Date().toISOString(),
+    quote:{bid:2001.5,ask:2001.8},
+    candles:Array.from({length:90},(_,i)=>({
+      time:new Date(Math.floor(Date.now()/900000)*900000-(90-i)*900000).toISOString(),
+      open:2000+i*.2,high:2001+i*.2,low:1999+i*.2,close:2000.5+i*.2
+    })),
+    signal:{side:null,candleTime:Date.now()-900000,description:'No verified entry'},
+    riskMessage:'No current entry signal.',message:'Preview only. No order sent.'
+  }}));
+  await page.getByRole('button',{name:/Refresh signal/}).click();
+  await page.getByText('8 of 8 reviewed').waitFor({timeout:12000});
+  await page.getByRole('heading',{name:'NO TRADE',exact:true}).waitFor();
+  assert.ok((await page.locator('.cb-check.cb-unavailable').count())>=2,'Unsupported 5s/EMA checks must be unavailable');
+  await capture(page,{path:'test-results/claudebot-desktop.png',fullPage:true});
+  await page.unroute('**/api/bots/*/preview');
+
   const customerContext = await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
   await isolateAuth(customerContext);
   const customer = await customerContext.newPage(); customer.on('pageerror',e => errors.push(e.message));
@@ -183,7 +204,7 @@ try {
     await customer.setViewportSize({width,height:900});
     for (const theme of ['dark','light']) {
       await customer.evaluate(value => localStorage.setItem('elite-theme',value),theme);
-      for (const path of ['/dashboard','/markets','/bots','/activity','/positions','/history','/notifications','/account','/mt5','/subscription','/pool','/referrals','/settings','/support']) {
+      for (const path of ['/dashboard','/markets','/claudebot','/bots','/activity','/positions','/history','/notifications','/account','/mt5','/subscription','/pool','/referrals','/settings','/support']) {
         await customer.goto(base+path); await customer.locator('h1').waitFor();
         assert.ok(await customer.evaluate(() => document.documentElement.scrollWidth <= innerWidth+1),`Horizontal overflow: ${path}, ${width}px, ${theme}`);
       }

@@ -557,7 +557,7 @@ export function createApplication(options = {}) {
   }
 
   const publicPath = resolve(options.publicPath || new URL('../public/', import.meta.url).pathname);
-  const pages = new Set(['/', '/download', '/ebook', '/login', '/signup', '/forgot-email', '/forgot-password', '/verify-device', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/dashboard', '/trade', '/markets', '/activity', '/positions', '/history', '/notifications', '/account', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
+  const pages = new Set(['/', '/download', '/ebook', '/login', '/signup', '/forgot-email', '/forgot-password', '/verify-device', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/dashboard', '/claudebot', '/trade', '/markets', '/activity', '/positions', '/history', '/notifications', '/account', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
   const server = createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Referrer-Policy', 'no-referrer'); res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
@@ -605,6 +605,8 @@ export function createApplication(options = {}) {
       files['/support-view.js'] = ['support-view.js','text/javascript'];
       files['/support.css'] = ['support.css','text/css'];
       files['/workspace.js'] = ['workspace.js','text/javascript'];
+      files['/claude-bot.js'] = ['claude-bot.js','text/javascript'];
+      files['/claude-bot.css'] = ['claude-bot.css','text/css'];
       files['/trading.css'] = ['trading.css','text/css'];
       files['/market-chart.js'] = ['market-chart.js','text/javascript'];
       files['/blog.js'] = ['blog.js','text/javascript'];
