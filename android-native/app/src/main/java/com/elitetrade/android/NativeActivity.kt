@@ -91,6 +91,7 @@ private fun EliteTradeNative(api: EliteApi) {
     var screen by remember { mutableStateOf("Home") }
     var error by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("") }
+    var pendingConfirmationEmail by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     val accounts = remember { mutableStateListOf<JSONObject>() }
     val bots = remember { mutableStateListOf<JSONObject>() }
@@ -163,6 +164,18 @@ private fun EliteTradeNative(api: EliteApi) {
             } else if (!signedIn) {
                 AuthPage(
                     busy=busy,error=error,message=message,light=lightTheme,
+                    pendingEmail=pendingConfirmationEmail,
+                    onResend={ email ->
+                        scope.launch {
+                            busy=true;error="";message=""
+                            try {
+                                api.resendConfirmation(email)
+                                message="If this address has an unconfirmed registration, a new verification request was accepted. Check your inbox and spam folder."
+                            } catch (e:Exception) {
+                                error=e.message ?: "Confirmation could not be requested. Try again later."
+                            } finally {busy=false}
+                        }
+                    },
                     onLogin={email,pass->
                         scope.launch {
                             busy=true;error="";message=""
@@ -175,8 +188,11 @@ private fun EliteTradeNative(api: EliteApi) {
                         scope.launch {
                             busy=true;error="";message=""
                             try {
-                                if(api.signUp(name,email,pass)){signedIn=true;screen="Home"}
-                                else message="Check your email to confirm your account, then sign in."
+                                if(api.signUp(name,email,pass)){pendingConfirmationEmail="";signedIn=true;screen="Home"}
+                                else {
+                                    pendingConfirmationEmail=email.trim()
+                                    message="Registration requested. If confirmation is required, check your inbox or spam folder."
+                                }
                             } catch (e:Exception) {error=e.message ?: "Account creation failed."}
                             finally {busy=false}
                         }
@@ -327,12 +343,19 @@ private fun BrandEmblem() {
 
 @Composable
 private fun AuthPage(busy:Boolean,error:String,message:String,light:Boolean,
+    pendingEmail:String,onResend:(String)->Unit,
     onLogin:(String,String)->Unit,onSignup:(String,String,String)->Unit,onRecovery:(String)->Unit) {
     var mode by remember {mutableStateOf("Sign in")}
     var name by remember {mutableStateOf("")}
     var email by remember {mutableStateOf("")}
     var password by remember {mutableStateOf("")}
     var showPassword by remember {mutableStateOf(false)}
+    LaunchedEffect(pendingEmail) {
+        if (pendingEmail.isNotBlank()) {
+            email = pendingEmail
+            mode = "Confirm"
+        }
+    }
     val base=if(light) Color(0xFFF4F6FA) else Night
     val headline=if(light) Color(0xFF15243A) else Ink
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).background(base)
@@ -343,9 +366,9 @@ private fun AuthPage(busy:Boolean,error:String,message:String,light:Boolean,
         Text("EliteBot",fontSize=32.sp,fontWeight=FontWeight.Bold,color=headline,letterSpacing=(-1).sp)
         Text("YOUR TRADING BOT",fontSize=11.sp,letterSpacing=2.sp,color=Gold,fontWeight=FontWeight.SemiBold)
         Spacer(Modifier.height(18.dp))
-        Text(when(mode){"Sign up"->"Your edge starts here.";"Recovery"->"Recover your account.";else->"Welcome back."},
+        Text(when(mode){"Sign up"->"Your edge starts here.";"Recovery"->"Recover your account.";"Confirm"->"Verify your email.";else->"Welcome back."},
             fontSize=25.sp,fontWeight=FontWeight.Bold,color=headline)
-        Text(when(mode){"Sign up"->"Create your secure EliteTrade account.";"Recovery"->"We'll send instructions to your email.";else->"Your portfolio. Your rules. Your control."},
+        Text(when(mode){"Sign up"->"Create your secure EliteTrade account.";"Recovery"->"We'll send instructions to your email.";"Confirm"->"Request another confirmation email for a pending registration.";else->"Your portfolio. Your rules. Your control."},
             fontSize=14.sp,color=if(light)Color(0xFF617188) else Muted)
         Spacer(Modifier.height(12.dp))
         if(mode=="Sign up") {
@@ -353,7 +376,7 @@ private fun AuthPage(busy:Boolean,error:String,message:String,light:Boolean,
         }
         OutlinedTextField(value=email,onValueChange={email=it},modifier=Modifier.fillMaxWidth(),
             label={Text("Email address")},singleLine=true,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Email))
-        if(mode!="Recovery") {
+        if(mode!="Recovery" && mode!="Confirm") {
             OutlinedTextField(value=password,onValueChange={password=it},modifier=Modifier.fillMaxWidth(),
                 label={Text("Password")},singleLine=true,
                 visualTransformation=if(showPassword)VisualTransformation.None else PasswordVisualTransformation(),
@@ -364,16 +387,42 @@ private fun AuthPage(busy:Boolean,error:String,message:String,light:Boolean,
         }
         if(error.isNotBlank())Text(error,color=Down,fontSize=13.sp)
         if(message.isNotBlank())Text(message,color=Up,fontSize=13.sp)
-        Button(onClick={
-            when(mode){"Sign up"->onSignup(name,email,password);"Recovery"->onRecovery(email);else->onLogin(email,password)}
-        },enabled=!busy&&email.contains('@')&&(mode=="Recovery"||(password.length>=6&&(mode!="Sign up"||name.isNotBlank()))),
-            modifier=Modifier.fillMaxWidth().height(56.dp),shape=RoundedCornerShape(16.dp),
-            colors=ButtonDefaults.buttonColors(containerColor=Blue)) {
-            if(busy)CircularProgressIndicator(color=Color.White,modifier=Modifier.size(22.dp),strokeWidth=2.dp)
-            else Text(when(mode){"Sign up"->"Create account";"Recovery"->"Send recovery email";else->"Secure sign in"},fontWeight=FontWeight.SemiBold)
+        if(mode=="Confirm") {
+            Surface(
+                color=Blue.copy(alpha=.10f),
+                shape=RoundedCornerShape(16.dp),
+                modifier=Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(15.dp),verticalArrangement=Arrangement.spacedBy(7.dp)) {
+                    Text("Check your email",fontSize=15.sp,fontWeight=FontWeight.SemiBold)
+                    Text("Check Inbox, Spam and Promotions. Resending only works for a registration that still needs confirmation. If your account is already verified, sign in instead.",
+                        fontSize=12.sp,color=if(light)Color(0xFF617188) else Muted,lineHeight=17.sp)
+                }
+            }
+            Button(onClick={onResend(email.trim())},enabled=!busy&&email.contains('@'),
+                modifier=Modifier.fillMaxWidth().height(56.dp),shape=RoundedCornerShape(16.dp),
+                colors=ButtonDefaults.buttonColors(containerColor=Blue)) {
+                if(busy) CircularProgressIndicator(color=Color.White,modifier=Modifier.size(22.dp),strokeWidth=2.dp)
+                else Text("Resend confirmation email",fontWeight=FontWeight.SemiBold)
+            }
+            Text("Supabase may rate-limit repeated emails. Request acceptance does not guarantee inbox delivery.",
+                fontSize=11.sp,color=if(light)Color(0xFF617188) else Muted)
+        } else {
+            Button(onClick={
+                when(mode){"Sign up"->onSignup(name,email,password);"Recovery"->onRecovery(email);else->onLogin(email,password)}
+            },enabled=!busy&&email.contains('@')&&(mode=="Recovery"||(password.length >= (if(mode=="Sign up")12 else 1) &&
+                (mode!="Sign up"||name.isNotBlank()))),
+                modifier=Modifier.fillMaxWidth().height(56.dp),shape=RoundedCornerShape(16.dp),
+                colors=ButtonDefaults.buttonColors(containerColor=Blue)) {
+                if(busy) CircularProgressIndicator(color=Color.White,modifier=Modifier.size(22.dp),strokeWidth=2.dp)
+                else Text(when(mode){"Sign up"->"Create account";"Recovery"->"Send recovery email";else->"Secure sign in"},fontWeight=FontWeight.SemiBold)
+            }
         }
         if(mode=="Sign in") {
-            TextButton(onClick={mode="Recovery"},modifier=Modifier.align(Alignment.End)) {Text("Forgot password?")}
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+                TextButton(onClick={mode="Confirm"}) {Text("Resend confirmation",fontSize=12.sp)}
+                TextButton(onClick={mode="Recovery"}) {Text("Forgot password?",fontSize=12.sp)}
+            }
         }
         HorizontalDivider(color=if(light)Color(0xFFE1E6ED) else Raised)
         TextButton(onClick={mode=if(mode=="Sign up")"Sign in" else if(mode=="Recovery")"Sign in" else "Sign up"},

@@ -162,6 +162,19 @@ class EliteApi(context: Context) {
         else { acceptSession(result); true }
     }
 
+    /**
+     * Requests a confirmation only for a pending signup. Supabase deliberately returns a
+     * generic success for unknown/already-confirmed accounts to prevent account enumeration.
+     */
+    suspend fun resendConfirmation(email: String) = withContext(Dispatchers.IO) {
+        val address = email.trim()
+        if (!address.contains("@") || address.length > 254) throw ApiProblem("Enter a valid email address.")
+        val redirect = java.net.URLEncoder.encode(origin + "/login", "UTF-8")
+        auth("resend?redirect_to=" + redirect,
+            JSONObject().put("type", "signup").put("email", address))
+        Unit
+    }
+
     suspend fun recoverPassword(email: String) = withContext(Dispatchers.IO) {
         val redirect = java.net.URLEncoder.encode(origin + "/login", "UTF-8")
         auth("recover", JSONObject().put("email",email.trim()).put("redirect_to",origin + "/login"))
