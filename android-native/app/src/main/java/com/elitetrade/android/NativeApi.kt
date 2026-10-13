@@ -40,13 +40,16 @@ private class RefreshTokenVault(context: Context) {
             prefs.edit().putString("refresh", Base64.encodeToString(data, Base64.NO_WRAP)).apply()
         } catch (_: Exception) { prefs.edit().remove("refresh").apply() }
     }
-    fun read(): String? = try {
-        val raw = Base64.decode(prefs.getString("refresh", null) ?: return null, Base64.NO_WRAP)
-        if (raw.size < 29) return null
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, raw.copyOfRange(0,12)))
-        String(cipher.doFinal(raw.copyOfRange(12,raw.size)), Charsets.UTF_8)
-    } catch (_: Exception) { null }
+    fun read(): String? {
+        return try {
+            val stored = prefs.getString("refresh", null) ?: return null
+            val raw = Base64.decode(stored, Base64.NO_WRAP)
+            if (raw.size < 29) return null
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, raw.copyOfRange(0,12)))
+            String(cipher.doFinal(raw.copyOfRange(12,raw.size)), Charsets.UTF_8)
+        } catch (_: Exception) { null }
+    }
     fun clear() { prefs.edit().remove("refresh").apply() }
 }
 
