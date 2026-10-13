@@ -26,6 +26,8 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.window.OnBackInvokedCallback;
+import android.window.OnBackInvokedDispatcher;
 
 /**
  * Hardened native Android host for the existing HTTPS EliteTrade application.
@@ -39,6 +41,8 @@ public final class MainActivity extends Activity {
     private LinearLayout connectionError;
     private ValueCallback<Uri[]> fileCallback;
     private String allowedHost;
+    private boolean mainFrameError;
+    private OnBackInvokedCallback predictiveBack;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -89,6 +93,9 @@ public final class MainActivity extends Activity {
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, false);
         web.setWebViewClient(new WebViewClient() {
+            @Override public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                mainFrameError = false;
+            }
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
                 if (!req.isForMainFrame()) return false;
                 Uri url = req.getUrl();
@@ -97,13 +104,14 @@ public final class MainActivity extends Activity {
                 return true;
             }
             @Override public void onPageFinished(WebView view, String url) {
-                if (isTrusted(Uri.parse(url))) connectionError.setVisibility(View.GONE);
+                if (!mainFrameError && isTrusted(Uri.parse(url))) connectionError.setVisibility(View.GONE);
             }
             @Override public void onReceivedError(WebView view, WebResourceRequest req, WebResourceError err) {
-                if (req.isForMainFrame()) connectionError.setVisibility(View.VISIBLE);
+                if (req.isForMainFrame()) { mainFrameError = true; connectionError.setVisibility(View.VISIBLE); }
             }
             @Override public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
                 handler.cancel(); // never bypass TLS/certificate problems for a financial application
+                mainFrameError = true;
                 connectionError.setVisibility(View.VISIBLE);
             }
         });
@@ -134,6 +142,11 @@ public final class MainActivity extends Activity {
         root.addView(connectionError, new FrameLayout.LayoutParams(-1,-1));
         connectionError.setVisibility(View.GONE);
         setContentView(root);
+        if (Build.VERSION.SDK_INT >= 33) {
+            predictiveBack = this::handleAppBack;
+            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                    OnBackInvokedDispatcher.PRIORITY_DEFAULT, predictiveBack);
+        }
         web.loadUrl(BuildConfig.WEB_ORIGIN + "/");
     }
 
@@ -204,9 +217,24 @@ public final class MainActivity extends Activity {
         }
     }
 
+    private void handleAppBack() {
+        if (web == null) { finish(); return; }
+        // Close the web application's drawer/dialog before stepping through browser history.
+        web.evaluateJavascript(
+                "(function(){if(document.body.classList.contains('menu-open')){" +
+                "var s=document.querySelector('.menu-scrim');if(s){s.click();return 'handled';}}" +
+                "var d=document.querySelector('dialog[open]');if(d){d.close();return 'handled';}" +
+                "return 'navigate';})()",
+                result -> {
+                    if (!"\"handled\"".equals(result)) {
+                        if (web != null && web.canGoBack()) web.goBack();
+                        else finish();
+                    }
+                });
+    }
+
     @Override public void onBackPressed() {
-        if (web != null && web.canGoBack()) web.goBack();
-        else super.onBackPressed();
+        handleAppBack();
     }
 
     @Override protected void onPause() {
@@ -218,6 +246,9 @@ public final class MainActivity extends Activity {
         if (web != null) web.onResume();
     }
     @Override protected void onDestroy() {
+        if (Build.VERSION.SDK_INT >= 33 && predictiveBack != null) {
+            getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(predictiveBack);
+        }
         if (fileCallback != null) { fileCallback.onReceiveValue(null); fileCallback=null; }
         if (web != null) { web.destroy(); web=null; }
         super.onDestroy();
