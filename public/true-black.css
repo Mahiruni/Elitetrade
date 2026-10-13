@@ -121,7 +121,7 @@ body:not(.light) .claudebot {
   --cb-muted: #9ca3af;
 }
 body:not(.light) .claudebot :is(.cb-primary, .cb-panel, .cb-status,
-  .cb-check, .cb-instrument select, .cb-controls .cb-secondary) {
+  .cb-check:not(.checked):not(.active), .cb-instrument select, .cb-controls .cb-secondary) {
   background: #0d0d0d;
   border-color: #262626;
 }
