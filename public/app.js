@@ -877,8 +877,10 @@ document.addEventListener('keydown',event => {
 });
 const systemTheme = window.matchMedia('(prefers-color-scheme: light)');
 function applyTheme(theme) {
-  document.body.classList.toggle('light',theme === 'light');
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content',theme === 'light' ? '#f0f3fa' : '#131722');
+  const light = theme === 'light';
+  document.body.classList.toggle('light', light);
+  document.documentElement.dataset.eliteTheme = light ? 'light' : 'dark';
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', light ? '#f4f5f7' : '#000000');
 }
 try { applyTheme(localStorage.getItem('elite-theme') || (systemTheme.matches ? 'light' : 'dark')); }
 catch { applyTheme(systemTheme.matches ? 'light' : 'dark'); }
