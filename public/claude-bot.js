@@ -71,7 +71,7 @@ export function isFreshBrokerQuote(preview,now=Date.now()) {
   return finite(t)&&t<=now+5000&&t>=now-60000;
 }
 export function createClaudeBot({state,api,esc,date}) {
-  let bots=[],accounts=[],selected='',preview=null,checks=[],phase='idle',error='',completed=0,generation=0,host=null,controller=null;
+  let bots=[],accounts=[],selected='',preview=null,checks=[],phase='idle',error='',completed=0,generation=0,host=null,controller=null,ticker=null,expired=false;
   const safe = value => esc(value===undefined||value===null?'':String(value));
   const currentBot = () => bots.find(b=>b.id===selected);
   const source = () => preview?.accountType==='demo'?'Demo MT5':preview?.accountType==='real'?'Live MT5':'Account type unverified';
@@ -122,7 +122,7 @@ export function createClaudeBot({state,api,esc,date}) {
   async function runAnalysis() {
     const bot=currentBot();if(!bot||phase==='loading')return;
     const serial=++generation;
-    error='';preview=null;checks=[];completed=0;phase='loading';update();
+    error='';preview=null;checks=[];completed=0;expired=false;phase='loading';update();
     try {
       if(!navigator.onLine)throw new Error('You are offline. Reconnect to request broker data.');
       if(!state.user?.active&&state.user?.role!=='admin')throw new Error('Activate your subscription before requesting an MT5 strategy preview.');
@@ -158,13 +158,15 @@ export function createClaudeBot({state,api,esc,date}) {
     },{signal:controller.signal});
     host.addEventListener('change',event=>{
       if(event.target.id!=='cb-select')return;
-      generation++;selected=event.target.value;preview=null;checks=[];completed=0;phase='idle';error='';update();
+      generation++;selected=event.target.value;preview=null;checks=[];completed=0;expired=false;phase='idle';error='';update();
     },{signal:controller.signal});
     const fill=host.querySelector('.cb-progress-fill');if(fill)fill.style.width=(completed/8*100)+'%';
+    ticker=setInterval(()=>{if(phase==='complete'&&preview&&!fresh()&&!expired){expired=true;update();}},1000);
     void mountChart();
   }
   function dispose() {
     generation++;
+    if(ticker!==null)clearInterval(ticker);ticker=null;
     controller?.abort();controller=null;host=null;
   }
   return {page,mount,dispose};
