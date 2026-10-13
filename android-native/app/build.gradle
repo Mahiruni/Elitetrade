@@ -1,0 +1,42 @@
+plugins {
+    id 'com.android.application'
+}
+
+def liveOrigin = providers.gradleProperty('eliteTradeOrigin').orElse('https://elitetradee.vercel.app').get()
+if (!liveOrigin.startsWith('https://') || liveOrigin.endsWith('/')) {
+    throw new GradleException('eliteTradeOrigin must be an HTTPS origin with no trailing slash.')
+}
+
+android {
+    namespace 'com.elitetrade.android'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'com.elitetrade.android'
+        minSdk 26
+        targetSdk 36
+        versionCode 1
+        versionName '0.1.0'
+        buildConfigField 'String', 'WEB_ORIGIN', '"' + liveOrigin + '"'
+    }
+
+    buildFeatures { buildConfig true }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    buildTypes {
+        debug {
+            debuggable true
+            applicationIdSuffix '.debug'
+            versionNameSuffix '-debug'
+        }
+        release {
+            minifyEnabled false
+            debuggable false
+            // Signing is intentionally NOT embedded in the repository.
+        }
+    }
+}

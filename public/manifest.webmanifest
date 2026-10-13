@@ -1,0 +1,19 @@
+{
+  "name": "EliteTrade — EliteBot",
+  "short_name": "EliteTrade",
+  "description": "Secure MT5 trading account workspace",
+  "lang": "en",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#101822",
+  "theme_color": "#101822",
+  "icons": [
+    {
+      "src": "/favicon.svg?v=eb1989",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

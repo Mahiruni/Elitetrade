@@ -1,0 +1,32 @@
+name: Browser regression verification
+on:
+  pull_request:
+    paths:
+      - 'public/**'
+      - 'src/**'
+      - 'test/**'
+      - '.github/workflows/browser-regression.yml'
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm install --no-save playwright
+      - run: npx playwright install --with-deps chromium
+      - name: Run authenticated mobile and desktop browser tests
+        run: node test/browser.mjs
+      - name: Upload QA captures on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-regression-captures
+          path: test-results/
+          if-no-files-found: ignore

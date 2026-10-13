@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">EliteTrade</string>
+    <string name="offline_title">Can’t connect to EliteTrade</string>
+    <string name="offline_message">Check your internet connection, then try again. Trading information cannot be confirmed while disconnected.</string>
+    <string name="retry">Try again</string>
+</resources>
