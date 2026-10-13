@@ -86,7 +86,7 @@ try {
   await page.getByLabel('Full name',{exact:true}).fill('Browser Member');
   await page.getByLabel('Email address',{exact:true}).fill('browser@example.test');
   await page.getByLabel('Password',{exact:true}).fill('Browser password 42!');
-  await page.getByRole('button',{name:'Continue',exact:true}).click(); await ready('Your subscription');
+  await page.getByRole('button',{name:'Continue',exact:true}).click(); await ready('Payments & subscription');
   await page.getByRole('link',{name:'Settings',exact:true}).click(); await ready('Account settings');
   await page.getByLabel('Full name',{exact:true}).fill('Mahir Browser');
   await page.getByRole('button',{name:'Save changes',exact:true}).click();
@@ -138,7 +138,7 @@ try {
   await customer.getByLabel('Email address',{exact:true}).fill('mobile@example.test');
   await customer.getByLabel('Password',{exact:true}).fill('Mobile password 42!');
   await customer.getByRole('button',{name:'Continue',exact:true}).click();
-  await customer.getByRole('heading',{name:'Your subscription',exact:true}).waitFor();
+  await customer.getByRole('heading',{name:'Payments & subscription',exact:true}).waitFor();
   await customer.getByLabel('Transaction reference',{exact:true}).fill('browser-payment-123');
   await customer.getByRole('button',{name:'Submit for review',exact:true}).click();
   await customer.getByText('pending',{exact:true}).waitFor();
