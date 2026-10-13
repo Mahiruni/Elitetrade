@@ -52,15 +52,21 @@ private val Down = Color(0xFFFF747D)
 
 class NativeActivity : ComponentActivity() {
     private lateinit var api: EliteApi
+    private lateinit var updater: EliteUpdateManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         api = EliteApi(applicationContext)
+        updater = EliteUpdateManager(this)
         window.statusBarColor = android.graphics.Color.rgb(11,17,26)
         window.navigationBarColor = android.graphics.Color.rgb(11,17,26)
         window.decorView.systemUiVisibility = 0
         if (Build.VERSION.SDK_INT >= 30) window.setDecorFitsSystemWindows(false)
-        setContent { EliteTradeNative(api) }
+        setContent { EliteTradeNative(api, updater) }
+    }
+    override fun onResume() {
+        super.onResume()
+        if (::updater.isInitialized) updater.resumePendingInstaller()
     }
 }
 
@@ -85,7 +91,12 @@ private fun compactNumber(value: Double): String =
     if (value.isFinite()) "%+.2f".format(Locale.US,value) else "—"
 
 @Composable
-private fun EliteTradeNative(api: EliteApi) {
+private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
+    var updateInfo by remember { mutableStateOf<EliteUpdate?>(null) }
+    var showUpdateDialog by remember { mutableStateOf(false) }
+    var updateBusy by remember { mutableStateOf(false) }
+    var updateProgress by remember { mutableIntStateOf(0) }
+    var updateError by remember { mutableStateOf("") }
     var booting by remember { mutableStateOf(true) }
     var signedIn by remember { mutableStateOf(false) }
     var screen by remember { mutableStateOf("Home") }
@@ -118,6 +129,30 @@ private fun EliteTradeNative(api: EliteApi) {
     val mutedColor = if (lightTheme) Color(0xFF617188) else Muted
     val scheme = if (lightTheme) lightColorScheme(primary=Color(0xFF295FC3),background=bg,surface=panel,onBackground=textColor,onSurface=textColor)
                  else darkColorScheme(primary=Blue,background=bg,surface=panel,onBackground=textColor,onSurface=textColor)
+
+    fun checkForUpdates() {
+        if (updater.isDebug()) {
+            message = "This is a testing APK. Install the official signed EliteTrade release once to enable future in-place updates."
+            return
+        }
+        scope.launch {
+            updateError = ""
+            try {
+                val latest = updater.check()
+                if (latest == null) message = "EliteTrade is up to date, or no signed release is published yet."
+                else { updateInfo = latest; showUpdateDialog = true }
+            } catch(e: Exception) { message = e.message ?: "Couldn't check for updates." }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (!updater.isDebug()) {
+            try {
+                val latest = updater.check()
+                if (latest != null) { updateInfo = latest; showUpdateDialog = true }
+            } catch (_: Exception) { /* Offline start must not block authentication. */ }
+        }
+    }
 
     fun refreshBilling() {
         scope.launch {
@@ -312,6 +347,20 @@ private fun EliteTradeNative(api: EliteApi) {
                         onRefresh={refresh()},onNotifications={screen="Activity"},
                         light=lightTheme,textColor=textColor
                     )
+                    updateInfo?.let { available ->
+                        Surface(color=Gold.copy(alpha=.11f),modifier=Modifier.fillMaxWidth()) {
+                            Row(Modifier.padding(horizontal=16.dp,vertical=7.dp),
+                                verticalAlignment=Alignment.CenterVertically) {
+                                Icon(Icons.Default.SystemUpdate,contentDescription=null,tint=Gold)
+                                Spacer(Modifier.width(10.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text("EliteTrade update available",fontSize=13.sp,fontWeight=FontWeight.Bold,color=textColor)
+                                    Text("Version " + available.versionName,fontSize=11.sp,color=mutedColor)
+                                }
+                                TextButton(onClick={showUpdateDialog=true}) { Text("Update",color=Gold) }
+                            }
+                        }
+                    }
                     if (error.isNotBlank()) {
                         Surface(color=Down.copy(alpha=.12f),modifier=Modifier.fillMaxWidth()) {
                             Row(Modifier.padding(horizontal=18.dp,vertical=10.dp),verticalAlignment=Alignment.CenterVertically) {
@@ -342,7 +391,7 @@ private fun EliteTradeNative(api: EliteApi) {
                             "Trade" -> TradePage(selected,panel,textColor,mutedColor)
                             "Bot" -> BotPage(bots,accounts,panel,textColor,mutedColor,onConnect={showConnect=true},onControl={pendingControl=it})
                             "Account" -> AccountPage(api.user,panel,textColor,mutedColor,lightTheme,
-                                onNavigate={screen=it},onTheme={lightTheme=!lightTheme},
+                                onNavigate={screen=it},onTheme={lightTheme=!lightTheme},onCheckUpdates={checkForUpdates()},
                                 onSignOut={
                                     scope.launch {api.signOut();accounts.clear();bots.clear();signedIn=false;screen="Home"}
                                 })
@@ -390,12 +439,13 @@ private fun EliteTradeNative(api: EliteApi) {
                                 onRefresh={refreshBilling()},
                                 onSupport={screen="Support"}
                             )
-                            "Settings" -> SettingsPage(lightTheme,panel,textColor,onTheme={lightTheme=!lightTheme},onSupport={screen="Support"})
+                            "Settings" -> SettingsPage(lightTheme,panel,textColor,onTheme={lightTheme=!lightTheme},
+                                onSupport={screen="Support"},onCheckUpdates={checkForUpdates()})
                             "Admin" -> AdminPage(adminData,panel,textColor,mutedColor,onReview={payment,approved->
                                 pendingReview=JSONObject().put("id",payment.str("id")).put("status",if(approved)"approved" else "rejected")
                             })
                             else -> AccountPage(api.user,panel,textColor,mutedColor,lightTheme,onNavigate={screen=it},
-                                onTheme={lightTheme=!lightTheme},onSignOut={
+                                onTheme={lightTheme=!lightTheme},onCheckUpdates={checkForUpdates()},onSignOut={
                                     scope.launch {api.signOut();signedIn=false;screen="Home"}
                                 })
                         }
@@ -469,6 +519,45 @@ private fun EliteTradeNative(api: EliteApi) {
                     )
                 }
             }
+        }
+        if (showUpdateDialog && updateInfo != null) {
+            val available = updateInfo!!
+            AlertDialog(
+                onDismissRequest={if(!updateBusy) showUpdateDialog=false},
+                icon={ Icon(Icons.Default.SystemUpdate,contentDescription=null,tint=Gold) },
+                title={ Text("EliteTrade update available") },
+                text={
+                    Column(verticalArrangement=Arrangement.spacedBy(10.dp)){
+                        Text("Version " + available.versionName + " is ready. Update your installed app without removing your account or its data.")
+                        if (available.notes.isNotBlank()) Text(available.notes.take(200),fontSize=12.sp)
+                        if (updateBusy) {
+                            LinearProgressIndicator(progress={updateProgress/100f},modifier=Modifier.fillMaxWidth())
+                            Text("Downloading and verifying… " + updateProgress + "%",fontSize=12.sp)
+                        }
+                        if (updateError.isNotBlank())
+                            Text(updateError,color=MaterialTheme.colorScheme.error,fontSize=12.sp)
+                        Text("Android will ask you to approve installation. Only official APKs with matching signatures are accepted.",
+                            fontSize=12.sp,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                },
+                confirmButton={
+                    Button(enabled=!updateBusy,onClick={
+                        scope.launch {
+                            updateBusy=true;updateError="";updateProgress=0
+                            try {
+                                updater.download(available) { percent -> updateProgress = percent }
+                                showUpdateDialog=false
+                                message="Android's installer will finish the upgrade. Your data stays installed."
+                            } catch(e:Exception) {
+                                updateError=e.message ?: "Couldn't install the update. Try again."
+                            } finally {updateBusy=false}
+                        }
+                    }) {
+                        Text(if(updateBusy)"Downloading…" else "Download & update")
+                    }
+                },
+                dismissButton={TextButton(enabled=!updateBusy,onClick={showUpdateDialog=false}){Text("Later")}}
+            )
         }
     }
 }
@@ -952,7 +1041,7 @@ private fun BotPage(bots:List<JSONObject>,accounts:List<JSONObject>,panel:Color,
 
 @Composable
 private fun AccountPage(user:JSONObject?,panel:Color,textColor:Color,muted:Color,light:Boolean,
-    onNavigate:(String)->Unit,onTheme:()->Unit,onSignOut:()->Unit) {
+    onNavigate:(String)->Unit,onTheme:()->Unit,onCheckUpdates:()->Unit,onSignOut:()->Unit) {
     PageScroll {
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
@@ -978,6 +1067,11 @@ private fun AccountPage(user:JSONObject?,panel:Color,textColor:Color,muted:Color
         EliteCard(panel){
             AccountRow(Icons.Default.AccountBalanceWallet,"MT5 accounts","Connections and broker status",onClick={onNavigate("MT5")})
             AccountRow(Icons.Default.History,"Activity","Subscription and recent records",onClick={onNavigate("Activity")})
+        }
+        SectionTitle("App updates & support")
+        EliteCard(panel) {
+            AccountRow(Icons.Default.SystemUpdate,"Check for updates",
+                "Install new versions without deleting your signed app",onClick=onCheckUpdates)
         }
         SectionTitle("Preferences & support")
         EliteCard(panel){
@@ -1082,7 +1176,8 @@ private fun ActivityPage(payments:JSONArray,panel:Color,textColor:Color,muted:Co
 }
 
 @Composable
-private fun SettingsPage(light:Boolean,panel:Color,textColor:Color,onTheme:()->Unit,onSupport:()->Unit){
+private fun SettingsPage(light:Boolean,panel:Color,textColor:Color,onTheme:()->Unit,
+    onSupport:()->Unit,onCheckUpdates:()->Unit){
     PageScroll {
         Spacer(Modifier.height(8.dp))
         Text("Settings",color=textColor,fontSize=23.sp,fontWeight=FontWeight.Bold)
@@ -1096,6 +1191,7 @@ private fun SettingsPage(light:Boolean,panel:Color,textColor:Color,onTheme:()->U
                 }
                 Switch(checked=light,onCheckedChange={onTheme()})
             }
+            AccountRow(Icons.Default.SystemUpdate,"App updates","Check the official signed release",onClick=onCheckUpdates)
             AccountRow(Icons.Default.SupportAgent,"Help & support","Message the EliteTrade team",onClick=onSupport)
             AccountRow(Icons.Default.Language,"Language","English",onClick={})
         }
