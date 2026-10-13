@@ -13,6 +13,7 @@ import { engineReady } from './demo-engine.mjs';
 import { STRATEGIES,evaluateStrategy,planTrade } from './trading-strategies.mjs';
 import {USDT_DESTINATION,usdtAmount} from './tron-payments.mjs';
 import { EBOOK, sendEbook } from './ebook.mjs';
+import QRCode from 'qrcode';
 
 const now = () => Date.now();
 class HttpError extends Error { constructor(status, message) { super(message); this.status = status; } }
@@ -332,7 +333,16 @@ export function createSupabaseApplication(options = {}) {
         db.query('elitetrade_crypto_invoices',`user_id=eq.${q(ctx.user.id)}&select=id,method_id,destination,price_cents,amount_units,created_at,expires_at,status,txid&order=created_at.desc&limit=10`,ctx.token),
         db.one('elitetrade_crypto_health','id=eq.true&select=provider_ok,message,updated_at',ctx.token)
       ]);
-      return json(res,{invoices:invoices.map(cryptoInvoice),crypto:cryptoHealth(health)});
+      const present = await Promise.all(invoices.map(async row => {
+        const invoice = cryptoInvoice(row);
+        // Only emit QR payloads for server-issued, current subscription invoices.
+        if (row.destination === USDT_DESTINATION && row.status === 'pending' && row.expires_at > now()) {
+          invoice.qrDataUrl = await QRCode.toDataURL(row.destination, { width:240,margin:2,errorCorrectionLevel:'M' })
+            .catch(() => null);
+        }
+        return invoice;
+      }));
+      return json(res,{invoices:present,crypto:cryptoHealth(health)});
     }
 
     if (path === '/api/crypto-invoices' && method === 'POST') {
