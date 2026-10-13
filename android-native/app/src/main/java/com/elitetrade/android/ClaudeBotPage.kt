@@ -316,7 +316,7 @@ private fun CandleChart(data:List<CandleBar>){
     Canvas(Modifier.fillMaxWidth().height(230.dp).background(cbField,RoundedCornerShape(12.dp))
         .padding(10.dp)){
         val step=size.width/points.size
-        fun y(v:Double)=((high-v)/spread*size.height*.88f+size.height*.06f).toFloat()
+        fun y(v:Double)=((high-v)/spread*size.height.toDouble()*.88+size.height.toDouble()*.06).toFloat()
         points.forEachIndexed{i,c->
             val x=step*(i+.5f)
             val tint=if(c.close>=c.open)cbGreen else cbRed
