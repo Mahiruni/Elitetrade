@@ -36,7 +36,7 @@ import android.window.OnBackInvokedDispatcher;
  */
 public final class MainActivity extends Activity {
     private static final int REQUEST_FILE = 2149;
-    private static final int BACKGROUND = Color.rgb(16, 24, 34);
+    private static final int BACKGROUND = Color.BLACK;
     private WebView web;
     private LinearLayout connectionError;
     private ValueCallback<Uri[]> fileCallback;
