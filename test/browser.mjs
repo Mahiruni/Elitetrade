@@ -152,7 +152,7 @@ try {
   await capture(customer,{path:'test-results/subscription-mobile.png',fullPage:true});
   await customer.getByRole('button',{name:'Open navigation',exact:true}).click();
   await customer.getByRole('link',{name:'Support',exact:true}).click();
-  await customer.getByRole('button',{name:'New conversation',exact:true}).click();
+  await customer.getByRole('button',{name:'New conversation',exact:true}).first().click();
   await customer.getByRole('button',{name:'Start conversation',exact:true}).click();
   await customer.getByRole('textbox',{name:'Your message',exact:true}).fill('Please confirm my account.');
   await customer.getByRole('button',{name:'Send',exact:true}).click();
