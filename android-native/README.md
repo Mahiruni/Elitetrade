@@ -1,46 +1,26 @@
-# EliteTrade — Android host (initial foundation)
+# EliteTrade Native Android (Compose)
 
-This module adds a native Android shell for the existing server-hosted EliteTrade app. It is **not a complete native reimplementation**. Trading, authenticated data, realtime chat, security, and MT5 remain implemented and authorized by the existing live server. Never treat local WebView state as a trading authorization.
+The main launcher activity is now **native Kotlin + Jetpack Compose**, not a WebView. The legacy Java WebView is retained in source solely for rollback/reference and is not launched.
 
-## Supported initial capabilities
+## Backend integration
+- GET /api/config provides the configured Supabase Auth endpoint and public publishable key.
+- Supabase email/password sign-in is exchanged with POST /api/auth/supabase-session for a server-verified HttpOnly session cookie.
+- Authenticated GET /api/accounts and /api/bots supply account and bot states. No dummy prices, performance or balance are invented.
+- Live bot controls use existing /api/bots/{id}/control. Confirm all operations through the server before updating the UI.
+- Support uses the existing /api/support/workspace API.
+- The existing web application, admin dashboard and backend are not modified by this Android-only change.
 
-- Android 8–16 API 26–36 Android Studio project (Android 16 target).
-- Android 15/16 system status-bar, battery/clock, cutout, and keyboard inset protection.
-- Isolated first-party HTTPS origin, no cleartext HTTP, no mixed content, and SSL errors fail closed.
-- Website navigation/history and Android Back handling.
-- Native Android document/image chooser for web file fields.
-- External links open in the system browser; untrusted WebView origins are blocked.
-- Readable offline/error recovery state; no fabricated or cached live trading information.
-- No unnecessary background location service, risky downloads into public storage, or premature notification permissions.
+## Security and scope
+Refresh tokens are encrypted through the device Android Keystore. A server session cookie and CSRF token are held in app memory only; they are recreated after app restart from a refreshed Supabase token. No trading/provider secrets are bundled. Browsers and the native app continue to use the same secure server API.
 
-## Build debug APK
+## Build
+Gradle 8.13, Android SDK 36, JDK 17, Kotlin 2.2.20, Compose BOM 2025.09.00.
 
-Requires JDK 17, Android SDK 36, and Gradle 8.13. From this directory:
+```
+cd android-native
+gradle :app:assembleDebug
+```
 
-    gradle :app:assembleDebug
+CI builds and attaches debug APKs. Signed release APK/AAB requires configured signing credentials and acceptance tests. Integration on physical Android devices, including successful authenticated Supabase sign-in, MT5 provider, and live support should be independently verified.
 
-Build output: app/build/outputs/apk/debug/app-debug.apk
-
-The CI workflow publishes the built **debug** APK to the run's Artifacts section only if the Android build succeeds.
-
-The default origin is https://elitetradee.vercel.app (the current Git-connected deployment). Only after verifying domain ownership and the serving backend may you build against a custom domain:
-
-    gradle :app:assembleDebug -PeliteTradeOrigin=https://elitebot.live
-
-**Do not point the APK at a domain that serves a different frontend or account database.**
-
-## Release signing
-
-A production release APK/AAB is *not* signed or published by this module. Use a protected CI environment with securely managed signing keystore, passwords, and review gates after completing end-to-end authentication and MT5 verification. Never commit signing secrets.
-
-## Release gates still required
-
-- Verify real device login, signup, recovery, upload, and financial-account flows.
-- Implement secure, permission-aware native push channels/deep links and biometric reauthentication where justified.
-- Verify native file downloads and safe document storage with authenticated endpoints.
-- Add app-link association / assetlinks.json only after obtaining release signing certificate SHA-256 and verifying the canonical domain.
-- Validate tablet/foldable layouts, keyboard, Android gesture and three-button navigation.
-- Finish release branding/launcher artwork review using the approved EliteBot asset.
-- Verify production backend persistence/worker suitability; do not assume Vercel ephemeral storage is a persistent database.
-
-This is a conservative foundation for an Android application, not a claim that release readiness or broker execution has been certified.
+The native UI exposes server-authorized functionality only. If a gateway cannot verify quotes or bot execution, show unavailable/unknown rather than simulated data.
