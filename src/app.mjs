@@ -1,3 +1,4 @@
+import { createAndroidReleaseService } from './android-release.mjs';
 import {createSupportHandler,sqliteSupport,supportRoute} from './support.mjs';
 import { accountDetails } from './account-view.mjs';
 import { renderBlogPage } from './blog.mjs';
@@ -113,11 +114,28 @@ export function createApplication(options = {}) {
     return data;
   };
 
+  const androidReleases = createAndroidReleaseService({fetcher:options.androidReleaseFetcher});
+
   async function handleApi(req, res, url, context, body) {
     const path = url.pathname, method = req.method, guest = cookies(req.headers.cookie).elite_guest;
     const ip = env.TRUST_PROXY === 'true' ? String(req.headers['x-forwarded-for'] || req.socket.remoteAddress).split(',')[0].trim() : req.socket.remoteAddress;
     if (method !== 'GET') rateLimit(`write:${ip}`, 90);
     if (supportRoute(path)) {const user=needUser(context);return support(req,res,url,{user},body);}
+    if (path === '/api/android-release' && method === 'GET') {
+      let metadata;
+      try { metadata = await androidReleases.getLatest(); }
+      catch { fail(503, 'The official Android release is temporarily unavailable. Try again shortly.'); }
+      res.setHeader('Cache-Control','public, max-age=60, s-maxage=300');
+      return json(res,metadata);
+    }
+    if (path === '/api/android-download' && method === 'GET') {
+      let metadata;
+      try { metadata = await androidReleases.getLatest(); }
+      catch { fail(503, 'The signed APK is temporarily unavailable. Please retry from the download page.'); }
+      res.writeHead(302,{'Location':metadata.downloadUrl,'Cache-Control':'no-store'});
+      res.end();
+      return;
+    }
     if (path === '/api/config' && method === 'GET') return json(res, {
       priceCents: Number(setting('price_cents')),
       emailConfigured: !!mailer,
@@ -539,7 +557,7 @@ export function createApplication(options = {}) {
   }
 
   const publicPath = resolve(options.publicPath || new URL('../public/', import.meta.url).pathname);
-  const pages = new Set(['/', '/ebook', '/login', '/signup', '/forgot-email', '/forgot-password', '/verify-device', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/dashboard', '/trade', '/markets', '/activity', '/positions', '/history', '/notifications', '/account', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
+  const pages = new Set(['/', '/download', '/ebook', '/login', '/signup', '/forgot-email', '/forgot-password', '/verify-device', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/dashboard', '/trade', '/markets', '/activity', '/positions', '/history', '/notifications', '/account', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
   const server = createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Referrer-Policy', 'no-referrer'); res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
@@ -591,7 +609,8 @@ export function createApplication(options = {}) {
       files['/market-chart.js'] = ['market-chart.js','text/javascript'];
       files['/blog.js'] = ['blog.js','text/javascript'];
       files['/blog.css'] = ['blog.css','text/css'];
-      const entry = files[url.pathname] || (pages.has(url.pathname) ? ['index.html','text/html'] : null);
+      files['/download.css'] = ['download.css','text/css'];
+      const entry = files[url.pathname] || (url.pathname === '/download' ? ['download.html','text/html'] : pages.has(url.pathname) ? ['index.html','text/html'] : null);
       if (!entry) fail(404, 'Page not found.');
       res.setHeader('Content-Type', entry[1]); res.end(req.method === 'HEAD' ? '' : readFileSync(join(publicPath, entry[0])));
     } catch (error) {
