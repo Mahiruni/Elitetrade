@@ -345,6 +345,8 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                         title=screen,selected=selected,
                         onBack=if(screen !in mainTabs) {{screen="Account";selectedConversation=""}} else null,
                         onRefresh={refresh()},onNotifications={screen="Activity"},
+                        onMenuNavigate={destination->screen=destination;error="";message=""},
+                        isAdmin=api.user?.str("role")=="admin",
                         light=lightTheme,textColor=textColor
                     )
                     updateInfo?.let { available ->
@@ -390,6 +392,8 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                             "Markets" -> MarketsPage(bots,selected,panel,textColor,mutedColor,onTrade={screen="Trade"})
                             "Trade" -> TradePage(selected,panel,textColor,mutedColor)
                             "Bot" -> BotPage(bots,accounts,panel,textColor,mutedColor,onConnect={showConnect=true},onControl={pendingControl=it})
+                            "ClaudeBot" -> ClaudeBotPage(api,bots,accounts,
+                                api.user?.optBoolean("active")==true || api.user?.str("role")=="admin")
                             "Account" -> AccountPage(api.user,panel,textColor,mutedColor,lightTheme,
                                 onNavigate={screen=it},onTheme={lightTheme=!lightTheme},onCheckUpdates={checkForUpdates()},
                                 onSignOut={
@@ -721,7 +725,9 @@ private fun AuthPage(busy:Boolean,error:String,message:String,light:Boolean,
 
 @Composable
 private fun NativeHeader(title:String,selected:JSONObject?,onBack:(()->Unit)?,onRefresh:()->Unit,
-    onNotifications:()->Unit,light:Boolean,textColor:Color) {
+    onNotifications:()->Unit,onMenuNavigate:(String)->Unit,isAdmin:Boolean,
+    light:Boolean,textColor:Color) {
+    var menuOpen by remember {mutableStateOf(false)}
     val p=if(light)Color(0xFFFEFFFF) else Surface
     Surface(color=p,shadowElevation=2.dp,tonalElevation=0.dp) {
         Row(Modifier.fillMaxWidth().height(66.dp).padding(horizontal=16.dp),
@@ -742,6 +748,24 @@ private fun NativeHeader(title:String,selected:JSONObject?,onBack:(()->Unit)?,on
                     Text(if(selected==null)"No MT5 account connected"
                         else selected.str("broker") + " · " + labelStatus(selected.str("status","unknown")),
                         fontSize=11.sp,color=Muted,maxLines=1,overflow=TextOverflow.Ellipsis)
+                }
+            }
+            Box {
+                IconButton(onClick={menuOpen=true},modifier=Modifier.size(40.dp)) {
+                    Icon(Icons.Default.Menu,contentDescription="Open navigation menu",tint=textColor)
+                }
+                DropdownMenu(expanded=menuOpen,onDismissRequest={menuOpen=false}) {
+                    val items=listOf("Home","Markets","Trade","Bot","ClaudeBot","Account","MT5",
+                        "Activity","Billing","Settings","Support")+(if(isAdmin)listOf("Admin") else emptyList())
+                    items.forEach { destination->
+                        DropdownMenuItem(text={Text(destination,
+                            color=if(destination=="ClaudeBot")Gold else MaterialTheme.colorScheme.onSurface,
+                            fontWeight=if(destination==title)FontWeight.Bold else FontWeight.Medium)},
+                            leadingIcon={Icon(if(destination=="ClaudeBot")Icons.Default.AutoGraph
+                                else if(destination=="Bot")Icons.Default.SmartToy else Icons.Default.ChevronRight,
+                                contentDescription=null)},
+                            onClick={menuOpen=false;onMenuNavigate(destination)})
+                    }
                 }
             }
             IconButton(onClick=onRefresh,modifier=Modifier.size(40.dp)) {
@@ -1066,6 +1090,7 @@ private fun AccountPage(user:JSONObject?,panel:Color,textColor:Color,muted:Color
         SectionTitle("Trading")
         EliteCard(panel){
             AccountRow(Icons.Default.AccountBalanceWallet,"MT5 accounts","Connections and broker status",onClick={onNavigate("MT5")})
+            AccountRow(Icons.Default.AutoGraph,"ClaudeBot","Independent read-only trading signal analysis",onClick={onNavigate("ClaudeBot")})
             AccountRow(Icons.Default.History,"Activity","Subscription and recent records",onClick={onNavigate("Activity")})
         }
         SectionTitle("App updates & support")
