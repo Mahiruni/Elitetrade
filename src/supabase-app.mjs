@@ -933,6 +933,7 @@ export function createSupabaseApplication(options = {}) {
       files['/blog.js'] = ['blog.js','text/javascript'];
       files['/blog.css'] = ['blog.css','text/css'];
       files['/download.css'] = ['download.css','text/css'];
+      files['/android-download.js'] = ['android-download.js','text/javascript'];
       const entry = files[url.pathname] || (url.pathname === '/download' ? ['download.html','text/html'] : pages.has(url.pathname) ? ['index.html','text/html'] : null);
       if (!entry) fail(404, 'Page not found.');
       res.setHeader('Content-Type', entry[1]);
