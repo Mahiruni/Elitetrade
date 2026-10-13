@@ -233,6 +233,24 @@ class EliteApi(context: Context) {
     suspend fun accounts(): JSONArray = withContext(Dispatchers.IO) { server("/api/accounts").optJSONArray("accounts") ?: JSONArray() }
     suspend fun bots(): JSONArray = withContext(Dispatchers.IO) { server("/api/bots").optJSONArray("bots") ?: JSONArray() }
     suspend fun payments(): JSONArray = withContext(Dispatchers.IO) { server("/api/payments").optJSONArray("payments") ?: JSONArray() }
+    /** The production service is the source of truth for prices, wallet, network and invoice status. */
+    suspend fun paymentMethods(): JSONObject = withContext(Dispatchers.IO) { server("/api/payment-methods") }
+    suspend fun cryptoInvoices(): JSONObject = withContext(Dispatchers.IO) { server("/api/crypto-invoices") }
+    suspend fun createCryptoInvoice(methodId: String): JSONObject = withContext(Dispatchers.IO) {
+        if (!methodId.matches(Regex("[a-fA-F0-9-]{36}"))) throw ApiProblem("Select a valid payment method.")
+        server("/api/crypto-invoices", "POST", JSONObject().put("methodId", methodId)).optJSONObject("invoice")
+            ?: throw ApiProblem("The payment invoice was not returned. Try again.")
+    }
+    suspend fun refreshMember(): JSONObject = withContext(Dispatchers.IO) {
+        val data = server("/api/me")
+        user = data.optJSONObject("user") ?: throw ApiProblem("Your session must be verified before accessing billing.")
+        user ?: JSONObject()
+    }
+    suspend fun reviewPayment(id: String, approved: Boolean, note: String): JSONObject = withContext(Dispatchers.IO) {
+        if (user?.optString("role") != "admin") throw ApiProblem("Administrator access required.")
+        server("/api/admin/payments/" + safeId(id) + "/review", "POST",
+            JSONObject().put("status", if (approved) "approved" else "rejected").put("note", note))
+    }
     suspend fun admin(): JSONObject = withContext(Dispatchers.IO) {
         if (user?.optString("role") != "admin") throw ApiProblem("Administrator access is required.")
         server("/api/admin/overview")

@@ -100,6 +100,12 @@ private fun EliteTradeNative(api: EliteApi) {
     var adminData by remember { mutableStateOf<JSONObject?>(null) }
     var supportData by remember { mutableStateOf<JSONObject?>(null) }
     var payments by remember { mutableStateOf(JSONArray()) }
+    var billingMethods by remember { mutableStateOf<JSONObject?>(null) }
+    var billingInvoices by remember { mutableStateOf<JSONObject?>(null) }
+    var billingPayments by remember { mutableStateOf(JSONArray()) }
+    var billingBusy by remember { mutableStateOf(false) }
+    var billingError by remember { mutableStateOf("") }
+    var pendingReview by remember { mutableStateOf<JSONObject?>(null) }
     var showConnect by remember { mutableStateOf(false) }
     var pendingControl by remember { mutableStateOf<JSONObject?>(null) }
     var selectedConversation by remember { mutableStateOf("") }
@@ -112,6 +118,21 @@ private fun EliteTradeNative(api: EliteApi) {
     val mutedColor = if (lightTheme) Color(0xFF617188) else Muted
     val scheme = if (lightTheme) lightColorScheme(primary=Color(0xFF295FC3),background=bg,surface=panel,onBackground=textColor,onSurface=textColor)
                  else darkColorScheme(primary=Blue,background=bg,surface=panel,onBackground=textColor,onSurface=textColor)
+
+    fun refreshBilling() {
+        scope.launch {
+            if (billingBusy) return@launch
+            billingBusy=true; billingError=""
+            try {
+                billingMethods=api.paymentMethods()
+                billingInvoices=api.cryptoInvoices()
+                billingPayments=api.payments()
+                api.refreshMember()
+            } catch(e:Exception) {
+                billingError=e.message ?: "Unable to refresh payments. Try again."
+            } finally {billingBusy=false}
+        }
+    }
 
     fun refresh() {
         scope.launch {
@@ -135,14 +156,24 @@ private fun EliteTradeNative(api: EliteApi) {
         catch (e:Exception) { error=e.message ?: "Service unavailable." }
         finally { booting=false }
     }
-    LaunchedEffect(signedIn) { if(signedIn) refresh() }
+    LaunchedEffect(signedIn) {
+        if(signedIn){refresh();refreshBilling()}
+        else {billingMethods=null;billingInvoices=null;billingPayments=JSONArray()}
+    }
     LaunchedEffect(screen) {
         if (signedIn) {
             try {
                 if (screen=="Support") supportData=api.support()
                 if (screen=="Admin" && api.user?.str("role")=="admin") adminData=api.admin()
                 if (screen=="Activity") payments=api.payments()
+                if(screen in listOf("Billing","Payment Methods","Payment History")) refreshBilling()
             } catch (e:Exception) { error=e.message ?: "Couldn't load this screen." }
+        }
+    }
+    LaunchedEffect(signedIn,screen) {
+        while(signedIn && screen in listOf("Billing","Payment Methods","Payment History")) {
+            kotlinx.coroutines.delay(30000)
+            if(signedIn) refreshBilling()
         }
     }
     LaunchedEffect(selectedConversation) {
@@ -302,6 +333,9 @@ private fun EliteTradeNative(api: EliteApi) {
                     Box(Modifier.weight(1f)) {
                         when(screen) {
                             "Home" -> HomePage(selected,accounts,bots,panel,textColor,mutedColor,
+                                active=api.user?.optBoolean("active")==true || api.user?.str("role")=="admin",
+                                priceCents=billingMethods?.optLong("priceCents",0) ?: 0,
+                                onBilling={screen="Billing"},
                                 onSelect={activeAccount=it},onConnect={showConnect=true},
                                 onBot={screen="Bot"},onPositions={screen="Trade"},onActivity={screen="Activity"})
                             "Markets" -> MarketsPage(bots,selected,panel,textColor,mutedColor,onTrade={screen="Trade"})
@@ -336,8 +370,30 @@ private fun EliteTradeNative(api: EliteApi) {
                                 },busy=busy
                             )
                             "Activity" -> ActivityPage(payments,panel,textColor,mutedColor)
+                            "Billing","Payment Methods","Payment History" -> EliteBillingPage(
+                                section=screen,methodsData=billingMethods,invoiceData=billingInvoices,
+                                payments=billingPayments,
+                                active=api.user?.optBoolean("active")==true || api.user?.str("role")=="admin",
+                                busy=billingBusy,error=billingError,
+                                onNavigate={screen=it},
+                                onCreateInvoice={methodId->
+                                    scope.launch {
+                                        billingBusy=true;billingError=""
+                                        try {
+                                            api.createCryptoInvoice(methodId)
+                                            billingInvoices=api.cryptoInvoices()
+                                            billingPayments=api.payments()
+                                        } catch(e:Exception){billingError=e.message ?: "Invoice creation failed."}
+                                        finally{billingBusy=false}
+                                    }
+                                },
+                                onRefresh={refreshBilling()},
+                                onSupport={screen="Support"}
+                            )
                             "Settings" -> SettingsPage(lightTheme,panel,textColor,onTheme={lightTheme=!lightTheme},onSupport={screen="Support"})
-                            "Admin" -> AdminPage(adminData,panel,textColor,mutedColor)
+                            "Admin" -> AdminPage(adminData,panel,textColor,mutedColor,onReview={payment,approved->
+                                pendingReview=JSONObject().put("id",payment.str("id")).put("status",if(approved)"approved" else "rejected")
+                            })
                             else -> AccountPage(api.user,panel,textColor,mutedColor,lightTheme,onNavigate={screen=it},
                                 onTheme={lightTheme=!lightTheme},onSignOut={
                                     scope.launch {api.signOut();signedIn=false;screen="Home"}
@@ -351,6 +407,27 @@ private fun EliteTradeNative(api: EliteApi) {
                     }
                 }
 
+                pendingReview?.let { candidate ->
+                    AlertDialog(
+                        onDismissRequest={pendingReview=null},
+                        title={Text(if(candidate.str("status")=="approved")"Approve payment?" else "Reject payment?")},
+                        text={Text("Review the transaction evidence and amount in the administrator records first. Approval activates an account and must be based on independently verified payment evidence.")},
+                        confirmButton={
+                            TextButton(onClick={
+                                pendingReview=null
+                                scope.launch {
+                                    busy=true;error=""
+                                    try {api.reviewPayment(candidate.str("id"),candidate.str("status")=="approved","Reviewed by administrator")
+                                        adminData=api.admin()
+                                        message="Payment review recorded."
+                                    } catch(e:Exception){error=e.message ?: "Payment review failed."}
+                                    finally{busy=false}
+                                }
+                            }){Text("Confirm review")}
+                        },
+                        dismissButton={TextButton(onClick={pendingReview=null}){Text("Cancel")}}
+                    )
+                }
                 if(showConnect) {
                     ConnectMt5Sheet(onDismiss={showConnect=false},onSave={broker,login,serverName,password->
                         scope.launch {
@@ -645,7 +722,8 @@ private fun PageScroll(content:@Composable ColumnScope.()->Unit) {
 
 @Composable
 private fun HomePage(selected:JSONObject?,accounts:List<JSONObject>,bots:List<JSONObject>,panel:Color,
-    textColor:Color,muted:Color,onSelect:(String)->Unit,onConnect:()->Unit,onBot:()->Unit,
+    textColor:Color,muted:Color,active:Boolean,priceCents:Long,onBilling:()->Unit,
+    onSelect:(String)->Unit,onConnect:()->Unit,onBot:()->Unit,
     onPositions:()->Unit,onActivity:()->Unit) {
     var hidden by remember { mutableStateOf(false) }
     val snap=selected?.snapshot()
@@ -653,6 +731,22 @@ private fun HomePage(selected:JSONObject?,accounts:List<JSONObject>,bots:List<JS
     PageScroll {
         Spacer(Modifier.height(4.dp))
         Text("PORTFOLIO OVERVIEW",color=Gold,fontSize=11.sp,fontWeight=FontWeight.Bold,letterSpacing=1.5.sp)
+        EliteCard(panel) {
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+                Icon(Icons.Default.AccountBalanceWallet,contentDescription=null,tint=Gold,modifier=Modifier.size(22.dp))
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)){
+                    Text(if(active)"EliteBot subscription active" else "Activate your EliteBot",fontSize=18.sp,fontWeight=FontWeight.Bold,color=textColor)
+                    Text(if(active)"Your lifetime subscription is enabled" else "Unlock MT5 trading controls and managed bot access",color=muted,fontSize=12.sp)
+                }
+                StatusPill(if(active)"approved" else "pending")
+            }
+            if(!active&&priceCents>0) Text("$"+String.format(Locale.US,"% ,.2f".trim(),priceCents/100.0)+" USD",color=textColor,fontSize=24.sp,fontWeight=FontWeight.Bold)
+            Button(onClick=onBilling,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp),
+                colors=ButtonDefaults.buttonColors(containerColor=Blue),shape=RoundedCornerShape(14.dp)){
+                Text(if(active)"View billing & payment history" else "Activate EliteBot · Pay now",fontWeight=FontWeight.Bold)
+            }
+        }
         EliteCard(panel) {
             Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                 Text("Account balance",color=muted,fontSize=13.sp,modifier=Modifier.weight(1f))
@@ -874,6 +968,12 @@ private fun AccountPage(user:JSONObject?,panel:Color,textColor:Color,muted:Color
             }
         }
         Spacer(Modifier.height(12.dp))
+        SectionTitle("Payments & subscription")
+        EliteCard(panel){
+            AccountRow(Icons.Default.AccountBalanceWallet,"Subscription","Activate EliteBot or view your plan",onClick={onNavigate("Billing")})
+            AccountRow(Icons.Default.Payments,"Payment methods","USDT instructions and verified wallet",onClick={onNavigate("Payment Methods")})
+            AccountRow(Icons.Default.ReceiptLong,"Payment history","Invoices and verified transactions",onClick={onNavigate("Payment History")})
+        }
         SectionTitle("Trading")
         EliteCard(panel){
             AccountRow(Icons.Default.AccountBalanceWallet,"MT5 accounts","Connections and broker status",onClick={onNavigate("MT5")})
@@ -1077,7 +1177,7 @@ private fun SupportPage(data:JSONObject?,selectedId:String,thread:JSONObject?,pa
 }
 
 @Composable
-private fun AdminPage(data:JSONObject?,panel:Color,textColor:Color,muted:Color) {
+private fun AdminPage(data:JSONObject?,panel:Color,textColor:Color,muted:Color,onReview:(JSONObject,Boolean)->Unit) {
     PageScroll {
         Spacer(Modifier.height(8.dp))
         Text("Administration",color=textColor,fontSize=24.sp,fontWeight=FontWeight.Bold)
@@ -1092,6 +1192,35 @@ private fun AdminPage(data:JSONObject?,panel:Color,textColor:Color,muted:Color) 
                     Metric("Customers",users.size.toString(),Modifier.weight(1f))
                     Metric("Payment reviews",payments.count{it.str("status")=="pending"}.toString(),Modifier.weight(1f))
                     Metric("MT5 reviews",accounts.count{it.str("status")=="pending"}.toString(),Modifier.weight(1f))
+                }
+            }
+            SectionTitle("Payments & billing")
+            EliteCard(panel) {
+                val pending=payments.filter{it.str("status")=="pending"}
+                Row(Modifier.fillMaxWidth()){
+                    Metric("Payments",payments.size.toString(),Modifier.weight(1f))
+                    Metric("Awaiting review",pending.size.toString(),Modifier.weight(1f))
+                }
+                Text("Blockchain verification: " + if(data.optJSONObject("crypto")?.optBoolean("ready")==true)"Available" else "Unavailable",
+                    fontSize=12.sp,color=muted)
+            }
+            val methods=data.optJSONArray("methods")?.objects().orEmpty()
+            methods.forEach { method ->
+                EliteCard(panel) {
+                    Text(method.str("name","Payment method"),fontWeight=FontWeight.Bold)
+                    Text(method.str("network",""),fontSize=12.sp,color=muted)
+                    Text(if(method.optBoolean("enabled"))"Enabled" else "Disabled",fontSize=12.sp,color=muted)
+                }
+            }
+            payments.filter{it.str("status")=="pending"}.take(12).forEach { payment ->
+                EliteCard(panel) {
+                    Text(payment.str("email","Customer"),fontWeight=FontWeight.SemiBold,fontSize=13.sp)
+                    Text(payment.str("reference"),fontSize=12.sp,color=muted)
+                    Text("Review only against verified payment evidence",fontSize=11.sp,color=muted)
+                    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                        OutlinedButton(onClick={onReview(payment,false)},modifier=Modifier.weight(1f)){Text("Reject")}
+                        Button(onClick={onReview(payment,true)},modifier=Modifier.weight(1f)){Text("Approve")}
+                    }
                 }
             }
             SectionTitle("Recent members")
