@@ -108,13 +108,15 @@ export function createMetaApiGateway(env, fetchImpl = fetch) {
   };
   const parse = id => {
     const parts = String(id).split(':');
-    if (parts.length !== 3 || parts[0] !== 'metaapi' || !parts.slice(1).every(p => idPattern.test(p))) throw error('Invalid hosted account binding.',403);
-    return {localId:parts[1],remoteId:parts[2]};
+    if (parts.length !== 3 || !['metaapi','metaapi-existing'].includes(parts[0]) || !parts.slice(1).every(p => idPattern.test(p))) throw error('Invalid hosted account binding.',403);
+    return {localId:parts[1],remoteId:parts[2],imported:parts[0] === 'metaapi-existing'};
   };
   const metadata = async id => {
-    const {localId,remoteId} = parse(id);
+    const {localId,remoteId,imported} = parse(id);
     const account = await call(provisioning,`/users/current/accounts/${remoteId}`);
-    if (account._id !== remoteId || account.metadata?.elitetradeAccountId !== localId || account.name !== nameFor(localId)) throw error('MetaApi account ownership could not be verified.',403);
+    if (account._id !== remoteId || (imported
+      ? (account.metadata?.elitetradeAccountId != null && account.metadata.elitetradeAccountId !== localId)
+      : (account.metadata?.elitetradeAccountId !== localId || account.name !== nameFor(localId)))) throw error('MetaApi account ownership could not be verified.',403);
     if (!/^[a-z][a-z0-9-]{0,40}$/.test(account.region || '')) throw error('MetaApi returned an invalid account region.');
     return account;
   };
@@ -156,6 +158,19 @@ export function createMetaApiGateway(env, fetchImpl = fetch) {
       if (details.state !== 'DEPLOYED' || details.connectionStatus !== 'CONNECTED') return {accountId:id,connected:false,pending:true};
       await figures(id,details);
       return {accountId:id,connected:true};
+    },
+    // Attach an already hosted account without creating or redeploying a second paid instance.
+    // Called only by an authenticated administrator after verifying the matching local MT5 row.
+    async adoptDemo(account,remoteId) {
+      if (!idPattern.test(account?.accountId || '') || !idPattern.test(remoteId || '') || !/^\d+$/.test(String(account?.login || '')) || !account?.server) throw error('Invalid account binding request.',400);
+      const hosted=await call(provisioning,`/users/current/accounts/${remoteId}`);
+      if (hosted?._id !== remoteId || hosted.platform !== 'mt5' || String(hosted.login) !== String(account.login) || hosted.server !== account.server) throw error('The hosted account does not match the saved MT5 login, server, and platform.',409);
+      if (hosted.metadata?.elitetradeAccountId != null && hosted.metadata.elitetradeAccountId !== account.accountId) throw error('This hosted account belongs to another EliteTrade record.',409);
+      if (hosted.state !== 'DEPLOYED' || hosted.connectionStatus !== 'CONNECTED') throw error('Connect the hosted MetaApi account before importing it.',409);
+      const id=`metaapi-existing:${account.accountId}:${remoteId}`;
+      const info=await figures(id,hosted);
+      if (info.type !== 'ACCOUNT_TRADE_MODE_DEMO') throw error('Only a broker-verified DEMO account can be imported using this action.',409);
+      return {accountId:id,connected:true,tradingAllowed:info.tradeAllowed === true && info.investorMode === false};
     },
     async snapshot(id) {
       const account=await metadata(id),info=await figures(id,account);
@@ -218,6 +233,9 @@ export function createMetaApiGateway(env, fetchImpl = fetch) {
     async botState() { throw error('No strategy execution state is available.'); },
     async control() { throw error('Automatic trading is not implemented. No order or bot command was sent.'); },
     async disconnect(id) {
+      // An imported account remains managed in MetaApi. Removing the EliteTrade link
+      // must never delete the user's existing hosted account or incur a replacement.
+      if (parse(id).imported) return {disconnected:true,hostedAccountPreserved:true};
       await metadata(id);
       await call(provisioning,`/users/current/accounts/${parse(id).remoteId}`,'DELETE');
       return {disconnected:true};

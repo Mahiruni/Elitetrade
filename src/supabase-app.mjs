@@ -822,6 +822,30 @@ export function createSupabaseApplication(options = {}) {
         return json(res, { ok:true });
       }
 
+      const accountAdopt = path.match(/^\/api\/admin\/accounts\/([^/]+)\/adopt-demo$/);
+      if (accountAdopt && method === 'POST') {
+        rateLimit(`admin:metaapi-adopt:${ctx.user.id}`, 5, 600000);
+        if (gateway?.mode !== 'account-data' || typeof gateway.adoptDemo !== 'function') fail(503, 'Configure MetaApi account-data access before importing an existing account.');
+        const account = await db.one('elitetrade_accounts',`id=eq.${q(accountAdopt[1])}&select=id,user_id,login,server,status,gateway_id`,ctx.token);
+        if (!account) fail(404,'Account not found.');
+        const owner = await db.one('elitetrade_profiles',`id=eq.${q(account.user_id)}&select=active,role,disabled`,ctx.token);
+        if (!owner || owner.disabled || (!owner.active && owner.role !== 'admin')) fail(409,'Activate the account owner before linking MT5.');
+        if (account.status === 'connected') fail(409,'This MT5 account is already connected. Disconnect it intentionally before changing its provider.');
+        if (account.gateway_id && (account.status !== 'disconnected' || body.replaceDisconnected !== true)) fail(409,'Confirm replacement of the disconnected binding before importing.');
+        const remoteId=string(body.remoteId,'Existing MetaApi account ID',1,128);
+        if (!/^[A-Za-z0-9_-]+$/.test(remoteId)) fail(400,'Enter the MetaApi account ID, not a token or password.');
+        const bindings=await db.query('elitetrade_accounts','select=id,gateway_id&gateway_id=not.is.null',ctx.token);
+        if (bindings.some(row=>row.id!==account.id && String(row.gateway_id||'').endsWith(`:${remoteId}`))) fail(409,'This hosted MetaApi account is already linked to another EliteTrade account.');
+        const result=await gateway.adoptDemo({accountId:account.id,login:account.login,server:account.server},remoteId);
+        if (!result?.connected || !result.accountId?.startsWith(`metaapi-existing:${account.id}:`)) fail(502,'MetaApi did not confirm the existing demo connection.');
+        await db.rpc('elitetrade_admin_update_account',{
+          p_account_id:account.id,p_status:'connected',p_gateway_id:result.accountId,
+          p_note:'Existing MetaApi DEMO linked. Automated execution remains disabled.'
+        },ctx.token);
+        await audit(ctx,'account.metaapi-demo-adopt',account.id);
+        return json(res,{ok:true,connected:true,accountType:'demo',tradingAllowed:result.tradingAllowed===true,executionEnabled:false});
+      }
+
       const accountReview = path.match(/^\/api\/admin\/accounts\/([^/]+)\/review$/);
       if (accountReview && method === 'POST') {
         const account = await db.one('elitetrade_accounts', `id=eq.${q(accountReview[1])}&select=*`, ctx.token);
