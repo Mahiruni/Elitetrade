@@ -6,6 +6,7 @@ import { renderBlogPage } from './blog.mjs';
 import { createServer } from 'node:http';
 import { createBridgeEnrollmentService } from './elitebridge-enrollment.mjs';
 import { createSupabaseBridgeTelemetry } from './elitebridge-supabase-telemetry.mjs';
+import { createOwnMt5ReadOnlyGateway } from './elitebridge-own-mt5-gateway.mjs';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { readFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
@@ -92,12 +93,16 @@ export function createSupabaseApplication(options = {}) {
   // Both features remain OFF until the private SQL migration is reviewed.
   const bridgeEnrollmentEnabled=env.ELITEBRIDGE_ENROLLMENT_ENABLED === 'true';
   const bridgeTelemetryEnabled=env.ELITEBRIDGE_TELEMETRY_ENABLED === 'true';
-  const bridgeDb=(bridgeEnrollmentEnabled || bridgeTelemetryEnabled) ? (options.bridgeDb ||
+  // Enable only after Phase 6 SQL migrations and staging checks pass.
+  const bridgeSnapshotEnabled=env.ELITEBRIDGE_SNAPSHOT_ENABLED === 'true';
+  const bridgeDb=(bridgeEnrollmentEnabled || bridgeTelemetryEnabled || bridgeSnapshotEnabled) ? (options.bridgeDb ||
     (mobileDbKey ? createSupabaseData({url:supabaseUrl,key:mobileDbKey}) : null)) : null;
   const bridgeEnrollment=bridgeEnrollmentEnabled && bridgeDb ?
     createBridgeEnrollmentService({db:bridgeDb}) : null;
   const bridgeTelemetry=bridgeTelemetryEnabled && bridgeDb ?
-    createSupabaseBridgeTelemetry({db:bridgeDb}) : null;
+    createSupabaseBridgeTelemetry({db:bridgeDb,recordSnapshots:bridgeSnapshotEnabled}) : null;
+  const bridgeOwnGateway=bridgeSnapshotEnabled && bridgeDb ?
+    createOwnMt5ReadOnlyGateway({db:bridgeDb}) : null;
 
 
   const gateway = options.gateway === undefined ? createGateway(env) : options.gateway;
@@ -595,6 +600,32 @@ export function createSupabaseApplication(options = {}) {
       await needUser(req);
       res.setHeader('Cache-Control','no-store');
       return json(res,eliteBridgeProtocolStatus());
+    }
+
+    // Phase 6: independently owned MT5 gateway's non-executable read model.
+    // An enrolled terminal's signed statements are not broker proof.
+    if(path==='/api/elitebridge/terminal-probe') {
+      if(method!=='GET')fail(405,'Method not allowed.');
+      res.setHeader('Cache-Control','no-store');
+      if(!bridgeSnapshotEnabled || !bridgeOwnGateway)
+        fail(503,'Independent EliteBridge terminal snapshots are not activated.');
+      const ctx=await needUser(req);
+      if(!ctx.user.mfaEnabled)
+        fail(403,'Enable two-factor authentication before reading terminal telemetry.');
+      rateLimit('elitebridge-probe:'+ctx.user.id,30,60000);
+      const accountId=url.searchParams.get('accountId');
+      const deviceId=url.searchParams.get('deviceId');
+      const symbol=url.searchParams.get('symbol')||'XAUUSDm';
+      const validId=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if(!validId.test(accountId||'')||!validId.test(deviceId||'')||
+        !/^[A-Za-z0-9._-]{3,30}$/.test(symbol))
+        fail(400,'Invalid terminal telemetry query.');
+      const own=await db.one('elitetrade_accounts',
+        'id=eq.'+q(accountId)+'&user_id=eq.'+q(ctx.user.id)+'&select=id',ctx.token);
+      if(!own)fail(404,'MT5 account not found.');
+      return json(res,await bridgeOwnGateway.probe({
+        ownerId:ctx.user.id,accountId:own.id,deviceId,symbol
+      }));
     }
 
     // Phase 5: server-verifiable Ed25519 DEMO telemetry only.
