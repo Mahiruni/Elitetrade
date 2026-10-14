@@ -529,8 +529,8 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                     AlertDialog(
                         onDismissRequest={pendingControl=null},
                         title={Text(if(running) "Start automation?" else "Stop automation?")},
-                        text={Text(if(running) "This submits a LIVE trading control request to your configured MT5 gateway. Confirm your risk settings before proceeding."
-                              else "Stop new automated entries on the selected bot. The broker must acknowledge the command.")},
+                        text={Text(if(running) "This arms DEMO monitoring on your existing Exness account. A broker-demo order may be placed only after a qualifying signal and all server risk checks. Make sure Elite Engine has a fresh server heartbeat. No real-account trading is allowed."
+                              else "Stop new automated entries. Existing DEMO broker positions remain open and protected by their MT5 stop-loss/take-profit orders.")},
                         confirmButton={
                             Button(onClick={
                                 pendingControl=null

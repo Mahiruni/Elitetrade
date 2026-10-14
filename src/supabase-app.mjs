@@ -12,6 +12,7 @@ import { createGateway, createTelegram } from './services.mjs';
 import { createSupabaseData } from './supabase-data.mjs';
 import { engineReady } from './demo-engine.mjs';
 import { mobileEnginePulse } from './mobile-demo-engine.mjs';
+import { loadSelectedDemoAccount } from './demo-account-access.mjs';
 import { STRATEGIES,evaluateStrategy,planTrade } from './trading-strategies.mjs';
 import { evaluatePoiStrategy } from './poi-strategy.mjs';
 import { evaluateGoldSmc } from './gold-smc.mjs';
@@ -693,8 +694,12 @@ export function createSupabaseApplication(options = {}) {
       if (gateway.mode === 'account-data') {
         if(body.running) {
           if(!await engineReady(db,ctx.token))fail(503,'Demo worker is offline. Start the persistent worker before arming a bot.');
-          const selected=await db.one('elitetrade_accounts',`id=eq.${q(bot.account_id)}&user_id=eq.${q(ctx.user.id)}&select=gateway_id,status`,ctx.token);
-          if(!selected?.gateway_id||selected.status!=='connected')fail(409,'Confirm the MT5 connection first.');
+          if(!bot.account_id)fail(409,'Select your saved Exness DEMO account in bot settings before starting.');
+          const selected=await loadSelectedDemoAccount({db,engineDb,accountId:bot.account_id,
+            userId:ctx.user.id,token:ctx.token,admin:ctx.user.role==='admin'});
+          if(!selected)fail(409,'The selected MT5 account could not be read for this session. Reopen MT5 accounts, verify this device, and retry.');
+          if(!selected.gateway_id)fail(409,'The selected MT5 account has no saved MetaApi link. Reconnect the existing account; do not create a duplicate.');
+          if(selected.status!=='connected')fail(409,'The selected MT5 account is not marked connected. Check its current broker verification status.');
           const market=await gateway.market(selected.gateway_id,bot.symbol,STRATEGIES[bot.strategy].timeframe);
           if(market.info.type!=='ACCOUNT_TRADE_MODE_DEMO'||market.info.tradeAllowed!==true||market.info.investorMode!==false)fail(409,'Starting requires a trade-enabled demo account. Real-account execution remains disabled.');
           evaluateStrategy(bot.strategy,market.candles);
