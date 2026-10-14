@@ -49,23 +49,23 @@ begin
   end if;
   if p_sequence is null or p_sequence < 1
      or p_message_id is null or p_message_id !~ '^[a-f0-9]{32}$'
-     or p_kind not in ('terminal.heartbeat','terminal.quote')
+     or p_kind is null or p_kind not in ('terminal.heartbeat','terminal.quote')
      or p_payload is null or jsonb_typeof(p_payload) <> 'object'
      or p_payload->>'accountType' is distinct from 'demo'
      then return false;
   end if;
   if p_kind='terminal.heartbeat' then
     if (select count(*) from jsonb_object_keys(p_payload)) <> 3
-      or jsonb_typeof(p_payload->'connected') <> 'boolean'
-      or jsonb_typeof(p_payload->'tradeAllowed') <> 'boolean'
+      or jsonb_typeof(p_payload->'connected') is distinct from 'boolean'
+      or jsonb_typeof(p_payload->'tradeAllowed') is distinct from 'boolean'
       then return false;
     end if;
   else
     if (select count(*) from jsonb_object_keys(p_payload)) <> 5
       or coalesce(p_payload->>'symbol','') !~ '^[A-Za-z0-9._-]{3,30}$'
-      or jsonb_typeof(p_payload->'bid') <> 'number'
-      or jsonb_typeof(p_payload->'ask') <> 'number'
-      or jsonb_typeof(p_payload->'observedAt') <> 'number'
+      or jsonb_typeof(p_payload->'bid') is distinct from 'number'
+      or jsonb_typeof(p_payload->'ask') is distinct from 'number'
+      or jsonb_typeof(p_payload->'observedAt') is distinct from 'number'
       or coalesce(p_payload->>'observedAt','') !~ '^[0-9]{13}$'
       then return false;
     end if;
