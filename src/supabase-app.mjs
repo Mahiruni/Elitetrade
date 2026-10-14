@@ -478,7 +478,11 @@ export function createSupabaseApplication(options = {}) {
         `user_id=eq.${q(ctx.user.id)}&select=id,user_id,broker,login,server,gateway_id,status,note,created_at&order=created_at.desc`, ctx.token);
       const result = [];
       for (const account of rows) {
-        const safe = safeAccount(account);
+        // Expose only an allowlisted provider-link boolean, never the hosted
+        // MetaApi identifier. The UI can run its already owner-scoped live
+        // connection check without learning third-party resource IDs.
+        const safe = {...safeAccount(account),
+          hostedLinked:/^metaapi(?:-existing)?:/.test(String(account.gateway_id||''))};
         if (gateway && account.gateway_id && ['connected','unknown','disconnected'].includes(account.status)) {
           try {
             const snapshot = await gateway.snapshot(account.gateway_id);
