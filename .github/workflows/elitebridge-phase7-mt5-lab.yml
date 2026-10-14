@@ -1,0 +1,33 @@
+name: EliteBridge Phase 7 Windows MT5 adapter lab
+
+on:
+  pull_request:
+    paths:
+      - "companion/mt5_readonly_probe.py"
+      - "src/elitebridge-mt5-terminal-companion.mjs"
+      - "scripts/elitebridge-mt5-probe.mjs"
+      - "test/test_elitebridge_mt5_readonly.py"
+      - "test/elitebridge-phase7-mt5-companion.test.mjs"
+      - ".github/workflows/elitebridge-phase7-mt5-lab.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mt5-companion-lab:
+    name: mt5-companion-lab
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Verify DEMO-only Python MT5 adapter with injected responses (no real terminal)
+        run: python -m unittest discover -s test -p 'test_elitebridge_mt5_readonly.py' -v
+      - name: Verify Ed25519 packet bridge and no execution methods
+        run: node --test test/elitebridge-phase7-mt5-companion.test.mjs
