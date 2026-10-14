@@ -32,6 +32,32 @@ export function parseRenderDevelopmentUrl(raw){
   return {host:u.hostname,port:String(port),database:TARGET.database,user:TARGET.user,password};
 }
 
+// Report ONLY fixed categories: libpq diagnostics can contain connection
+// details, so do not print stderr, command arguments, or the database URL.
+export function classifyPsqlFailure(stderr='',code='',status=null){
+  const s=String(stderr||'').toLowerCase(), c=String(code||'').toUpperCase();
+  if(c==='ENOENT')return 'PSQL_CLIENT_MISSING: Install with pkg install postgresql.';
+  if(c==='ETIMEDOUT'||/connection timed out|operation timed out|timeout expired/.test(s))
+    return 'NETWORK_TIMEOUT: Verify your current public IPv4 /32 in Render Networking, mobile data routing, and port 5432.';
+  if(/password authentication failed|scram authentication failed/.test(s))
+    return 'PASSWORD_REJECTED: The new credential or copied External Database URL is incorrect; copy it again from Render.';
+  if(/no pg_hba.conf entry|not authorized|not allowed to connect/.test(s))
+    return 'NETWORK_RULE_OR_TLS_DENIED: Check the Render inbound IP allowlist and TLS settings.';
+  if(/could not translate host name|name or service not known|temporary failure in name resolution|no address associated/.test(s))
+    return 'DNS_FAILURE: The Render hostname cannot be resolved on your mobile network.';
+  if(/network is unreachable|no route to host|network unreachable/.test(s))
+    return 'NETWORK_UNREACHABLE: Try a different network or refresh your phone connection.';
+  if(/connection refused/.test(s))
+    return 'CONNECTION_REFUSED: Render is not accepting traffic on the database port.';
+  if(/ssl|tls|certificate/.test(s))
+    return 'TLS_FAILURE: SSL negotiation failed; check mobile network interception or the connection endpoint.';
+  if(/role .* does not exist|database .* does not exist/.test(s))
+    return 'DATABASE_OR_USER_MISSING: The copied credentials do not match the database.';
+  if(/permission denied|must be owner|syntax error|already exists/.test(s))
+    return 'SQL_PERMISSION_OR_SCHEMA_ERROR: Connected to PostgreSQL, but the SQL step failed. Do not retry installation blindly.';
+  return 'OTHER_PSQL_FAILURE: Exit code '+(Number.isInteger(status)?status:'unknown')+'. No credentials or server error details shown.';
+}
+
 function runPsql(connection,args,opts={}){
   const env={
     ...process.env,
@@ -49,8 +75,7 @@ function runPsql(connection,args,opts={}){
     encoding:'utf8',env,timeout:opts.timeout??30000,stdio:['ignore','pipe','pipe']
   });
   if(result.error||result.status!==0){
-    // No process arguments or exception messages contain the password.
-    throw new Error('PostgreSQL connection or command failed. Check phone IP allowlist, TLS URL, database availability and credentials.');
+    throw new Error(classifyPsqlFailure(result.stderr,result.error?.code,result.status));
   }
   return (result.stdout||'').trim();
 }
