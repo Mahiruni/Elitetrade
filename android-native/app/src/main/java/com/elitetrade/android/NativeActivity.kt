@@ -415,15 +415,17 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                                 onBot={screen="Bot"},onPositions={screen="Trade"},onActivity={screen="Activity"})
                             "Markets" -> MarketsPage(bots,selected,panel,textColor,mutedColor,onTrade={screen="Trade"})
                             "Trade" -> TradePage(selected,panel,textColor,mutedColor)
-                            "Bot" -> BotPage(bots,accounts,panel,textColor,mutedColor,onConnect={showConnect=true},onControl={pendingControl=it})
+                            "Bot" -> BotPage(bots,accounts,panel,textColor,mutedColor,onConnect={showConnect=true},
+                                onControl={pendingControl=it},onEngine={screen="Elite Engine"})
                             "ClaudeBot" -> ClaudeBotPage(api,bots,accounts,
                                 api.user?.optBoolean("active")==true || api.user?.str("role")=="admin")
                             "Claude Pro Bot" -> ClaudeProBotPage(api,onNavigate={screen=it})
                             "Gold SMC Scalper" -> GoldSmcPage(api,bots,accounts)
+                            "Elite Engine" -> EliteEnginePage(api,context)
                             "Account" -> AccountPage(api.user,panel,textColor,mutedColor,lightTheme,
                                 onNavigate={screen=it},onTheme=toggleTheme,onCheckUpdates={checkForUpdates()},
                                 onSignOut={
-                                    scope.launch {api.signOut();accounts.clear();bots.clear();signedIn=false;screen="Home"}
+                                    scope.launch {EliteEngineService.stop(context);api.signOut();accounts.clear();bots.clear();signedIn=false;screen="Home"}
                                 })
                             "MT5" -> AccountsPage(accounts,panel,textColor,mutedColor,onConnect={showConnect=true})
                             "Support" -> SupportPage(supportData,selectedConversation,thread,panel,textColor,mutedColor,
@@ -476,7 +478,7 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                             })
                             else -> AccountPage(api.user,panel,textColor,mutedColor,lightTheme,onNavigate={screen=it},
                                 onTheme=toggleTheme,onCheckUpdates={checkForUpdates()},onSignOut={
-                                    scope.launch {api.signOut();signedIn=false;screen="Home"}
+                                    scope.launch {EliteEngineService.stop(context);api.signOut();signedIn=false;screen="Home"}
                                 })
                         }
                         if(busy && screen != "Support") LinearProgressIndicator(
@@ -781,13 +783,13 @@ private fun NativeHeader(title:String,selected:JSONObject?,onBack:(()->Unit)?,on
                     Icon(Icons.Default.Menu,contentDescription="Open navigation menu",tint=textColor)
                 }
                 DropdownMenu(expanded=menuOpen,onDismissRequest={menuOpen=false}) {
-                    val items=listOf("Home","Markets","Trade","Bot","ClaudeBot","Claude Pro Bot","Gold SMC Scalper","Account","MT5",
+                    val items=listOf("Home","Markets","Trade","Bot","Elite Engine","ClaudeBot","Claude Pro Bot","Gold SMC Scalper","Account","MT5",
                         "Activity","Billing","Settings","Support")+(if(isAdmin)listOf("Admin") else emptyList())
                     items.forEach { destination->
                         DropdownMenuItem(text={Text(destination,
-                            color=if(destination=="ClaudeBot")Gold else MaterialTheme.colorScheme.onSurface,
+                            color=if(destination=="ClaudeBot"||destination=="Elite Engine")Gold else MaterialTheme.colorScheme.onSurface,
                             fontWeight=if(destination==title)FontWeight.Bold else FontWeight.Medium)},
-                            leadingIcon={Icon(if(destination=="ClaudeBot")Icons.Default.AutoGraph
+                            leadingIcon={Icon(if(destination=="Elite Engine")Icons.Default.Memory else if(destination=="ClaudeBot")Icons.Default.AutoGraph
                                 else if(destination=="Bot")Icons.Default.SmartToy else Icons.Default.ChevronRight,
                                 contentDescription=null)},
                             onClick={menuOpen=false;onMenuNavigate(destination)})
@@ -1049,11 +1051,16 @@ private fun TradePage(selected:JSONObject?,panel:Color,textColor:Color,muted:Col
 
 @Composable
 private fun BotPage(bots:List<JSONObject>,accounts:List<JSONObject>,panel:Color,textColor:Color,muted:Color,
-    onConnect:()->Unit,onControl:(JSONObject)->Unit) {
+    onConnect:()->Unit,onControl:(JSONObject)->Unit,onEngine:()->Unit) {
     PageScroll {
         Spacer(Modifier.height(3.dp))
         Text("EliteBot",fontSize=27.sp,fontWeight=FontWeight.Bold,color=textColor)
         Text("YOUR TRADING BOT",color=Gold,letterSpacing=1.8.sp,fontSize=11.sp,fontWeight=FontWeight.Bold)
+        OutlinedButton(onClick=onEngine,modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.outlinedButtonColors(contentColor=Gold)) {
+            Icon(Icons.Default.Memory,contentDescription=null)
+            Spacer(Modifier.width(8.dp))
+            Text("Open native Elite Engine")
+        }
         Spacer(Modifier.height(3.dp))
         if(bots.isEmpty())EliteCard(panel){EmptyLine("Bot unavailable","No bot configuration was reported by the server.")}
         else bots.forEach { bot ->
@@ -1119,6 +1126,7 @@ private fun AccountPage(user:JSONObject?,panel:Color,textColor:Color,muted:Color
             AccountRow(Icons.Default.AutoGraph,"ClaudeBot","Independent read-only trading signal analysis",onClick={onNavigate("ClaudeBot")})
             AccountRow(Icons.Default.AutoGraph,"Claude Pro Bot","Automatic signal analysis and MT5 demo controls",onClick={onNavigate("Claude Pro Bot")})
             AccountRow(Icons.Default.AutoGraph,"Gold SMC Scalper","Read-only XAUUSD liquidity and structure research",onClick={onNavigate("Gold SMC Scalper")})
+            AccountRow(Icons.Default.Memory,"Elite Engine","Supervised Android demo worker",onClick={onNavigate("Elite Engine")})
             AccountRow(Icons.Default.History,"Activity","Subscription and recent records",onClick={onNavigate("Activity")})
         }
         SectionTitle("App updates & support")

@@ -11,6 +11,7 @@ import { digest, token, cookies } from './security.mjs';
 import { createGateway, createTelegram } from './services.mjs';
 import { createSupabaseData } from './supabase-data.mjs';
 import { engineReady } from './demo-engine.mjs';
+import { mobileEnginePulse } from './mobile-demo-engine.mjs';
 import { STRATEGIES,evaluateStrategy,planTrade } from './trading-strategies.mjs';
 import { evaluatePoiStrategy } from './poi-strategy.mjs';
 import { evaluateGoldSmc } from './gold-smc.mjs';
@@ -75,6 +76,12 @@ export function createSupabaseApplication(options = {}) {
   const deviceCodeLength = 8;
   const deviceCookie = origin.startsWith('https:') ? '__Host-elite_device' : 'elite_device';
   const db = options.db || createSupabaseData({ url:supabaseUrl, key:supabaseKey, getDeviceToken:() => deviceScope.getStore()?.deviceToken || '' });
+  // Only the Vercel function may access this privileged key; it never goes to
+  // Android, HTTP responses, build configuration, or a downloadable APK.
+  const mobileEngineEnabled=env.MOBILE_DEMO_ENGINE_ENABLED === 'true';
+  const mobileDbKey=env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY;
+  const engineDb=options.engineDb || (mobileEngineEnabled && mobileDbKey ?
+    createSupabaseData({url:supabaseUrl,key:mobileDbKey}) : null);
 
 
   const gateway = options.gateway === undefined ? createGateway(env) : options.gateway;
@@ -547,6 +554,32 @@ export function createSupabaseApplication(options = {}) {
       await db.remove('elitetrade_accounts', `id=eq.${q(account.id)}&user_id=eq.${q(ctx.user.id)}`, ctx.token);
       await audit(ctx, 'account.delete', account.id);
       return json(res, { ok:true });
+    }
+
+    if (path === '/api/engine/mobile/status' && method === 'GET') {
+      const ctx=await needAdmin(req);
+      const ready=gateway?.mode==='account-data' ? await engineReady(db,ctx.token) : false;
+      return json(res,{enabled:mobileEngineEnabled && !!engineDb && gateway?.mode==='account-data',
+        ready,mode:'broker-demo-only',phoneProcessRequired:true,
+        message:mobileEngineEnabled && engineDb && gateway?.mode==='account-data' ?
+          'Elite Engine is available. Keep the Android foreground session running; orders require a separately armed DEMO bot and all broker risk checks.' :
+          'Native demo engine is not activated on the server. Set MOBILE_DEMO_ENGINE_ENABLED=true on the trusted backend before using it.'});
+    }
+    if (path === '/api/engine/mobile/tick' && method === 'POST') {
+      const ctx=await needAdmin(req);
+      if(!mobileEngineEnabled||!engineDb||gateway?.mode!=='account-data')
+        fail(503,'Mobile demo engine is not configured. Do not embed service keys in the app.');
+      // A single signed-in, device-verified admin may pulse only their own
+      // runs. The server holds provider and database secrets. This call cannot
+      // arm a bot, nor can the client choose another user's run or trade plan.
+      rateLimit('mobile-demo-engine:'+ctx.user.id,4,60000);
+      const tick=await mobileEnginePulse({db:engineDb,gateway,userId:ctx.user.id});
+      return json(res,{ok:true,mode:'broker-demo-only',
+        evaluated:tick.evaluated,armed:tick.armed,
+        heartbeatAt:tick.heartbeatAt,executionEnabled:false,
+        message:tick.armed ?
+          'Demo monitoring evaluated. Broker demo orders are possible only for independently armed bots with passing risk checks.' :
+          'Engine heartbeat published. No demo bots are armed and no order was requested.'});
     }
 
     if (path === '/api/bots' && method === 'GET') {
