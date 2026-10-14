@@ -422,6 +422,7 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                             "Claude Pro Bot" -> ClaudeProBotPage(api,onNavigate={screen=it})
                             "Gold SMC Scalper" -> GoldSmcPage(api,bots,accounts)
                             "Elite Engine" -> EliteEnginePage(api,context)
+                            "EliteBridge" -> EliteBridgePage(api,onNavigate={screen=it})
                             "Account" -> AccountPage(api.user,panel,textColor,mutedColor,lightTheme,
                                 onNavigate={screen=it},onTheme=toggleTheme,onCheckUpdates={checkForUpdates()},
                                 onSignOut={
@@ -783,13 +784,13 @@ private fun NativeHeader(title:String,selected:JSONObject?,onBack:(()->Unit)?,on
                     Icon(Icons.Default.Menu,contentDescription="Open navigation menu",tint=textColor)
                 }
                 DropdownMenu(expanded=menuOpen,onDismissRequest={menuOpen=false}) {
-                    val items=listOf("Home","Markets","Trade","Bot","Elite Engine","ClaudeBot","Claude Pro Bot","Gold SMC Scalper","Account","MT5",
+                    val items=listOf("Home","Markets","Trade","Bot","Elite Engine","EliteBridge","ClaudeBot","Claude Pro Bot","Gold SMC Scalper","Account","MT5",
                         "Activity","Billing","Settings","Support")+(if(isAdmin)listOf("Admin") else emptyList())
                     items.forEach { destination->
                         DropdownMenuItem(text={Text(destination,
-                            color=if(destination=="ClaudeBot"||destination=="Elite Engine")Gold else MaterialTheme.colorScheme.onSurface,
+                            color=if(destination=="ClaudeBot"||destination=="Elite Engine"||destination=="EliteBridge")Gold else MaterialTheme.colorScheme.onSurface,
                             fontWeight=if(destination==title)FontWeight.Bold else FontWeight.Medium)},
-                            leadingIcon={Icon(if(destination=="Elite Engine")Icons.Default.Memory else if(destination=="ClaudeBot")Icons.Default.AutoGraph
+                            leadingIcon={Icon(if(destination=="EliteBridge")Icons.Default.Cable else if(destination=="Elite Engine")Icons.Default.Memory else if(destination=="ClaudeBot")Icons.Default.AutoGraph
                                 else if(destination=="Bot")Icons.Default.SmartToy else Icons.Default.ChevronRight,
                                 contentDescription=null)},
                             onClick={menuOpen=false;onMenuNavigate(destination)})
@@ -1127,6 +1128,7 @@ private fun AccountPage(user:JSONObject?,panel:Color,textColor:Color,muted:Color
             AccountRow(Icons.Default.AutoGraph,"Claude Pro Bot","Automatic signal analysis and MT5 demo controls",onClick={onNavigate("Claude Pro Bot")})
             AccountRow(Icons.Default.AutoGraph,"Gold SMC Scalper","Read-only XAUUSD liquidity and structure research",onClick={onNavigate("Gold SMC Scalper")})
             AccountRow(Icons.Default.Memory,"Elite Engine","Supervised Android demo worker",onClick={onNavigate("Elite Engine")})
+            AccountRow(Icons.Default.Cable,"EliteBridge","Broker connections and future independent MT5 bridge",onClick={onNavigate("EliteBridge")})
             AccountRow(Icons.Default.History,"Activity","Subscription and recent records",onClick={onNavigate("Activity")})
         }
         SectionTitle("App updates & support")
