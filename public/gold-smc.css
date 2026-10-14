@@ -1,0 +1,42 @@
+/* EliteTrade Gold SMC research panel: isolated to the authenticated page. */
+.gold-smc{--gsm-gold:#d4af37;--gsm-line:var(--border,#292929);--gsm-bg:var(--panel,#101010);--gsm-text:var(--text,#fff);max-width:1260px;margin:0 auto;color:var(--gsm-text);padding:clamp(12px,2vw,28px);font-variant-numeric:tabular-nums}
+.gold-smc h1,.gold-smc h2,.gold-smc h3,.gold-smc p{margin-top:0}
+.gsm-hero{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:26px 4px 30px}
+.gsm-eyebrow{font-size:.72rem;letter-spacing:.18em;color:var(--gsm-gold);font-weight:800}
+.gsm-hero h1{font-size:clamp(2.15rem,5vw,4rem);font-weight:800;line-height:1.09;letter-spacing:-.06em;margin:.6rem 0}
+.gsm-hero h1 em{font-style:normal;color:var(--gsm-gold)}
+.gsm-hero p{font-size:.9rem;color:var(--muted,#9ca3af);line-height:1.7;margin-bottom:0}
+.gsm-status{font-weight:750;font-size:.72rem;letter-spacing:.1em;border:1px solid var(--gsm-line);padding:11px 14px;border-radius:100px;white-space:nowrap}
+.gsm-panel{background:var(--gsm-bg);border:1px solid var(--gsm-line);border-radius:24px;overflow:hidden}
+.gsm-toolbar{display:flex;justify-content:space-between;align-items:end;flex-wrap:wrap;gap:16px;padding:22px;border-bottom:1px solid var(--gsm-line)}
+.gsm-toolbar label{display:flex;flex-direction:column;gap:8px;flex:1;min-width:min(100%,250px);font-size:.8rem;color:var(--muted)}
+.gsm-toolbar select{width:100%;max-width:440px;min-height:48px;background:var(--surface,#161616);border:1px solid var(--gsm-line);border-radius:12px;color:var(--gsm-text);font:inherit;padding:9px 12px}
+.gsm-actions{display:flex;gap:10px;flex-wrap:wrap}
+.gsm-actions button{min-height:44px;padding:9px 16px;border:1px solid var(--gsm-line);border-radius:12px;cursor:pointer;font-weight:750;color:var(--gsm-text);background:var(--surface,#151515)}
+.gsm-actions button:first-child{color:#080808;background:var(--gsm-gold);border-color:var(--gsm-gold)}
+.gsm-actions button:disabled{opacity:.5;cursor:not-allowed}
+.gsm-result{padding:clamp(16px,2.4vw,30px);min-height:185px}
+.gsm-signal{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;padding:20px;border:1px solid var(--gsm-line);border-radius:16px;background:var(--surface,#151515);margin-bottom:20px}
+.gsm-signal>div{display:flex;flex-direction:column;gap:6px}
+.gsm-signal small{font-size:.65rem;letter-spacing:.15em;color:var(--muted)}
+.gsm-signal strong{font-size:clamp(2.2rem,6vw,4rem);line-height:1;font-weight:850;letter-spacing:-.06em}
+.gsm-signal.buy strong{color:#23b884}.gsm-signal.sell strong{color:#eb737b}.gsm-signal.wait strong{color:var(--gsm-gold)}
+.gsm-signal span{font-size:.82rem}
+.gsm-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.gsm-sequence{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0 0 20px}
+.gsm-metric{display:flex;flex-direction:column;gap:8px;padding:18px;background:var(--surface,#151515);border:1px solid var(--gsm-line);border-radius:14px;min-width:0;overflow-wrap:anywhere}
+.gsm-metric span{font-size:.73rem;color:var(--muted)}
+.gsm-metric strong{font-size:clamp(.89rem,1.5vw,1.05rem);font-weight:750}
+.gsm-result h2{font-size:1.02rem;margin:25px 0 14px}
+.gsm-plan{margin-top:18px;border:1px solid var(--gsm-gold);padding:16px;border-radius:14px}
+.gsm-plan h3{font-size:.9rem;margin:0 0 15px}
+.gsm-plan .gsm-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.gsm-notice{color:var(--muted);font-size:.82rem;line-height:1.65;margin:16px 0;padding:13px 16px;background:var(--surface,#151515);border-radius:12px}
+.gsm-reasons{font-size:.9rem;line-height:1.7;padding-left:22px}
+.gsm-footer{padding:20px 4px;font-size:.82rem;color:var(--muted);line-height:1.8}
+.gsm-footer a{color:var(--gsm-gold);font-weight:650}
+.gsm-disclaimer{margin-bottom:12px}
+body.light .gold-smc{--gsm-gold:#8b6700}
+@media(max-width:730px){.gsm-hero{align-items:flex-start;flex-direction:column;padding-block:12px 20px}.gsm-grid,.gsm-sequence{grid-template-columns:repeat(2,minmax(0,1fr))}.gsm-toolbar{padding:16px}.gsm-actions{width:100%}.gsm-actions button{flex:1}}
+@media(max-width:410px){.gsm-grid,.gsm-sequence,.gsm-plan .gsm-grid{grid-template-columns:minmax(0,1fr)}.gsm-hero h1{font-size:2.35rem}}
+@media(prefers-reduced-motion:reduce){.gold-smc *{transition:none!important;animation:none!important}}

@@ -419,6 +419,7 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                             "ClaudeBot" -> ClaudeBotPage(api,bots,accounts,
                                 api.user?.optBoolean("active")==true || api.user?.str("role")=="admin")
                             "Claude Pro Bot" -> ClaudeProBotPage(api,onNavigate={screen=it})
+                            "Gold SMC Scalper" -> GoldSmcPage(api,bots,accounts)
                             "Account" -> AccountPage(api.user,panel,textColor,mutedColor,lightTheme,
                                 onNavigate={screen=it},onTheme=toggleTheme,onCheckUpdates={checkForUpdates()},
                                 onSignOut={
@@ -780,7 +781,7 @@ private fun NativeHeader(title:String,selected:JSONObject?,onBack:(()->Unit)?,on
                     Icon(Icons.Default.Menu,contentDescription="Open navigation menu",tint=textColor)
                 }
                 DropdownMenu(expanded=menuOpen,onDismissRequest={menuOpen=false}) {
-                    val items=listOf("Home","Markets","Trade","Bot","ClaudeBot","Claude Pro Bot","Account","MT5",
+                    val items=listOf("Home","Markets","Trade","Bot","ClaudeBot","Claude Pro Bot","Gold SMC Scalper","Account","MT5",
                         "Activity","Billing","Settings","Support")+(if(isAdmin)listOf("Admin") else emptyList())
                     items.forEach { destination->
                         DropdownMenuItem(text={Text(destination,
@@ -1117,6 +1118,7 @@ private fun AccountPage(user:JSONObject?,panel:Color,textColor:Color,muted:Color
             AccountRow(Icons.Default.AccountBalanceWallet,"MT5 accounts","Connections and broker status",onClick={onNavigate("MT5")})
             AccountRow(Icons.Default.AutoGraph,"ClaudeBot","Independent read-only trading signal analysis",onClick={onNavigate("ClaudeBot")})
             AccountRow(Icons.Default.AutoGraph,"Claude Pro Bot","Automatic signal analysis and MT5 demo controls",onClick={onNavigate("Claude Pro Bot")})
+            AccountRow(Icons.Default.AutoGraph,"Gold SMC Scalper","Read-only XAUUSD liquidity and structure research",onClick={onNavigate("Gold SMC Scalper")})
             AccountRow(Icons.Default.History,"Activity","Subscription and recent records",onClick={onNavigate("Activity")})
         }
         SectionTitle("App updates & support")

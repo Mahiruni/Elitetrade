@@ -245,6 +245,10 @@ class EliteApi(context: Context) {
     suspend fun previewBot(botId:String, poi:Boolean=false):JSONObject = withContext(Dispatchers.IO) {
         server("/api/bots/" + safeId(botId) + "/preview", "POST", JSONObject().put("poi",poi))
     }
+    /** Authenticated Gold SMC research only. There is deliberately no execution method. */
+    suspend fun previewGoldSmc(botId: String): JSONObject = withContext(Dispatchers.IO) {
+        server("/api/bots/" + safeId(botId) + "/preview", "POST", JSONObject().put("goldSmc",true))
+    }
     suspend fun payments(): JSONArray = withContext(Dispatchers.IO) { server("/api/payments").optJSONArray("payments") ?: JSONArray() }
     /** The production service is the source of truth for prices, wallet, network and invoice status. */
     suspend fun paymentMethods(): JSONObject = withContext(Dispatchers.IO) { server("/api/payment-methods") }
