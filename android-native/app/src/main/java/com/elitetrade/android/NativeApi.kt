@@ -275,6 +275,18 @@ class EliteApi(context: Context) {
     suspend fun eliteBridgeProtocolStatus(): JSONObject = withContext(Dispatchers.IO) {
         server("/api/elitebridge/protocol")
     }
+    /** Phase 4.2: only authenticated, device-verified, MFA-completed server
+     * users can list/manage devices. Never send private keys or service tokens.
+     */
+    suspend fun eliteBridgeDevices(): JSONArray = withContext(Dispatchers.IO) {
+        ensureMobileEngineSession()
+        server("/api/elitebridge/devices").optJSONArray("devices") ?: JSONArray()
+    }
+    suspend fun eliteBridgeDeviceDecision(deviceId:String,action:String): JSONObject = withContext(Dispatchers.IO) {
+        ensureMobileEngineSession()
+        if(action!="approve" && action!="revoke")throw ApiProblem("Unsupported device action.")
+        server("/api/elitebridge/devices/"+safeId(deviceId)+"/"+action,"POST",JSONObject())
+    }
     /** Owner-scoped read-only broker-DEMO connection and quote probe. */
     suspend fun eliteBridgeProbe(accountId:String,symbol:String="XAUUSDm"): JSONObject = withContext(Dispatchers.IO) {
         if(!accountId.matches(Regex("[0-9a-fA-F-]{36}")))throw ApiProblem("Invalid MT5 account selection.")
