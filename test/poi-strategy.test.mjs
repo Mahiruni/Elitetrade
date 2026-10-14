@@ -29,4 +29,23 @@ test('verified multi-timeframe source yields explainable WAIT without fabricated
   assert.ok(result.reasons.length>0);
 });
 test('stale and future quotes fail closed',()=>{
-  for(const time of [now-31000,now+6000])assert.throws(()=>evaluatePoiStrategy({...input,quote:{...input.quote,time:new Date(time).toISOString()}},no¶»§q«^
+  for(const time of [now-31000,now+6000])assert.throws(()=>evaluatePoiStrategy({...input,quote:{...input.quote,time:new Date(time).toISOString()}},now),/quote is stale/);
+});
+test('unverified account types, symbols and specifications are rejected',()=>{
+  assert.throws(()=>evaluatePoiStrategy({...input,accountType:'unverified'},now),/account type/);
+  assert.throws(()=>evaluatePoiStrategy({...input,symbol:'USDJPY'},now),/quote/);
+  assert.throws(()=>evaluatePoiStrategy({...input,spec:{symbol,point:0,digits:5}},now),/specification/);
+});
+test('missing or malformed broker candles are rejected rather than substituted',()=>{
+  assert.throws(()=>evaluatePoiStrategy({...input,timeframes:{...input.timeframes,m15:[]}},now),/insufficient/);
+  const corrupt={...input.timeframes,m5:input.timeframes.m5.map((c,i)=>i===7?{...c,high:c.low-1}:c)};
+  assert.throws(()=>evaluatePoiStrategy({...input,timeframes:corrupt},now),/invalid/);
+});
+test('gaps in the latest execution bars prevent analysis',()=>{
+  const gap={...input.timeframes,m5:input.timeframes.m5.filter((_,i)=>i!==77)};
+  assert.throws(()=>evaluatePoiStrategy({...input,timeframes:gap},now),/gap/);
+});
+test('future unfinished bars never enter an assessment',()=>{
+  const result=evaluatePoiStrategy({...input,timeframes:{...input.timeframes,m5:[...input.timeframes.m5,{...candle(now,90),high:99999}]}},now);
+  assert.equal(result.state,'WAIT');assert.equal(result.m5.closedAt,new Date(now).toISOString());
+});
