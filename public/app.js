@@ -7,6 +7,7 @@ import { mountHeroMarket } from './hero-market.js';
 import { androidDownloadPage, androidHomepageBanner, hydrateAndroidRelease } from './android-download.js';
 import { createClaudeBot } from './claude-bot.js';
 import { createClaudeProWorkspace } from './claude-pro-workspace.js';
+import { createGoldSmcWorkspace } from './gold-smc.js';
 // Retire the old language preference; all product labels are English.
 try { localStorage.removeItem('elite-language'); } catch {}
 const openingScreen = document.querySelector('#app-opening');
@@ -189,6 +190,7 @@ const supportUI = createSupportWorkspace({state,api,esc,date,toast});
 const workspaceUI = createWorkspace({state,api,esc,money,date,icon,btn,badge,heading,empty,stat,table});
 const claudeUI = createClaudeBot({state,api,esc,date});
 const claudeProUI = createClaudeProWorkspace({state,api});
+const goldSmcUI = createGoldSmcWorkspace({state,api,esc});
 function shell(content) {
   const path = location.pathname;
   const signature=JSON.stringify([state.user.id,state.user.name,state.user.role,state.user.active]);
@@ -198,11 +200,11 @@ function shell(content) {
     syncSnapshotStatus();syncOffline();return;
   }
   const mainLinks = [['/dashboard','home','Home'],['/markets','markets','Markets'],['/trade','trade','Trade'],['/bots','bot','Bots'],['/account','account','Account']];
-  const secondary = [['/download','download','Android app'],['/claudebot','bots','ClaudeBot'],['/claude-pro-bot','bots','Claude Pro Bot'],['/mt5','terminal','MT5 terminal'],['/activity','activity','Activity'],['/positions','pool','Positions'],['/notifications','shield','Notifications'],['/subscription','wallet','Payments & billing'],['/pool','pool','Live pool'],['/referrals','referrals','Referrals'],['/settings','settings','Settings'],['/support','support','Support']];
+  const secondary = [['/download','download','Android app'],['/claudebot','bots','ClaudeBot'],['/claude-pro-bot','bots','Claude Pro Bot'],['/gold-smc','trade','Gold SMC Scalper'],['/mt5','terminal','MT5 terminal'],['/activity','activity','Activity'],['/positions','pool','Positions'],['/notifications','shield','Notifications'],['/subscription','wallet','Payments & billing'],['/pool','pool','Live pool'],['/referrals','referrals','Referrals'],['/settings','settings','Settings'],['/support','support','Support']];
   if (state.user.role === 'admin') secondary.push(['/admin','shield','Administration'],['/admin/support','support','Support inbox']);
   const current = [...mainLinks,...secondary].find(([href]) => path === href || href === '/subscription' && path === '/subscribe');
   const accountArea = ['/account','/download','/mt5','/subscription','/subscribe','/settings','/pool','/referrals','/support','/admin','/admin/support','/notifications'].includes(path);
-  const activeMain = accountArea ? '/account' : ['/positions','/history'].includes(path) ? '/trade' : ['/claudebot','/claude-pro-bot'].includes(path) ? '/bots' : path;
+  const activeMain = accountArea ? '/account' : ['/positions','/history'].includes(path) ? '/trade' : ['/claudebot','/claude-pro-bot','/gold-smc'].includes(path) ? '/bots' : path;
   const navLink = ([href,i,title]) => `<a href="${href}" class="${current?.[0]===href?'active':''}" ${current?.[0]===href?'aria-current="page"':''}>${mainLinks.some(([link])=>link===href)?navigationIcon(i,current?.[0]===href):icon(i)}<span>${href==='/bots'?'Trading bots':title}</span></a>`;
   const initials = String(state.user.name || state.user.email || 'E').trim().split(/\s+/).slice(0,2).map(part => part[0]).join('').toUpperCase();
   const online = navigator.onLine;
@@ -540,6 +542,7 @@ async function render({ quiet = false, navigation = false } = {}) {
   supportUI.dispose();
   claudeUI.dispose();
   claudeProUI.dispose();
+  goldSmcUI.dispose();
   stopHeroMarket(); stopHeroMarket = () => {};
   const focused=document.activeElement;
   const restoreAction=quiet && focused?.dataset?.action ? {action:focused.dataset.action,id:focused.dataset.id}:null;
@@ -557,11 +560,11 @@ async function render({ quiet = false, navigation = false } = {}) {
   const pageShell = ['/', '/download', '/ebook'].includes(path) ? publicShell : state.user ? shell : publicShell;
   const snapshotRoutes=['/dashboard','/trade','/markets','/activity','/history','/positions','/notifications','/bots','/mt5'];
   const canShowSnapshot=(navigation || state.showingSnapshot) && state.user && snapshotRoutes.includes(path) && navigationData.has('/accounts') && (path==='/mt5'||navigationData.has('/bots'));
-  const titles={'/claude-pro-bot':'Claude Pro Bot','/claudebot':'ClaudeBot','/dashboard':'Overview','/trade':'Trade','/markets':'Markets','/activity':'Activity','/history':'Activity','/positions':'Positions','/notifications':'Notifications','/bots':'Trading bots','/mt5':'MT5 terminal','/subscription':'Your subscription','/subscribe':'Your subscription','/pool':'Live pool','/referrals':'Grow your network','/support':'Support','/admin':'Administration','/admin/support':'Support inbox'};
+  const titles={'/gold-smc':'Gold SMC Scalper','/claude-pro-bot':'Claude Pro Bot','/claudebot':'ClaudeBot','/dashboard':'Overview','/trade':'Trade','/markets':'Markets','/activity':'Activity','/history':'Activity','/positions':'Positions','/notifications':'Notifications','/bots':'Trading bots','/mt5':'MT5 terminal','/subscription':'Your subscription','/subscribe':'Your subscription','/pool':'Live pool','/referrals':'Grow your network','/support':'Support','/admin':'Administration','/admin/support':'Support inbox'};
   state.showingSnapshot=!!canShowSnapshot;state.snapshotError='';
   if (!quiet && !canShowSnapshot && !['/account','/settings','/','/download','/terms','/privacy','/risk-disclosure','/refund-policy','/cookies'].includes(path)) pageShell((titles[path]?heading(titles[path]):'')+'<div class="workspace-loading" role="status" aria-busy="true"><span class="sr-only">Loading your workspace…</span><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-account"></div><div class="skeleton-metrics"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div><div class="skeleton skeleton-panel"></div></div>');
   try {
-    const pages = { '/':marketingPage,'/download':()=>androidDownloadPage(icon),'/ebook':()=>ebookPage({state,api,esc,money,date,badge,form,field,btn}),'/terms':()=>legalPage('/terms'),'/privacy':()=>legalPage('/privacy'),'/risk-disclosure':()=>legalPage('/risk-disclosure'),'/refund-policy':()=>legalPage('/refund-policy'),'/cookies':()=>legalPage('/cookies'),'/dashboard':workspaceUI.home,'/claudebot':claudeUI.page,'/claude-pro-bot':claudeProUI.page,'/trade':workspaceUI.trade,'/markets':workspaceUI.markets,'/activity':workspaceUI.activity,'/history':workspaceUI.activity,'/positions':workspaceUI.positionsPage,'/notifications':workspaceUI.notifications,'/account':workspaceUI.accountPage,'/mt5':terminalPage,'/bots':botsPage,'/subscription':subscriptionPage,'/subscribe':subscriptionPage,'/pool':poolPage,'/referrals':referralsPage,'/settings':settingsPage,'/support':supportPage,'/admin':adminPage,'/admin/support':() => supportPage(true) };
+    const pages = { '/':marketingPage,'/download':()=>androidDownloadPage(icon),'/ebook':()=>ebookPage({state,api,esc,money,date,badge,form,field,btn}),'/terms':()=>legalPage('/terms'),'/privacy':()=>legalPage('/privacy'),'/risk-disclosure':()=>legalPage('/risk-disclosure'),'/refund-policy':()=>legalPage('/refund-policy'),'/cookies':()=>legalPage('/cookies'),'/dashboard':workspaceUI.home,'/claudebot':claudeUI.page,'/claude-pro-bot':claudeProUI.page,'/gold-smc':goldSmcUI.page,'/trade':workspaceUI.trade,'/markets':workspaceUI.markets,'/activity':workspaceUI.activity,'/history':workspaceUI.activity,'/positions':workspaceUI.positionsPage,'/notifications':workspaceUI.notifications,'/account':workspaceUI.accountPage,'/mt5':terminalPage,'/bots':botsPage,'/subscription':subscriptionPage,'/subscribe':subscriptionPage,'/pool':poolPage,'/referrals':referralsPage,'/settings':settingsPage,'/support':supportPage,'/admin':adminPage,'/admin/support':() => supportPage(true) };
     if(canShowSnapshot) {
       const previous=await pages[path]({snapshot:true});
       if(version!==state.version)return;
@@ -581,6 +584,7 @@ async function render({ quiet = false, navigation = false } = {}) {
     if(state.user && path.includes('support')) supportUI.mount();
     if(path==='/claudebot')claudeUI.mount();
     if(path==='/claude-pro-bot')void claudeProUI.mount();
+    if(path==='/gold-smc')void goldSmcUI.mount();
     if(navigation && document.activeElement===document.body)document.querySelector('#main')?.focus({preventScroll:true});
     if(restoreAction)[...root.querySelectorAll('[data-action]')].find(el=>el.dataset.action===restoreAction.action&&el.dataset.id===restoreAction.id)?.focus({preventScroll:true});
     if (path === '/ebook' && state.user) { try { sessionStorage.removeItem('elite-auth-return'); } catch {} }
