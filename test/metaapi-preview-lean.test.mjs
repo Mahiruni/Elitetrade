@@ -31,6 +31,14 @@ test('read-only preview avoids forced MT5 refresh, positions, orders and trading
  assert.ok(calls.every(c=>c.method==='GET' && !c.query.includes('refreshTerminalState=true')));
  assert.ok(!calls.some(c=>/\/(positions|orders|trade)$/.test(c.path)));
 });
+test('MetaApi accepts 1m preview candles without trading or forced refresh',async()=>{
+ const {gateway,calls}=mock();
+ await gateway.previewMarket(binding,'XAUUSD','1m');
+ assert.ok(calls.some(c=>c.path.includes('/timeframes/1m/candles')));
+ assert.ok(calls.some(c=>c.path.endsWith('/candles')));
+ assert.ok(calls.every(c=>c.method==='GET' && !c.query.includes('refreshTerminalState=true')));
+ assert.ok(!calls.some(c=>c.path.endsWith('/trade')));
+});
 test('execution market retains all fresh account/position/order risk reads',async()=>{
  const {gateway,calls}=mock();
  const p=await gateway.market(binding,'XAUUSD','5m');
