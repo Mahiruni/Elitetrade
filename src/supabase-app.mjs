@@ -13,6 +13,7 @@ import { createSupabaseData } from './supabase-data.mjs';
 import { engineReady } from './demo-engine.mjs';
 import { STRATEGIES,evaluateStrategy,planTrade } from './trading-strategies.mjs';
 import { evaluatePoiStrategy } from './poi-strategy.mjs';
+import { evaluateGoldSmc } from './gold-smc.mjs';
 import {USDT_DESTINATION,usdtAmount} from './tron-payments.mjs';
 import { EBOOK, sendEbook } from './ebook.mjs';
 import QRCode from 'qrcode';
@@ -589,6 +590,14 @@ export function createSupabaseApplication(options = {}) {
       if(!gateway?.market)fail(503,'Configure MetaApi before previewing broker data.');
       const account=await db.one('elitetrade_accounts',`id=eq.${q(bot.account_id)}&user_id=eq.${q(ctx.user.id)}&select=gateway_id,status`,ctx.token);
       if(!account?.gateway_id||account.status!=='connected')fail(409,'Confirm the MT5 connection first.');
+      if(body?.goldSmc === true) {
+        if(typeof gateway.poiMarket!=='function')fail(503,'Verified MT5 multi-timeframe candles are unavailable.');
+        rateLimit('gold-smc:'+ctx.user.id,4,60000);
+        const market=await gateway.poiMarket(account.gateway_id,bot.symbol);
+        const accountType=market.info.type==='ACCOUNT_TRADE_MODE_DEMO'?'demo':market.info.type==='ACCOUNT_TRADE_MODE_REAL'?'real':null;
+        const goldSmc=evaluateGoldSmc({symbol:bot.symbol,quote:market.quote,spec:market.spec,timeframes:market.timeframes,accountType});
+        return json(res,{goldSmc,message:'Verified read-only MT5 research. No order placed.'});
+      }
       if(body?.poi === true) {
         if(typeof gateway.poiMarket!=='function')fail(503,'The configured MT5 gateway does not support verified multi-timeframe history.');
         rateLimit('poi:'+ctx.user.id,6,60000);
@@ -875,7 +884,7 @@ export function createSupabaseApplication(options = {}) {
   }
 
   const publicPath = resolve(options.publicPath || new URL('../public/', import.meta.url).pathname);
-  const pages = new Set(['/', '/download', '/ebook', '/login', '/signup', '/forgot-email', '/forgot-password', '/verify-device', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/dashboard', '/claudebot', '/claude-pro-bot', '/trade', '/markets', '/activity', '/positions', '/history', '/notifications', '/account', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
+  const pages = new Set(['/', '/download', '/ebook', '/login', '/signup', '/forgot-email', '/forgot-password', '/verify-device', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/dashboard', '/claudebot', '/claude-pro-bot', '/gold-smc', '/trade', '/markets', '/activity', '/positions', '/history', '/notifications', '/account', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
   const server = createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -943,6 +952,8 @@ export function createSupabaseApplication(options = {}) {
       files['/claude-bot.js'] = ['claude-bot.js','text/javascript'];
       files['/claude-bot.css'] = ['claude-bot.css','text/css'];
       files['/claude-pro-workspace.js'] = ['claude-pro-workspace.js','text/javascript'];
+      files['/gold-smc.js'] = ['gold-smc.js','text/javascript'];
+      files['/gold-smc.css'] = ['gold-smc.css','text/css'];
       files['/claude-pro-bot.js'] = ['claude-pro-bot.js','text/javascript'];
       files['/claude-pro-bot.css'] = ['claude-pro-bot.css','text/css'];
       files['/fonts/inter-latin.woff2'] = ['fonts/inter-latin.woff2','font/woff2'];
