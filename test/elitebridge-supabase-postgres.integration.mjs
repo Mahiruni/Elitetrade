@@ -10,7 +10,7 @@ const url=process.env.ELITEBRIDGE_CI_POSTGRES_URL;
 if(!url||!/^postgres(?:ql)?:\/\/.*@(?:127\.0\.0\.1|localhost):5432\/elitebridge_ci$/.test(url))
   throw new Error('Must use the local disposable elitebridge_ci PostgreSQL service only.');
 const source=path=>readFileSync(new URL(path,import.meta.url),'utf8');
-const hex=()=>randomUUID().replace(/-/g,'')+randomUUID().replace(/-/g,'').slice(0,0);
+const hex=()=>randomUUID().replace(/-/g,'');
 const owner=randomUUID(),foreign=randomUUID(),admin=randomUUID(),account=randomUUID(),
   phone=randomUUID(),backupPhone=randomUUID();
 const key=generateKeyPairSync('ed25519').publicKey.export({format:'der',type:'spki'});
@@ -31,7 +31,7 @@ test('real PostgreSQL 16: Supabase EliteBridge migration authorization and durab
      await client.query('SET LOCAL ROLE '+role);
      const response=await client.query(sql,parameters);
      await client.query('COMMIT');
-     return response.rows[0]?.result??response.rows;
+     return response.rows[0] ? response.rows[0].result : response.rows;
    }catch(error){
      await client.query('ROLLBACK').catch(()=>{});
      throw error;
