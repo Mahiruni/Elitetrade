@@ -16,6 +16,9 @@ const owner=randomUUID(),foreign=randomUUID(),admin=randomUUID(),account=randomU
 const key=generateKeyPairSync('ed25519').publicKey.export({format:'der',type:'spki'});
 const publicKeySpki=key.toString('base64url');
 const fingerprint=createHash('sha256').update(key).digest('hex');
+const backupKey=generateKeyPairSync('ed25519').publicKey.export({format:'der',type:'spki'});
+const backupSpki=backupKey.toString('base64url');
+const backupFingerprint=createHash('sha256').update(backupKey).digest('hex');
 
 test('real PostgreSQL 16: Supabase EliteBridge migration authorization and durable replay',async t=>{
  const pool=new pg.Pool({connectionString:url,max:8,connectionTimeoutMillis:8000});
@@ -99,7 +102,8 @@ test('real PostgreSQL 16: Supabase EliteBridge migration authorization and durab
    assert.deepEqual(audit.rows.map(r=>r.kind),['terminal.heartbeat','terminal.heartbeat']);
  });
  await t.test('one approved terminal at a time; revocation prevents further claims',async()=>{
-   assert.equal(await stage(owner,account,backupPhone),true);
+   await assert.rejects(stage(owner,account,backupPhone),e=>e.code==='23505');
+   assert.equal(await stage(owner,account,backupPhone,backupSpki,backupFingerprint),true);
    await assert.rejects(approve(admin,backupPhone),e=>e.code==='23505');
    assert.equal(await revoke(foreign,phone),false);
    assert.equal(await revoke(owner,phone),true);
