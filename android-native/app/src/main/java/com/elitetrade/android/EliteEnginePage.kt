@@ -46,11 +46,22 @@ fun EliteEnginePage(api:EliteApi,context:Context){
     }
     LaunchedEffect(Unit){
         load()
+        var checkCount=0
         while(true){
             running=EliteEngineSession.running
             lastSuccess=EliteEngineSession.lastHeartbeatMillis
             cycles=EliteEngineSession.successfulCycles
             detail=EliteEngineSession.lastMessage
+            // Fetch backend confirmation regularly. Phone-local success alone
+            // does not prove that Supabase still sees a fresh worker heartbeat.
+            if(checkCount%15==0&&checkCount>0){
+                try{
+                    val server=api.mobileEngineStatus()
+                    ready=server.optBoolean("ready")
+                    enabled=server.optBoolean("enabled")
+                }catch(_:Exception){ready=false}
+            }
+            checkCount++
             delay(2000)
         }
     }
@@ -62,8 +73,8 @@ fun EliteEnginePage(api:EliteApi,context:Context){
         Text("Your Android phone runs the foreground monitoring session. Broker verification, risk control and any DEMO orders remain on EliteTrade's private backend.",color=muted,fontSize=13.sp)
         ElevatedCard{
             Column(Modifier.fillMaxWidth().padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
-                Text(if(fresh)"● HEARTBEAT ONLINE" else if(running)"● CONNECTING / STALE" else "○ STOPPED",
-                    color=if(fresh)Color(0xFF34D399) else gold,fontWeight=FontWeight.Bold)
+                Text(if(fresh&&ready)"● ENGINE ONLINE · SERVER CONFIRMED" else if(running&&fresh)"● PHONE ACTIVE · VERIFYING SERVER" else if(running)"● CONNECTION STALE" else "○ STOPPED",
+                    color=if(fresh&&ready)Color(0xFF34D399) else gold,fontWeight=FontWeight.Bold)
                 Text(detail,color=muted,fontSize=12.sp)
                 Text("Successful cycles: $cycles",fontSize=12.sp)
                 Text(if(lastSuccess==0L)"No successful phone heartbeat" else
@@ -74,7 +85,7 @@ fun EliteEnginePage(api:EliteApi,context:Context){
         Text("Private server connection",fontWeight=FontWeight.Bold)
         Text(if(enabled)"Broker DEMO engine: server configured" else "Backend not enabled: MOBILE_DEMO_ENGINE_ENABLED must be enabled on Vercel before starting.",
             color=if(enabled)Color(0xFF34D399) else gold,fontSize=12.sp)
-        Text(if(ready)"Recent server worker heartbeat detected" else "No fresh server worker heartbeat",color=muted,fontSize=12.sp)
+        Text(if(ready)"Server confirms a fresh demo worker heartbeat" else "Server has not confirmed a recent worker heartbeat. Starting a bot will be blocked until it is fresh.",color=muted,fontSize=12.sp)
         OutlinedButton(onClick={load()},enabled=!loading,modifier=Modifier.fillMaxWidth()){
             Icon(Icons.Default.Refresh,contentDescription=null)
             Spacer(Modifier.width(8.dp))
