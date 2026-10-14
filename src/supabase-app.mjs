@@ -503,6 +503,19 @@ export function createSupabaseApplication(options = {}) {
       return json(res, { ok:true, message:'MT5 details saved for administrator review. Connection is not active yet.' }, 201);
     }
 
+    const accountSymbols = path.match(/^\/api\/accounts\/([^/]+)\/symbols$/);
+    if (accountSymbols && method === 'GET') {
+      const ctx=await needUser(req);
+      if(gateway?.mode!=='account-data'||typeof gateway.goldSymbols!=='function')fail(503,'Broker symbol lookup requires MetaApi account-data access.');
+      rateLimit('gold-symbols:'+ctx.user.id,3,300000);
+      const account=await db.one('elitetrade_accounts',
+        `id=eq.${q(accountSymbols[1])}&user_id=eq.${q(ctx.user.id)}&select=id,gateway_id,status`,ctx.token);
+      if(!account?.gateway_id||account.status!=='connected')fail(409,'Confirm the MT5 connection before checking symbols.');
+      const requestedSymbol=url.searchParams.get('symbol') || 'XAUUSD';
+      if(!/^[A-Za-z0-9._-]{3,30}$/.test(requestedSymbol))fail(400,'Invalid broker instrument.');
+      return json(res,await gateway.goldSymbols(account.gateway_id,requestedSymbol));
+    }
+
     const accountDelete = path.match(/^\/api\/accounts\/([^/]+)$/);
     if (accountDelete && method === 'DELETE') {
       const ctx = await needUser(req);
