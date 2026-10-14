@@ -71,8 +71,8 @@ class EliteApi(context: Context) {
         private set
     private var supabaseUrl = ""
     private var publishableKey = ""
-    private var accessToken = ""
-    private var refreshToken = ""
+    @Volatile private var accessToken = ""
+    @Volatile private var refreshToken = ""
     private var claudeConnectionMode = ""
     var user: JSONObject? = null
         private set
@@ -148,10 +148,44 @@ class EliteApi(context: Context) {
     }
 
     /** Returns true only after production verifies both Auth and this device. */
+    // Refresh the signed-in user's JWT before expiry so monitoring does not
+    // stop after a normal ~1h Supabase session. The device proof is rechecked
+    // by the existing /api/auth/supabase-session endpoint.
+    private var accessExpiryMillis=0L
+
+    private fun jwtExpiryMillis(jwt:String):Long {
+        return try {
+            val payload=jwt.split(".").getOrNull(1) ?: return 0L
+            val bytes=android.util.Base64.decode(payload,
+                android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING)
+            JSONObject(String(bytes,Charsets.UTF_8)).optLong("exp",0L)*1000L
+        }catch(_:Exception){0L}
+    }
+
+    @Synchronized private fun ensureMobileEngineSession(){
+        if(user==null||accessToken.isBlank()||needsMfa||needsDeviceVerification)
+            throw ApiProblem("Sign in and verify this device to use Elite Engine.")
+        if(System.currentTimeMillis()<accessExpiryMillis-120_000L)return
+        val saved=vault.read() ?: throw ApiProblem("Sign in again; session expired.")
+        if(supabaseUrl.isBlank()||publishableKey.isBlank())
+            throw ApiProblem("Sign in again to renew your session.")
+        val renewed=try {
+            auth("token?grant_type=refresh_token",JSONObject().put("refresh_token",saved))
+        }catch(e:ApiProblem){
+            val msg=e.message.orEmpty().lowercase()
+            if(msg.contains("expired")||msg.contains("invalid")||msg.contains("revoked"))
+                throw ApiProblem("Sign in again; session expired.")
+            throw e
+        }
+        if(!acceptSession(renewed))
+            throw ApiProblem("Device verification required. Sign in again before monitoring.")
+    }
+
     private fun acceptSession(result: JSONObject): Boolean {
         accessToken = result.optString("access_token")
         refreshToken = result.optString("refresh_token")
         if (accessToken.isBlank()) throw ApiProblem("Email confirmation may be required.")
+        accessExpiryMillis=jwtExpiryMillis(accessToken)
         val session = server("/api/auth/supabase-session", "POST",
             JSONObject().put("accessToken", accessToken))
         needsMfa = session.optBoolean("requiresMfa")
@@ -235,8 +269,14 @@ class EliteApi(context: Context) {
     suspend fun accounts(): JSONArray = withContext(Dispatchers.IO) { server("/api/accounts").optJSONArray("accounts") ?: JSONArray() }
     suspend fun bots(): JSONArray = withContext(Dispatchers.IO) { server("/api/bots").optJSONArray("bots") ?: JSONArray() }
     /** No privileged keys in Android: requests use the verified member session. */
-    suspend fun mobileEngineStatus(): JSONObject = withContext(Dispatchers.IO) { server("/api/engine/mobile/status") }
-    suspend fun mobileEnginePulse(): JSONObject = withContext(Dispatchers.IO) { server("/api/engine/mobile/tick","POST",JSONObject()) }
+    suspend fun mobileEngineStatus(): JSONObject = withContext(Dispatchers.IO) {
+        ensureMobileEngineSession()
+        server("/api/engine/mobile/status")
+    }
+    suspend fun mobileEnginePulse(): JSONObject = withContext(Dispatchers.IO) {
+        ensureMobileEngineSession()
+        server("/api/engine/mobile/tick","POST",JSONObject())
+    }
     suspend fun claudeProBots(): JSONObject = withContext(Dispatchers.IO) { server("/api/bots") }
     /** Bootstrap contains display data only, never access/refresh tokens or device cookies. */
     fun claudeProBootstrap(): String {
@@ -306,7 +346,7 @@ class EliteApi(context: Context) {
         try {
             if (accessToken.isNotBlank()) request(supabaseUrl + "/auth/v1/logout", "POST", JSONObject(), true)
         } catch (_: Exception) {}
-        accessToken = ""; refreshToken = ""; user = null
+        accessToken = ""; refreshToken = ""; accessExpiryMillis=0L; user = null
         needsDeviceVerification = false; needsMfa = false; deviceEmail = ""
         deviceCookie = null; vault.clear(); vault.clear("device")
     }

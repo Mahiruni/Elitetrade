@@ -4,12 +4,17 @@ import android.app.*
 import android.content.*
 import android.content.pm.ServiceInfo
 import android.os.*
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 
 /** Ephemeral same-process bridge. No service-role key or MetaApi token is embedded or persisted. */
 internal object EliteEngineSession {
     @Volatile var api:EliteApi?=null
     @Volatile var running=false
+    @Volatile var internetAvailable=false
     @Volatile var lastHeartbeatMillis=0L
     @Volatile var lastMessage="Stopped"
     @Volatile var successfulCycles=0
@@ -31,6 +36,9 @@ class EliteEngineService:Service() {
     }
     private val scope=CoroutineScope(SupervisorJob()+Dispatchers.IO)
     private var job:Job?=null
+    private val networkWakeup=Channel<Unit>(Channel.CONFLATED)
+    private var connectivityManager:ConnectivityManager?=null
+    private var networkCallback:ConnectivityManager.NetworkCallback?=null
     override fun onBind(intent:Intent?):IBinder?=null
     override fun onCreate(){
         super.onCreate()
@@ -51,6 +59,29 @@ class EliteEngineService:Service() {
         EliteEngineSession.lastMessage=text.take(180)
         getSystemService(NotificationManager::class.java).notify(NOTIFICATION,notice(text))
     }
+    /** Validated internet, not merely a connected Wi-Fi network with no upstream. */
+    private fun refreshConnectivity(){
+        val manager=connectivityManager ?: return
+        val capabilities=manager.getNetworkCapabilities(manager.activeNetwork)
+        EliteEngineSession.internetAvailable=
+            capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)==true &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        networkWakeup.trySend(Unit)
+    }
+    private fun registerNetworkWatch(){
+        val manager=getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        connectivityManager=manager
+        val callback=object:ConnectivityManager.NetworkCallback(){
+            override fun onAvailable(network:Network){refreshConnectivity()}
+            override fun onLost(network:Network){refreshConnectivity()}
+            override fun onCapabilitiesChanged(network:Network,capabilities:NetworkCapabilities){
+                refreshConnectivity()
+            }
+        }
+        networkCallback=callback
+        manager.registerDefaultNetworkCallback(callback)
+        refreshConnectivity()
+    }
     override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int {
         if(intent?.action==STOP){ stopSelf();return START_NOT_STICKY }
         val api=EliteEngineSession.api
@@ -59,42 +90,73 @@ class EliteEngineService:Service() {
             if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.Q)
                 startForeground(NOTIFICATION,notice("Connecting to DEMO backend…"),ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
             else startForeground(NOTIFICATION,notice("Connecting to DEMO backend…"))
-        }catch(e:Exception){ EliteEngineSession.lastMessage="Android denied foreground service.";stopSelf();return START_NOT_STICKY }
+            if(networkCallback==null)registerNetworkWatch()
+        }catch(e:Exception){
+            EliteEngineSession.lastMessage="Stopped · Android denied network foreground monitoring."
+            stopSelf()
+            return START_NOT_STICKY
+        }
         if(job?.isActive==true)return START_NOT_STICKY
         EliteEngineSession.running=true
         EliteEngineSession.successfulCycles=0
         job=scope.launch {
             var consecutiveErrors=0
             while(isActive){
+                if(!EliteEngineSession.internetAvailable){
+                    update("Internet offline · DEMO monitoring paused; auto-resumes while active")
+                    networkWakeup.receive()
+                    continue
+                }
                 try {
                     val reply=api.mobileEnginePulse()
                     if(!reply.optBoolean("ok")||reply.optString("mode")!="broker-demo-only")
-                        throw ApiProblem("No DEMO heartbeat acknowledgement.")
+                        throw ApiProblem("DEMO backend did not acknowledge monitoring.")
                     consecutiveErrors=0
                     EliteEngineSession.lastHeartbeatMillis=System.currentTimeMillis()
                     EliteEngineSession.successfulCycles++
-                    update(if(reply.optBoolean("armed"))"Demo bot monitoring · server verified" else "Connected · no bots armed")
+                    update(if(reply.optBoolean("armed"))"DEMO bot monitoring · backend verified" else "Connected · no bots armed")
+                    withTimeoutOrNull(45_000L){networkWakeup.receive()}
                 }catch(e:CancellationException){throw e}
                 catch(e:Exception){
-                    consecutiveErrors++
-                    update("Backend unavailable · failed heartbeat $consecutiveErrors/3")
-                    if(consecutiveErrors>=3) {
-                        EliteEngineSession.lastMessage="Stopped after backend failures; check Elite Engine."
+                    val cause=(e.message ?: "").lowercase()
+                    // Expired/revoked account and device-authorization failures
+                    // require a deliberate sign-in, not unattended retries.
+                    if(listOf("sign in","authentication","jwt","session expired",
+                        "verify this","device verification","administrator",
+                        "two-factor","not configured").any{cause.contains(it)}){
+                        EliteEngineSession.lastMessage="Stopped · sign in or verify this device to resume."
                         stopSelf()
                         break
                     }
+                    consecutiveErrors++
+                    update("Backend/provider unavailable · retrying when connected")
+                    // Retry is bounded; never spin or keep a falsely healthy
+                    // heartbeat when requests are failing.
+                    val waitMs=(45_000L*(1L shl consecutiveErrors.coerceAtMost(2))).coerceAtMost(300_000L)
+                    withTimeoutOrNull(waitMs){networkWakeup.receive()}
                 }
-                delay(45_000L)
             }
         }
         return START_NOT_STICKY
     }
+    /** Android 15+ limits background dataSync service runtime. Stop cleanly. */
+    override fun onTimeout(startId:Int,fgsType:Int){
+        EliteEngineSession.lastMessage="Stopped by Android background time limit · reopen Elite Engine."
+        stopSelf(startId)
+    }
     override fun onDestroy(){
-        job?.cancel();scope.cancel()
+        job?.cancel()
+        networkCallback?.let {
+            try {connectivityManager?.unregisterNetworkCallback(it)} catch(_:Exception){}
+        }
+        networkCallback=null
+        connectivityManager=null
+        scope.cancel()
         EliteEngineSession.running=false
+        EliteEngineSession.internetAvailable=false
         EliteEngineSession.api=null
-        if(!EliteEngineSession.lastMessage.startsWith("Stopped after"))
-            EliteEngineSession.lastMessage="Stopped · any existing broker positions remain on MT5"
+        if(!EliteEngineSession.lastMessage.startsWith("Stopped"))
+            EliteEngineSession.lastMessage="Stopped · existing broker positions remain on MT5"
         super.onDestroy()
     }
 }
