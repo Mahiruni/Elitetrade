@@ -20,6 +20,12 @@ function requestOperation(path, method) {
   if (route === '/users/current/accounts') return method === 'POST' ? 'create-account' : 'list-accounts';
   if (route.endsWith('/deploy')) return 'deploy-account';
   if (route.endsWith('/account-information')) return 'account-information';
+  if (/\/symbols\/[^/]+\/current-price$/.test(route)) return 'symbol-price';
+  if (/\/symbols\/[^/]+\/specification$/.test(route)) return 'symbol-specification';
+  if (/\/historical-market-data\/symbols\/[^/]+\/timeframes\/[^/]+\/candles$/.test(route)) return 'historical-candles';
+  if (/\/accounts\/[^/]+\/symbols$/.test(route)) return 'symbol-list';
+  if (/\/accounts\/[^/]+\/positions$/.test(route)) return 'positions';
+  if (/\/accounts\/[^/]+\/orders$/.test(route)) return 'orders';
   if (/^\/users\/current\/accounts\/[^/]+$/.test(route)) return method === 'DELETE' ? 'delete-account' : 'read-account';
   return 'account-request';
 }
@@ -44,6 +50,18 @@ async function providerFailure(response, path, method) {
   else if (response.status === 401) message = 'MetaApi rejected the API token. Replace METAAPI_TOKEN with a valid API token in Vercel Production, then redeploy.';
   else if (response.status === 403) message = 'MetaApi access was denied. Check the server-side token permissions and provider account restrictions in the MetaApi dashboard.';
   else if (response.status === 429) message = 'MetaApi rate limit reached. Wait before retrying.';
+  else if (response.status === 404) {
+    if (['symbol-price','symbol-specification','historical-candles'].includes(operation))
+      message = 'MetaApi cannot retrieve this broker instrument right now (HTTP 404). The symbol may have a suffix or may not be subscribed; select Check broker symbols and use the exact broker name. A newly connected account may also need time to initialize.';
+    else if (operation === 'symbol-list')
+      message = 'MetaApi cannot read this account\'s symbol list yet (HTTP 404). Confirm the account is Connected in MetaApi and retry later.';
+    else if (operation === 'read-account')
+      message = 'MetaApi cannot find the hosted account. Confirm it still exists and is deployed in the provider dashboard.';
+    else
+      message = 'MetaApi reports this broker resource is not available (HTTP 404). Check account provisioning and symbol access in MetaApi.';
+  }
+  else if ([500,502,503,504].includes(response.status))
+    message = `MetaApi ${operation.replaceAll('-',' ')} is temporarily unavailable (HTTP ${response.status}). The MT5 connection is not necessarily lost. Retry after the provider recovers.`;
   else if (response.status === 400) {
     if (operation === 'create-account' && providerErrors.has(code)) message = `${providerErrors.get(code)} (${code})`;
     else message = `MetaApi rejected the ${operation.replaceAll('-',' ')} request (HTTP 400). Check the MetaApi dashboard; the server recorded a safe diagnostic. This response does not confirm that the password is wrong.`;
@@ -175,6 +193,18 @@ export function createMetaApiGateway(env, fetchImpl = fetch) {
       const info=await figures(id,hosted);
       if (info.type !== 'ACCOUNT_TRADE_MODE_DEMO') throw error('Only a broker-verified DEMO account can be imported using this action.',409);
       return {accountId:id,connected:true,tradingAllowed:info.tradeAllowed === true && info.investorMode === false};
+    },
+    // Read-only broker symbol discovery. Do not infer or auto-substitute an instrument.
+    async goldSymbols(id,requestedSymbol='XAUUSD') {
+      if(!/^[A-Za-z0-9._-]{3,30}$/.test(requestedSymbol))throw error('Invalid symbol.',400);
+      const account=await metadata(id),info=await figures(id,account);
+      if(info.type!=='ACCOUNT_TRADE_MODE_DEMO')throw error('A broker-verified DEMO account is required.',403);
+      const {remoteId}=parse(id);
+      const symbols=await call(`https://mt-client-api-v1.${account.region}.agiliumtrade.ai`,`/users/current/accounts/${remoteId}/symbols`);
+      if(!Array.isArray(symbols)||symbols.length>50000||symbols.some(s=>typeof s!=='string'))throw error('MetaApi returned an invalid broker symbol list.');
+      const exactAvailable=symbols.includes(requestedSymbol);
+      const goldSymbols=[...new Set(symbols.filter(s=>/^(?:XAU|GOLD)[A-Za-z0-9._-]{0,26}$/i.test(s)))].sort((a,b)=>a.localeCompare(b)).slice(0,40);
+      return {requestedSymbol,exactAvailable,goldSymbols,accountType:'demo',executionEnabled:false};
     },
     async snapshot(id) {
       const account=await metadata(id),info=await figures(id,account);
