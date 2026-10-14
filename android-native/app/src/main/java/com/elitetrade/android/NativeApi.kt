@@ -234,6 +234,9 @@ class EliteApi(context: Context) {
 
     suspend fun accounts(): JSONArray = withContext(Dispatchers.IO) { server("/api/accounts").optJSONArray("accounts") ?: JSONArray() }
     suspend fun bots(): JSONArray = withContext(Dispatchers.IO) { server("/api/bots").optJSONArray("bots") ?: JSONArray() }
+    /** No privileged keys in Android: requests use the verified member session. */
+    suspend fun mobileEngineStatus(): JSONObject = withContext(Dispatchers.IO) { server("/api/engine/mobile/status") }
+    suspend fun mobileEnginePulse(): JSONObject = withContext(Dispatchers.IO) { server("/api/engine/mobile/tick","POST",JSONObject()) }
     suspend fun claudeProBots(): JSONObject = withContext(Dispatchers.IO) { server("/api/bots") }
     /** Bootstrap contains display data only, never access/refresh tokens or device cookies. */
     fun claudeProBootstrap(): String {
