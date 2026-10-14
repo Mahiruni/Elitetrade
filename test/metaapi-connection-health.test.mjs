@@ -43,6 +43,7 @@ test('connected verified demo provides current broker state without enabling ord
  assert.equal(state.brokerVerified,true);
  assert.equal(state.accountType,'demo');
  assert.equal(state.tradeAllowed,true);
+ assert.deepEqual(state.accountFigures,{balance:10000,equity:10000,currency:'USD'});
  assert.equal(state.executionEnabled,false);
  assert.ok(calls.every(c=>c.method==='GET'&&!c.path.endsWith('/trade')));
 });

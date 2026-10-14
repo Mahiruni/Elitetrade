@@ -478,8 +478,19 @@ export function createSupabaseApplication(options = {}) {
         `user_id=eq.${q(ctx.user.id)}&select=id,user_id,broker,login,server,gateway_id,status,note,created_at&order=created_at.desc`, ctx.token);
       const result = [];
       for (const account of rows) {
-        const safe = safeAccount(account);
-        if (gateway && account.gateway_id && ['connected','unknown','disconnected'].includes(account.status)) {
+        // Expose only an allowlisted provider-link boolean, never the hosted
+        // MetaApi identifier. The UI can run its already owner-scoped live
+        // connection check without learning third-party resource IDs.
+        const safe = {...safeAccount(account),
+          hostedLinked:/^metaapi(?:-existing)?:/.test(String(account.gateway_id||''))};
+        // Fast MT5 screen load: avoid blocking the entire page on an
+        // upstream MetaApi timeout. Live status is checked on demand.
+        if(url.searchParams.get('fast')==='1' && safe.hostedLinked &&
+           ['connected','unknown','disconnected'].includes(account.status)){
+          safe.savedStatus=account.status;
+          safe.status='unknown';
+          safe.note='Hosted link saved. Check Live MT5 to verify the current broker connection.';
+        } else if (gateway && account.gateway_id && ['connected','unknown','disconnected'].includes(account.status)) {
           try {
             const snapshot = await gateway.snapshot(account.gateway_id);
             safe.snapshot = {

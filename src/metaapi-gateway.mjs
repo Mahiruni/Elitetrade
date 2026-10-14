@@ -217,6 +217,10 @@ export function createMetaApiGateway(env, fetchImpl = fetch) {
       try {
         const info=await figures(id,hosted);
         return {...base,brokerVerified:true,accountType:info.type==='ACCOUNT_TRADE_MODE_DEMO'?'demo':'real',
+          // Values come from the just-verified live account-information
+          // response; avoid a second upstream read and never use these
+          // figures as an order or bot-arming authorization.
+          accountFigures:{balance:info.balance,equity:info.equity,currency:info.currency},
           tradeAllowed:info.tradeAllowed===true&&info.investorMode===false,
           message:info.type==='ACCOUNT_TRADE_MODE_DEMO'?
             'MetaApi hosting and broker account data are connected. This is a verified demo account; demo worker and risk checks are still required for orders.':
