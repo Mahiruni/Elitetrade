@@ -76,7 +76,7 @@ try {
   assert.equal(await page.getByRole('dialog').count(),0);
   // Real expiry is checked against Date.now, including time spent outside the foreground.
   await page.clock.install();await page.clock.fastForward(21000);
-  await cp().getByText('Entry window closed',{exact:true}).waitFor();
+  await cp().getByText('Analysis expired',{exact:true}).waitFor();
   assert.ok(await cp().getByRole('button',{name:'Open',exact:true}).isDisabled());
   await cp().getByRole('button',{name:'New',exact:true}).click();
   assert.equal(await cp().getByRole('button',{name:'15 sec',exact:true}).getAttribute('aria-pressed'),'true');
