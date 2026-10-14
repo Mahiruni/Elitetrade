@@ -11,6 +11,7 @@ import { digest, token, cookies } from './security.mjs';
 import { createGateway, createTelegram } from './services.mjs';
 import { createSupabaseData } from './supabase-data.mjs';
 import { engineReady } from './demo-engine.mjs';
+import {eliteBridgeStatus} from './elitebridge.mjs';
 import { mobileEnginePulse } from './mobile-demo-engine.mjs';
 import { loadSelectedDemoAccount } from './demo-account-access.mjs';
 import { STRATEGIES,evaluateStrategy,planTrade } from './trading-strategies.mjs';
@@ -555,6 +556,17 @@ export function createSupabaseApplication(options = {}) {
       await db.remove('elitetrade_accounts', `id=eq.${q(account.id)}&user_id=eq.${q(ctx.user.id)}`, ctx.token);
       await audit(ctx, 'account.delete', account.id);
       return json(res, { ok:true });
+    }
+
+    if (path === '/api/elitebridge/status' && method === 'GET') {
+      // Read-only status for the signed-in, device-verified owner. No provider
+      // credentials, hosted account identifiers or MT5 login numbers leave
+      // the server. This route never invokes an MT5 trading method.
+      const ctx=await needUser(req);
+      const accounts=await db.query('elitetrade_accounts',
+        `user_id=eq.${q(ctx.user.id)}&select=id,broker,login,gateway_id,status&limit=30`,ctx.token);
+      const ready=gateway?.mode==='account-data' ? await engineReady(db,ctx.token) : false;
+      return json(res,eliteBridgeStatus({gateway,accounts,workerReady:ready}));
     }
 
     if (path === '/api/engine/mobile/status' && method === 'GET') {

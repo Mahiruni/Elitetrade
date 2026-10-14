@@ -268,6 +268,10 @@ class EliteApi(context: Context) {
 
     suspend fun accounts(): JSONArray = withContext(Dispatchers.IO) { server("/api/accounts").optJSONArray("accounts") ?: JSONArray() }
     suspend fun bots(): JSONArray = withContext(Dispatchers.IO) { server("/api/bots").optJSONArray("bots") ?: JSONArray() }
+    /** Read-only provider registry: no provider tokens or MT5 order fields. */
+    suspend fun eliteBridgeStatus(): JSONObject = withContext(Dispatchers.IO) {
+        server("/api/elitebridge/status")
+    }
     /** No privileged keys in Android: requests use the verified member session. */
     suspend fun mobileEngineStatus(): JSONObject = withContext(Dispatchers.IO) {
         ensureMobileEngineSession()
