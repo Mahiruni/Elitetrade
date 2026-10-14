@@ -8,7 +8,7 @@ import {fileURLToPath} from 'node:url';
 
 export const TARGET={
   database:'elitebridge_postgres_dev',
-  user:'elitebridge_postgres_dev_user',
+  user:'elitebridge_dev_v2',
   hostPrefix:'dpg-db7vjjnavr4c73bke1pg-a.',
   region:'frankfurt'
 };
