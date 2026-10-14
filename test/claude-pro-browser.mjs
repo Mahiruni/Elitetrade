@@ -58,7 +58,7 @@ try {
   await page.getByRole('dialog',{name:'Choose an asset'}).getByRole('textbox',{name:'Search assets'}).fill('EUR/USD');
   await page.getByRole('dialog').getByRole('button',{name:/EUR\/USD OTC/}).click();
   await cp().getByRole('button',{name:'15 sec',exact:true}).click();
-  await cp().getByRole('button',{name:/Opus 5.5/}).click();
+  await cp().getByRole('button',{name:/Structure/}).click();
   await cp().getByRole('button',{name:'Get signal',exact:true}).click();
   await cp().getByRole('heading',{name:'Analyzing…',exact:true}).waitFor();
   assert.equal(await cp().locator('.cp-reading').count(),8);
