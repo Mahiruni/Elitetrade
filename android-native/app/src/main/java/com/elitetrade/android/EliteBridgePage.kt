@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 /**
- * EliteBridge Phase 2: authenticated connection inventory and explicit live
+ * EliteBridge Phase 3: signed protocol sandbox plus explicit live
  * DEMO broker/quote probe. No provider switching or orders.
  * This screen cannot place orders, swap provider, or collect broker secrets.
  */
@@ -27,6 +27,8 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
     val scope=rememberCoroutineScope()
     var busy by remember {mutableStateOf(false)}
     var report by remember {mutableStateOf<JSONObject?>(null)}
+    var protocol by remember {mutableStateOf<JSONObject?>(null)}
+    var protocolWarning by remember {mutableStateOf("")}
     var error by remember {mutableStateOf("")}
     var probes by remember {mutableStateOf(mapOf<String,JSONObject>())}
     var probeErrors by remember {mutableStateOf(mapOf<String,String>())}
@@ -47,6 +49,12 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
             busy=true;error=""
             try{report=api.eliteBridgeStatus()}
             catch(e:Exception){error=e.message?:"Connection inventory is unavailable."}
+            try{
+                protocol=api.eliteBridgeProtocolStatus()
+                protocolWarning=""
+            }catch(e:Exception){
+                protocolWarning="Protocol status awaiting updated backend deployment."
+            }
             finally{busy=false}
         }
     }
@@ -74,6 +82,20 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
                     color=if(heartbeat)Color(0xFF34D399) else gold,fontSize=12.sp)
                 Text("Live broker account type and permission checks occur in MT5 connection diagnostics. This inventory does not make trading decisions.",
                     fontSize=11.sp,color=muted)
+            }
+        }
+        ElevatedCard{
+            Column(Modifier.fillMaxWidth().padding(16.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){
+                Text("EliteBridge · Protocol v3",fontSize=16.sp,fontWeight=FontWeight.Bold,color=gold)
+                Text("Signed DEMO telemetry · Ed25519 · sandbox only",fontSize=12.sp)
+                Text(if(protocol?.optString("state")=="sandbox-only")
+                    "● Protocol specification available · Independent MT5 NOT CONNECTED"
+                    else "○ Protocol backend pending · Independent MT5 NOT CONNECTED",
+                    color=gold,fontSize=12.sp)
+                Text("Pairing: disabled · Direct broker orders: disabled",fontSize=11.sp,color=muted)
+                if(protocolWarning.isNotBlank())Text(protocolWarning,fontSize=11.sp,color=muted)
+                Text("The Termux protocol simulator proves signature and replay handling. It does not access Exness or replace MetaApi.",
+                    fontSize=12.sp,color=muted,lineHeight=18.sp)
             }
         }
         Text("Available connections",fontSize=16.sp,fontWeight=FontWeight.Bold)
@@ -159,7 +181,7 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
             Spacer(Modifier.width(8.dp))
             Text("Open Elite Engine")
         }
-        Text("Phase 2 is read-only. Live DEMO verification and XAUUSDm quotes use your existing MetaApi connection when requested. EliteBridge Direct MT5 remains unimplemented and needs a compatible terminal or broker API. No provider switch or broker order is performed here.",
+        Text("Phase 3 is protocol-sandbox only, and broker diagnostics remain read-only. Live DEMO verification and XAUUSDm quotes use your existing MetaApi connection when requested. EliteBridge Direct MT5 remains unimplemented and needs a compatible terminal or broker API. No provider switch or broker order is performed here.",
             fontSize=12.sp,color=muted,lineHeight=19.sp)
     }
 }

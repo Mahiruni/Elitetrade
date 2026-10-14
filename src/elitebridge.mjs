@@ -49,7 +49,7 @@ export function eliteBridgeStatus({gateway,accounts=[],workerReady=false}={}) {
     };
   });
   return {
-    phase:2,readOnly:true,
+    phase:3,readOnly:true,
     executionEnabledByBridge:false,
     activeProvider:configured?'metaapi':gateway?'legacy-gateway':null,
     workerHeartbeatFresh:workerReady===true,

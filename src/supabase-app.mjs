@@ -12,6 +12,7 @@ import { createGateway, createTelegram } from './services.mjs';
 import { createSupabaseData } from './supabase-data.mjs';
 import { engineReady } from './demo-engine.mjs';
 import {eliteBridgeStatus} from './elitebridge.mjs';
+import {eliteBridgeProtocolStatus} from './elitebridge-protocol.mjs';
 import {createReadOnlyBrokerRouter} from './elitebridge-router.mjs';
 import { mobileEnginePulse } from './mobile-demo-engine.mjs';
 import { loadSelectedDemoAccount } from './demo-account-access.mjs';
@@ -574,6 +575,14 @@ export function createSupabaseApplication(options = {}) {
       const result=await bridgeRouter.probe({account,symbol});
       res.setHeader('Cache-Control','no-store');
       return json(res,result);
+    }
+
+    if (path === '/api/elitebridge/protocol' && method === 'GET') {
+      // Read-only, owner/device-verified capability disclosure. The protocol
+      // is NOT enrolled, broker-connected or enabled for trading.
+      await needUser(req);
+      res.setHeader('Cache-Control','no-store');
+      return json(res,eliteBridgeProtocolStatus());
     }
 
     if (path === '/api/elitebridge/status' && method === 'GET') {
