@@ -109,14 +109,17 @@ export function createMetaApiGateway(env, fetchImpl = fetch) {
        break;
      } catch (failure) {
        const code = failure?.cause?.code || failure?.code || failure?.name;
-       const kind = ['TimeoutError','AbortError','UND_ERR_CONNECT_TIMEOUT','UND_ERR_HEADERS_TIMEOUT'].includes(code) ? 'timeout' : ['ENOTFOUND','EAI_AGAIN'].includes(code) ? 'dns' : ['ECONNRESET','ECONNREFUSED','UND_ERR_SOCKET'].includes(code) ? 'network' : 'request';
+       // Node fetch often surfaces a transport failure as TypeError: fetch failed,
+       // with an unfamiliar low-level cause code. Do not diagnose that as a bad
+       // METAAPI_TOKEN: only a provider HTTP 401 establishes a rejected token.
+       const kind = ['TimeoutError','AbortError','UND_ERR_CONNECT_TIMEOUT','UND_ERR_HEADERS_TIMEOUT'].includes(code) ? 'timeout' : ['ENOTFOUND','EAI_AGAIN'].includes(code) ? 'dns' : ['ECONNRESET','ECONNREFUSED','UND_ERR_SOCKET'].includes(code) || failure instanceof TypeError ? 'network' : 'request';
        // Never log provider response bodies, tokens or submitted account credentials.
        console.warn(JSON.stringify({event:'metaapi.transport',host:new URL(base).hostname,method,kind}));
        if(method === 'GET' && attempt === 0 && kind !== 'request') continue;
-       if(kind === 'timeout') throw error('MetaApi connection timed out. Retry approval shortly; any created account will be reused.');
-       if(kind === 'dns') throw error('The website server could not resolve the MetaApi API address. Check provider DNS availability and retry.');
-       if(kind === 'network') throw error('The website server could not establish a connection to MetaApi. Retry approval shortly.');
-       throw error('MetaApi request could not be sent. Check METAAPI_TOKEN formatting in Vercel and redeploy; provider diagnostics have been recorded.');
+       if(kind === 'timeout') throw error('MetaApi timed out while responding to EliteTrade. Check MT5 connection status, then retry later. If this was a trade request, reconcile it in MT5 before retrying.');
+       if(kind === 'dns') throw error('EliteTrade could not resolve the MetaApi service address. This is an upstream network issue, not proof that your MT5 login or Vercel configuration is wrong.');
+       if(kind === 'network') throw error('EliteTrade could not establish a network connection to MetaApi for this request. Check MT5 status and retry after the provider recovers. Your API token has not been confirmed invalid.');
+       throw error('EliteTrade could not complete the MetaApi request. Check MetaApi connection diagnostics before retrying; this is not evidence that Vercel environment variables need updating.');
      }
     }
     if (response.status === 202) throw error('MetaApi is processing this connection. Retry approval later; the same request will be resumed.');

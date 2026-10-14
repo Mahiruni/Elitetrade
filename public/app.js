@@ -111,25 +111,42 @@ async function api(path, method = 'GET', body, {snapshot=false} = {}) {
 async function fetchApi(path, method = 'GET', body) {
   if(method!=='GET'&&!navigator.onLine)throw new Error('Reconnect before sending changes or trading commands.');
   const accessToken = path === '/config' ? '' : await ensureAccessToken();
-  const response = await fetch(`/api${path}`, {
-    method,
-    credentials:'same-origin',
-    headers: {
-      ...(accessToken ? { Authorization:`Bearer ${accessToken}` } : {}),
-      ...(method !== 'GET' ? { 'Content-Type':'application/json' } : {})
-    },
-    body: method !== 'GET' ? JSON.stringify(body || {}) : undefined
-  });
-  const result = response.status === 204 ? {} : await response.json().catch(() => ({}));
+  const isStrategyPreview = method === 'POST' && /^\/bots\/[^/]+\/preview$/.test(path);
+  let response;
+  try {
+    response = await fetch(`/api${path}`, {
+      method,
+      credentials:'same-origin',
+      headers: {
+        ...(accessToken ? { Authorization:`Bearer ${accessToken}` } : {}),
+        ...(method !== 'GET' ? { 'Content-Type':'application/json' } : {})
+      },
+      body: method !== 'GET' ? JSON.stringify(body || {}) : undefined
+    });
+  } catch {
+    // Browser connection failure: do not confuse website hosting with the MT5 broker.
+    if (isStrategyPreview) throw new Error('Strategy Preview could not reach the EliteTrade API. Vercel hosts the website; MetaApi supplies MT5 broker data. Check connectivity and retry later. This preview does not place an order.');
+    throw new Error('Could not reach the EliteTrade service. Check your connection and try again.');
+  }
+  const jsonResponse = (response.headers.get('content-type') || '').includes('application/json');
+  const result = response.status === 204 ? {} : jsonResponse ? await response.json().catch(() => ({})) : {};
   if (!response.ok) {
     if (response.status === 401 && accessToken) {
       clearAuth();
       state.user = null;
     }
-    const error = new Error(result.error || 'Request failed. Please try again.');
+    let message = result.error;
+    if (!message && isStrategyPreview && [502,503,504].includes(response.status)) {
+      message = `Strategy Preview could not finish (HTTP ${response.status}). The EliteTrade website is hosted on Vercel, but the MT5 market feed comes from MetaApi. This could be a hosting timeout or upstream service issue. Check MT5 status and retry; no preview order was submitted.`;
+    }
+    if (!message && isStrategyPreview) message = 'EliteTrade did not return a valid strategy preview. Check the broker connection and retry. No preview order was submitted.';
+    const error = new Error(message || 'Request failed. Please try again.');
     error.status = response.status;
     error.code = result.code || '';
     throw error;
+  }
+  if (isStrategyPreview && (!jsonResponse || !(result.signal || result.goldSmc || result.poi))) {
+    throw new Error('EliteTrade returned an incomplete strategy preview. Check MT5 status and retry later. No preview order was submitted.');
   }
   return result;
 }
