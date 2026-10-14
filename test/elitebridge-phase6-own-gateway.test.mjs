@@ -111,7 +111,14 @@ test('read-only HTTP terminal probe is disabled until server and migration enabl
   },
   async rpc(){throw Error('Client DB RPC must not be used');}
  };
- const privileged={async rpc(name,args){assert.equal(name,'elitetrade_bridge_snapshot');return good;}};
+ const privileged={async rpc(name,args){
+   assert.equal(name,'elitetrade_bridge_snapshot');
+   const current=Date.now();
+   return {...good,
+     lastReceivedAt:new Date(current-1000).toISOString(),
+     heartbeatAt:new Date(current-6000).toISOString(),
+     quote:{...good.quote,observedAt:current-2000}};
+ }};
  async function start(enabled){
    const app=createSupabaseApplication({db,bridgeDb:privileged,gateway:null,
      telegram:null,deviceVerification:false,
