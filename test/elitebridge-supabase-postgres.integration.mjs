@@ -27,6 +27,7 @@ test('real PostgreSQL 16: Supabase EliteBridge migration authorization and durab
  await pool.query(source('./fixtures/elitebridge-supabase-staging.sql'));
  await pool.query(source('../supabase/migrations/20261015000100_elitebridge_phase4_secure_state.sql'));
  await pool.query(source('../supabase/migrations/20261015000200_elitebridge_phase41_inventory.sql'));
+ await pool.query(source('../supabase/migrations/20261015000300_elitebridge_phase6_readonly_gateway.sql'));
  const execRole=async(role,sql,parameters=[])=>{
    const client=await pool.connect();
    try{
@@ -121,6 +122,56 @@ test('real PostgreSQL 16: Supabase EliteBridge migration authorization and durab
    assert.ok(!JSON.stringify(records).includes(publicKeySpki));
    assert.deepEqual(await inventory(foreign),[]);
    assert.equal((await inventory(admin)).length,2);
+ });
+
+ await t.test('Phase 6 atomic demo snapshots enforce replay, owner, and revocation',async()=>{
+   const reported=({kind='terminal.heartbeat',sequence=1,id=hex(),payload}={})=>
+     rpc('elitetrade_bridge_record_packet',[owner,account,backupPhone,sequence,id,kind,
+       payload??{accountType:'demo',connected:true,tradeAllowed:false}]);
+   const snapshot=()=>rpc('elitetrade_bridge_snapshot',[owner,account,backupPhone]);
+   const fresh=await snapshot();
+   assert.equal(fresh.accountId,account);
+   assert.equal(fresh.quote,null);
+   assert.equal(fresh.lastSequence,0);
+   for(const role of ['authenticated','anon']){
+     await assert.rejects(execRole(role,
+       'select public.elitetrade_bridge_snapshot($1,$2,$3) as result',
+       [owner,account,backupPhone]),e=>e.code==='42501');
+     await assert.rejects(execRole(role,
+       'select count(*) from elitetrade_private.bridge_terminal_snapshots'),
+       e=>e.code==='42501');
+   }
+   assert.equal(await reported(),true);
+   assert.equal(await reported(),false);
+   assert.equal(await reported({kind:'terminal.order',sequence:2}),false);
+   assert.equal(await reported({sequence:2,payload:{accountType:'real',connected:true,tradeAllowed:false}}),false);
+   assert.equal(await reported({sequence:2,payload:{accountType:'demo',connected:'yes',tradeAllowed:false}}),false);
+   const quoteMs=Date.now();
+   const quote={accountType:'demo',symbol:'XAUUSDm',bid:4000.23,ask:4000.48,observedAt:quoteMs};
+   const message=hex();
+   const race=await Promise.all([
+     reported({kind:'terminal.quote',sequence:2,id:message,payload:quote}),
+     reported({kind:'terminal.quote',sequence:2,id:message,payload:quote})
+   ]);
+   assert.deepEqual(race.sort(),[false,true]);
+   assert.equal(await reported({kind:'terminal.quote',sequence:3,payload:{...quote,observedAt:quoteMs-600000}}),false);
+   assert.equal(await reported({kind:'terminal.quote',sequence:3,payload:{...quote,symbol:'!!'}}),false);
+   assert.equal(await reported({kind:'terminal.quote',sequence:3,payload:{...quote,ask:4000.01}}),false);
+   assert.equal(await reported({kind:'terminal.quote',sequence:3,payload:{...quote,bid:null}}),false);
+   const value=await snapshot();
+   assert.equal(value.lastSequence,2);
+   assert.equal(value.terminalConnectedClaim,true);
+   assert.equal(value.quote.symbol,'XAUUSDm');
+   assert.equal(Number(value.quote.bid),4000.23);
+   assert.equal(value.quote.observedAt,quoteMs);
+   assert.equal(await rpc('elitetrade_bridge_snapshot',[foreign,account,backupPhone]),null);
+   assert.ok(!JSON.stringify(value).includes(publicKeySpki));
+   assert.equal(await revoke(owner,backupPhone),true);
+   assert.equal(await snapshot(),null);
+   assert.equal(await reported({sequence:3}),false);
+   const audit=await pool.query(
+     'select count(*)::int as amount from elitetrade_private.bridge_accepted_messages where device_id=$1',[backupPhone]);
+   assert.equal(audit.rows[0].amount,2);
  });
  await t.test('public APIs do not confer trading privileges',async()=>{
    const audited=await pool.query(
