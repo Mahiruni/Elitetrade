@@ -176,7 +176,7 @@ test('real PostgreSQL 16: Supabase EliteBridge migration authorization and durab
  await t.test('public APIs do not confer trading privileges',async()=>{
    const audited=await pool.query(
      "select count(*)::int as result from elitetrade_private.bridge_accepted_messages");
-   assert.equal(audited.rows[0].result,2);
+   assert.equal(audited.rows[0].result,4); // Phase 4 two accepted claims + Phase 6 two atomic snapshots
    const grants=await pool.query(
      "select has_function_privilege('authenticated','public.elitetrade_bridge_claim(uuid,uuid,uuid,bigint,text,text)','EXECUTE') as normal_role_exec, has_function_privilege('service_role','public.elitetrade_bridge_claim(uuid,uuid,uuid,bigint,text,text)','EXECUTE') as service_exec");
    assert.equal(grants.rows[0].normal_role_exec,false);
