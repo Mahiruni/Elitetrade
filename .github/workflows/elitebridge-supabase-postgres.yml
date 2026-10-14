@@ -5,6 +5,7 @@ on:
     paths:
       - "supabase/migrations/20261015000100_elitebridge_phase4_secure_state.sql"
       - "supabase/migrations/20261015000200_elitebridge_phase41_inventory.sql"
+      - "supabase/migrations/20261015000300_elitebridge_phase6_readonly_gateway.sql"
       - "test/fixtures/elitebridge-supabase-staging.sql"
       - "test/elitebridge-supabase-postgres.integration.mjs"
       - ".github/workflows/elitebridge-supabase-postgres.yml"
