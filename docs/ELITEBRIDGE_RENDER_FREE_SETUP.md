@@ -5,14 +5,15 @@ Render database ID: dpg-db7vjjnavr4c73bke1pg-a
 Workspace: My Workspace (Frankfurt)
 PostgreSQL: 16
 Database name: elitebridge_postgres_dev
-Postgres user: elitebridge_postgres_dev_user
+Postgres user: elitebridge_dev_v2
 Expires: 13 November 2026
 Plan: Free, 1 GB, no managed backups
 
 **Critical**: Render reports this free instance available, but its IP allowlist
-is EMPTY, so all external connections are disabled. Hosted Render management
+was initially empty. A temporary /32 allowlist entry for the owner's phone
+was subsequently confirmed. Remove it once the dev migration is complete. Hosted Render management
 tools cannot query it until a permitted connection route is configured.
-Do NOT open the database to 0.0.0.0/0.
+Do NOT open the database to 0.0.0.0/0. Use only the newly rotated credential; revoke the exposed old credential after the new one works.
 
 ## Phone setup (Termux)
 
