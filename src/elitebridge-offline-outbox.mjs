@@ -13,7 +13,7 @@ const fail=msg=>{throw new Error('EliteBridge offline: '+msg)};
 function validId(id,label){if(typeof id!=='string'||!uuid.test(id))fail('invalid '+label);return id.toLowerCase()}
 function fingerprint(pub){
   let key;
-  try{key=createPublicKey(pub)}catch{fail('invalid verification public key')}
+  try{key=pub?.type==='public' ? pub : createPublicKey(pub)}catch{fail('invalid verification public key')}
   if(key.asymmetricKeyType!=='ed25519')fail('Ed25519 verification keys required');
   return createHash('sha256').update(key.export({type:'spki',format:'der'})).digest('hex');
 }
