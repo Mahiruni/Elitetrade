@@ -12,6 +12,7 @@ import { createGateway, createTelegram } from './services.mjs';
 import { createSupabaseData } from './supabase-data.mjs';
 import { engineReady } from './demo-engine.mjs';
 import {eliteBridgeStatus} from './elitebridge.mjs';
+import {createReadOnlyBrokerRouter} from './elitebridge-router.mjs';
 import { mobileEnginePulse } from './mobile-demo-engine.mjs';
 import { loadSelectedDemoAccount } from './demo-account-access.mjs';
 import { STRATEGIES,evaluateStrategy,planTrade } from './trading-strategies.mjs';
@@ -87,6 +88,9 @@ export function createSupabaseApplication(options = {}) {
 
 
   const gateway = options.gateway === undefined ? createGateway(env) : options.gateway;
+  // Phase 2 is a separate read-only broker adapter; the live DEMO worker still
+  // uses its original trusted order/lease/risk gateway unchanged.
+  const bridgeRouter = createReadOnlyBrokerRouter({metaapi:gateway});
   const telegram = options.telegram === undefined ? createTelegram(env) : options.telegram;
   const rate = new Map();
   let tradingMutation = false;
@@ -556,6 +560,20 @@ export function createSupabaseApplication(options = {}) {
       await db.remove('elitetrade_accounts', `id=eq.${q(account.id)}&user_id=eq.${q(ctx.user.id)}`, ctx.token);
       await audit(ctx, 'account.delete', account.id);
       return json(res, { ok:true });
+    }
+
+    const bridgeProbe=path.match(/^\/api\/elitebridge\/accounts\/([0-9a-fA-F-]{36})\/probe$/);
+    if(bridgeProbe && method==='GET') {
+      const ctx=await needUser(req);
+      rateLimit('elitebridge-probe:'+ctx.user.id,3,60000);
+      const account=await db.one('elitetrade_accounts',
+        `id=eq.${q(bridgeProbe[1])}&user_id=eq.${q(ctx.user.id)}&select=id,broker,login,status,gateway_id`,ctx.token);
+      if(!account)fail(404,'MT5 account not found.');
+      const symbol=url.searchParams.get('symbol') || 'XAUUSDm';
+      if(!/^[A-Za-z0-9._-]{3,30}$/.test(symbol))fail(400,'Invalid broker instrument.');
+      const result=await bridgeRouter.probe({account,symbol});
+      res.setHeader('Cache-Control','no-store');
+      return json(res,result);
     }
 
     if (path === '/api/elitebridge/status' && method === 'GET') {
