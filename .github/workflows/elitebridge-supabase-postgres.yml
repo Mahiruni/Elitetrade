@@ -1,0 +1,48 @@
+name: EliteBridge Supabase SQL staging
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20261015000100_elitebridge_phase4_secure_state.sql"
+      - "supabase/migrations/20261015000200_elitebridge_phase41_inventory.sql"
+      - "test/fixtures/elitebridge-supabase-staging.sql"
+      - "test/elitebridge-supabase-postgres.integration.mjs"
+      - ".github/workflows/elitebridge-supabase-postgres.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  supabase-sql-staging:
+    name: supabase-sql-staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: elitebridge_ci
+          POSTGRES_PASSWORD: temporary_ci_password
+          POSTGRES_DB: elitebridge_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U elitebridge_ci -d elitebridge_ci"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+    env:
+      ELITEBRIDGE_CI_POSTGRES_URL: postgresql://elitebridge_ci:temporary_ci_password@127.0.0.1:5432/elitebridge_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.12.0"
+          cache: npm
+      - name: Install locked application dependencies
+        run: npm ci
+      - name: Install disposable CI-only Postgres driver
+        run: npm install --no-save --package-lock=false --ignore-scripts pg@8.16.3
+      - name: Apply migrations and verify real PostgreSQL security
+        run: node --test test/elitebridge-supabase-postgres.integration.mjs
