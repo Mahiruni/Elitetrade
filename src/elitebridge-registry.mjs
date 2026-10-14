@@ -51,7 +51,7 @@ export function createEliteBridgeRegistry({db}={}){
       }));
       return {deviceId:deviceId.toLowerCase(),state:'revoked',ordersEnabled:false};
     },
-    async verifySignedDemo({ownerId,accountId,deviceId,packet,nowMs=Date.now()}={}){
+    async verifySignedDemo({ownerId,accountId,deviceId,packet,nowMs=Date.now(),persistSnapshot=false}={}){
       const owner=requireUuid(ownerId,'owner ID'),account=requireUuid(accountId,'account ID'),
         device=requireUuid(deviceId,'device ID');
       // Read key for an approved, scoped enrollment; no client-supplied keys.
@@ -62,8 +62,12 @@ export function createEliteBridgeRegistry({db}={}){
       const {key}=bridgePublicKeyIdentity(stored);
       return verifyBridgePacket({packet,publicKey:key,accountId:account,deviceId:device,
         role:'terminal',nowMs,replayStore:{claim:({sequence,messageId})=>
-          db.rpc('elitetrade_bridge_claim',{p_owner_id:owner,p_account_id:account,
-            p_device_id:device,p_sequence:sequence,p_message_id:messageId,p_kind:packet.kind})
+          persistSnapshot
+            ? db.rpc('elitetrade_bridge_record_packet',{p_owner_id:owner,p_account_id:account,
+              p_device_id:device,p_sequence:sequence,p_message_id:messageId,
+              p_kind:packet.kind,p_payload:packet.payload})
+            : db.rpc('elitetrade_bridge_claim',{p_owner_id:owner,p_account_id:account,
+              p_device_id:device,p_sequence:sequence,p_message_id:messageId,p_kind:packet.kind})
         }});
     }
   };
