@@ -2,6 +2,10 @@ services:
   - type: worker
     name: elitetrade-demo-worker
     runtime: node
+    # Always-on background workers have no free compute tier.
+    # Render starter compute: $7/month (check dashboard before Apply).
+    plan: 0.5c-512mb
+    region: frankfurt
     repo: https://github.com/Mahiruni/Elitetrade
     branch: main
     numInstances: 1
