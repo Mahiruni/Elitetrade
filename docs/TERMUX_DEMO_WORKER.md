@@ -24,7 +24,7 @@ If the folder already exists, instead: `cd ~/Elitetrade && git pull --ff-only`.
 
 ## 2. Create the private worker configuration
 
-Avoid screenshots, shell history, Github commits, cloud backups or chat messages containing tokens. The Supabase **legacy service_role key** is highly privileged: using it on a mobile device is less secure than on a managed server. Only do this on your own locked, updated phone and remove `.env` when testing ends.
+Avoid screenshots, shell history, Github commits, cloud backups or chat messages containing tokens. The Supabase **new sb_secret_ backend key** is highly privileged: using it on a mobile device is less secure than on a managed server. Only do this on your own locked, updated phone and remove `.env` when testing ends.
 
 ```sh
 umask 077
@@ -35,7 +35,7 @@ Paste the following **names** and enter private values locally:
 
 ```dotenv
 SUPABASE_URL=https://cgpvhayfwnpipktyltho.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=REPLACE_LOCALLY_WITH_SUPABASE_LEGACY_SERVICE_ROLE_JWT
+SUPABASE_SECRET_KEY=REPLACE_LOCALLY_WITH_NEW_SUPABASE_SECRET_KEY
 METAAPI_TOKEN=REPLACE_LOCALLY_WITH_EXISTING_METAAPI_API_TOKEN
 METAAPI_REGION=london
 DEMO_EXECUTION_ENABLED=false
@@ -43,7 +43,7 @@ DEMO_EXECUTION_ENABLED=false
 
 Save with **Ctrl+O**, Enter, then **Ctrl+X**. Run `chmod 600 .env`. Do not use `termux-setup-storage` or place secrets in `/sdcard`; keep `.env` in Termux private storage.
 
-The MetaApi API token must have access to the *same existing hosted MT5 account* linked in EliteTrade. Use the account's broker trading/master password **only inside MetaApi**, never in this Termux file. The Supabase key must be for the existing dedicated EliteTrade project.
+The MetaApi API token must have access to the *same existing hosted MT5 account* linked in EliteTrade. Use the account's broker trading/master password **only inside MetaApi**, never in this Termux file. The new sb_secret_ key must be created under the **existing dedicated EliteTrade project**; the doctor verifies the project online. The old service_role JWT shared in chat must be deactivated after the Vercel backend and other dependent clients migrate to new keys. Never print or paste either key into chat.
 
 ## 3. Safe read-only preflight
 

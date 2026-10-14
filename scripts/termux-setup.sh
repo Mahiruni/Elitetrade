@@ -14,11 +14,12 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 echo "EliteTrade secure Termux configuration"
-echo "IMPORTANT: Both keys shared in chat must be rotated FIRST."
-echo "This installer only saves the NEW replacement keys in Termux private storage."
-read -r -p "Type ROTATED after replacing BOTH exposed keys: " verified
-if [[ "$verified" != "ROTATED" ]]; then
-  echo "Setup canceled. Rotate exposed keys before continuing."
+echo "IMPORTANT: The old Supabase legacy service_role key and MetaApi token were exposed."
+echo "Create a new Supabase sb_secret_ key and revoke the exposed MetaApi token."
+echo "After Vercel/other clients migrate, deactivate the compromised legacy Supabase key."
+read -r -p "Type NEW_KEYS_CREATED after creating the replacement Supabase secret and MetaApi token: " verified
+if [[ "$verified" != "NEW_KEYS_CREATED" ]]; then
+  echo "Setup canceled. Create replacement keys before continuing."
   exit 1
 fi
 
@@ -30,7 +31,7 @@ if [[ -e .env ]]; then
   fi
 fi
 
-printf 'Paste NEW Supabase legacy service_role key (input hidden), then Enter: '
+printf 'Paste NEW Supabase sb_secret_ backend key (input hidden), then Enter: '
 IFS= read -r -s service_key
 printf '\n'
 printf 'Paste NEW MetaApi API token (input hidden), then Enter: '
@@ -43,16 +44,15 @@ ELITETRADE_LOCAL_ROLE="$service_key" ELITETRADE_LOCAL_METAAPI="$metaapi_token" n
 import {writeFileSync} from 'node:fs';
 
 const clean = text => String(text || '').replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g,'').trim();
-const role = clean(process.env.ELITETRADE_LOCAL_ROLE);
+const secret = clean(process.env.ELITETRADE_LOCAL_ROLE);
 const meta = clean(process.env.ELITETRADE_LOCAL_METAAPI);
 const segments = token => token.split('.');
 const decode = token => JSON.parse(Buffer.from(segments(token)[1] || '', 'base64url').toString('utf8'));
 try {
-  if (!/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(role))
-    throw new Error('Supabase key must be the legacy service_role JWT (not an anon or sb_secret_ key).');
-  const body = decode(role);
-  if (body.role !== 'service_role' || body.ref !== 'cgpvhayfwnpipktyltho')
-    throw new Error('Supabase key does not match the EliteTrade service_role and project.');
+  if (!/^sb_secret_[A-Za-z0-9_-]{16,}$/.test(secret))
+    throw new Error('Enter a NEW sb_secret_ backend key from EliteTrade Supabase Settings → API Keys (not the leaked legacy JWT or publishable key).');
+  // Opaque sb_secret_ tokens cannot be locally tied to a project by decoding.
+  // The read-only termux-doctor verifies ownership online via Supabase.
   if (!/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(meta))
     throw new Error('MetaApi API token format is invalid. Paste the complete NEW API access token.');
   const m = decode(meta);
@@ -61,7 +61,7 @@ try {
     throw new Error('MetaApi token is expired. Generate a new one in MetaApi.');
   const vars = [
     'SUPABASE_URL=https://cgpvhayfwnpipktyltho.supabase.co',
-    'SUPABASE_SERVICE_ROLE_KEY=' + role,
+    'SUPABASE_SECRET_KEY=' + secret,
     'METAAPI_TOKEN=' + meta,
     'METAAPI_REGION=london',
     'DEMO_EXECUTION_ENABLED=false',
@@ -71,6 +71,7 @@ try {
   console.log('Saved a clean private .env (mode 0600).');
   console.log('DEMO_EXECUTION_ENABLED=false; no worker or broker order has been started.');
   console.log('NEXT: node --env-file=.env scripts/termux-doctor.mjs');
+  console.log('Note: only the remote preflight can confirm this opaque key is valid for EliteTrade.');
 } catch(error) {
   console.error('Setup failed:',error.message);
   process.exitCode=1;

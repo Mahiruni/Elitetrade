@@ -35,7 +35,7 @@ Run this repository on an always-on Node 24 process host/VPS with these **privat
 | Variable | Value |
 | --- | --- |
 | SUPABASE_URL | https://cgpvhayfwnpipktyltho.supabase.co |
-| SUPABASE_SERVICE_ROLE_KEY | Backend service-role key from your dedicated Supabase project |
+| SUPABASE_SECRET_KEY | New server-side sb_secret_ API key from your dedicated Supabase project (preferred). Legacy SUPABASE_SERVICE_ROLE_KEY supported temporarily for migration. |
 | METAAPI_TOKEN | Your MetaApi token with market data, account read and trading access |
 | METAAPI_REGION | Account provisioning region, such as new-york |
 | DEMO_EXECUTION_ENABLED | true |
