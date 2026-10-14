@@ -4,6 +4,7 @@ import {marketDetails} from './market-view.mjs';
 import { accountDetails } from './account-view.mjs';
 import { renderBlogPage } from './blog.mjs';
 import { createServer } from 'node:http';
+import { createBridgeEnrollmentService } from './elitebridge-enrollment.mjs';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { readFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
@@ -86,6 +87,11 @@ export function createSupabaseApplication(options = {}) {
   const mobileDbKey=env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY;
   const engineDb=options.engineDb || (mobileEngineEnabled && mobileDbKey ?
     createSupabaseData({url:supabaseUrl,key:mobileDbKey}) : null);
+  // Independent, opt-in security registry. False by default, never in Android.
+  const bridgeEnrollmentEnabled=env.ELITEBRIDGE_ENROLLMENT_ENABLED === 'true';
+  const bridgeDb=bridgeEnrollmentEnabled ? (options.bridgeDb ||
+    (mobileDbKey ? createSupabaseData({url:supabaseUrl,key:mobileDbKey}) : null)) : null;
+  const bridgeEnrollment=bridgeDb ? createBridgeEnrollmentService({db:bridgeDb}) : null;
 
 
   const gateway = options.gateway === undefined ? createGateway(env) : options.gateway;
@@ -583,6 +589,60 @@ export function createSupabaseApplication(options = {}) {
       await needUser(req);
       res.setHeader('Cache-Control','no-store');
       return json(res,eliteBridgeProtocolStatus());
+    }
+
+    // Phase 4.1 enrollment is opt-in only. User auth, verified browser and
+    // completed MFA are mandatory; all writes use server-held service-role RPCs.
+    // These routes do NOT connect MT5 or enable any broker order.
+    const bridgeDeviceMatch=path.match(/^\/api\/elitebridge\/devices\/([0-9a-f-]{36})\/(approve|revoke)$/i);
+    if(path==='/api/elitebridge/devices' || bridgeDeviceMatch){
+      if(!bridgeEnrollmentEnabled || !bridgeEnrollment)
+        fail(503,'EliteBridge device enrollment has not been activated.');
+      res.setHeader('Cache-Control','no-store');
+      if(path==='/api/elitebridge/devices' && method==='GET'){
+        const ctx=await needUser(req);
+        if(!ctx.user.mfaEnabled)fail(403,'Enable two-factor authentication before managing EliteBridge devices.');
+        return json(res,{devices:await bridgeEnrollment.inventory({actorId:ctx.user.id}),
+          independentMT5Connected:false,ordersEnabled:false});
+      }
+      if(path==='/api/elitebridge/devices' && method==='POST'){
+        const ctx=await needUser(req);
+        if(!ctx.user.mfaEnabled)fail(403,'Enable two-factor authentication before enrolling a device.');
+        rateLimit('bridge-enroll:'+ctx.user.id,3,3600000);
+        const ids=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        if(!ids.test(String(body.accountId||''))||!ids.test(String(body.deviceId||''))||
+          typeof body.displayName!=='string'||body.displayName.trim().length<1||
+          body.displayName.trim().length>64||typeof body.publicKeySpki!=='string'||
+          !body.proof||typeof body.proof!=='object'||Array.isArray(body.proof))
+          fail(400,'Invalid device enrollment request.');
+        const account=await db.one('elitetrade_accounts',
+          'id=eq.'+q(body.accountId)+'&user_id=eq.'+q(ctx.user.id)+'&select=id',ctx.token);
+        if(!account)fail(404,'MT5 account not found.');
+        let staged;
+        try{
+          staged=await bridgeEnrollment.stage({ownerId:ctx.user.id,
+            accountId:account.id,deviceId:body.deviceId,
+            displayName:body.displayName,publicKeySpki:body.publicKeySpki,proof:body.proof});
+        }catch(e){
+          if(/^(EliteBridge enrollment:|EliteBridge: invalid public key|EliteBridge: expected an Ed25519)/.test(e.message))
+            fail(400,'Invalid signed device enrollment or public key.');
+          throw e;
+        }
+        await audit(ctx,'elitebridge.device.stage',staged.deviceId);
+        return json(res,staged,201);
+      }
+      if(bridgeDeviceMatch && method==='POST'){
+        const ctx=bridgeDeviceMatch[2]==='approve' ? await needAdmin(req) : await needUser(req);
+        if(!ctx.user.mfaEnabled)fail(403,'Enable two-factor authentication before managing EliteBridge devices.');
+        rateLimit('bridge-approval:'+ctx.user.id,10,3600000);
+        const deviceId=bridgeDeviceMatch[1];
+        const result=bridgeDeviceMatch[2]==='approve'
+          ? await bridgeEnrollment.approve({actorId:ctx.user.id,deviceId})
+          : await bridgeEnrollment.revoke({actorId:ctx.user.id,deviceId});
+        await audit(ctx,'elitebridge.device.'+bridgeDeviceMatch[2],deviceId);
+        return json(res,result);
+      }
+      fail(405,'Method not allowed.');
     }
 
     if (path === '/api/elitebridge/status' && method === 'GET') {
