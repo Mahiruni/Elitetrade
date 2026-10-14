@@ -26,8 +26,11 @@ APK secret is supplied. Live Phase 1–3 functionality is not changed.
   that a broker or terminal was ever connected.
 
 ## Rollout gates (manual review)
-1. Review and apply supabase/migrations/20261015000100_elitebridge_phase4_secure_state.sql
-   to the **correct EliteTrade Supabase project** after a database backup.
+1. **Do not merge this PR until the database change is reviewed.** Supabase's
+   GitHub integration may automatically apply migrations when a PR is merged;
+   disabled preview branches do NOT guarantee production migration safety.
+   Confirm the intended Supabase project, back up the database and validate
+   the SQL in a staging database before any merge.
 2. Secure the trusted server-side Supabase service-role credential. Never expose
    it in Termux scripts, Android APKs, logs, API responses or browser bundles.
 3. Build a verified-device + MFA-authorized enrollment API and administrative
@@ -40,4 +43,6 @@ APK secret is supplied. Live Phase 1–3 functionality is not changed.
 Run 'node --test test/elitebridge-phase4-registry.test.mjs' and then 'npm test'.
 The Termux Phase 3 offline sandbox still runs with
 'node scripts/elitebridge-sandbox.mjs' and requires no credentials.
-No Supabase migration is applied by a GitHub merge or Vercel redeploy.
+Vercel redeployment does not itself apply this SQL, but the connected
+Supabase GitHub integration may run migrations on merge. Do not merge first
+and assume it is inert. Record the reviewed migration outcome before rollout.
