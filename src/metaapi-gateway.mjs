@@ -141,11 +141,15 @@ export function createMetaApiGateway(env, fetchImpl = fetch) {
     if (!/^[a-z][a-z0-9-]{0,40}$/.test(account.region || '')) throw error('MetaApi returned an invalid account region.');
     return account;
   };
-  const figures = async (id, account) => {
+  const figures = async (id, account, {refreshTerminalState=false} = {}) => {
     account ||= await metadata(id);
-    if (account.state !== 'DEPLOYED' || account.connectionStatus !== 'CONNECTED') throw error('The MT5 account is still connecting. Retry approval after MetaApi confirms the connection.');
+    if (account.state !== 'DEPLOYED' || account.connectionStatus !== 'CONNECTED') throw error('The MT5 account is still connecting. Retry after MetaApi confirms the connection.');
     const {remoteId} = parse(id);
-    const info = await call(`https://mt-client-api-v1.${account.region}.agiliumtrade.ai`,`/users/current/accounts/${remoteId}/account-information?refreshTerminalState=true`);
+    // The provider's refreshTerminalState option explicitly slows responses.
+    // Use the synchronized broker snapshot for read-only UI; preserve a fresh
+    // terminal refresh for order-capable worker risk verification.
+    const info = await call(`https://mt-client-api-v1.${account.region}.agiliumtrade.ai`,
+      `/users/current/accounts/${remoteId}/account-information${refreshTerminalState?'?refreshTerminalState=true':''}`);
     if (info.platform !== 'mt5' || !['ACCOUNT_TRADE_MODE_DEMO','ACCOUNT_TRADE_MODE_REAL'].includes(info.type)) throw error('A verified MT5 demo or real account is required.',403);
     if (String(info.login) !== String(account.login) || info.server !== account.server) throw error('MetaApi account identity could not be verified.',403);
     if (!Number.isFinite(info.balance) || !Number.isFinite(info.equity) || !/^[A-Z]{3}$/.test(info.currency || '')) throw error('MetaApi account figures are incomplete.');
@@ -239,7 +243,7 @@ export function createMetaApiGateway(env, fetchImpl = fetch) {
       const account=await metadata(id),info=await figures(id,account);
       const base=`https://mt-client-api-v1.${account.region}.agiliumtrade.ai`;
       // A positions permission/outage must not hide otherwise available account figures.
-      const positions=await call(base,`/users/current/accounts/${parse(id).remoteId}/positions?refreshTerminalState=true`).catch(()=>null);
+      const positions=await call(base,`/users/current/accounts/${parse(id).remoteId}/positions`).catch(()=>null);
       const profit=Array.isArray(positions)&&positions.every(p=>Number.isFinite(p?.profit)) ? positions.reduce((total,p)=>total+p.profit,0) : undefined;
       return {connected:true,currency:info.currency,balance:info.balance,equity:info.equity,...(Number.isFinite(profit)?{profit}:{}),...(Array.isArray(positions)?{positions}:{}),accountType:info.type === 'ACCOUNT_TRADE_MODE_REAL' ? 'real' : 'demo',history:[]};
     },
@@ -261,9 +265,26 @@ export function createMetaApiGateway(env, fetchImpl = fetch) {
       if(datasets.some(data=>!Array.isArray(data)))throw error('The broker returned an incomplete multi-timeframe candle response.');
       return {info,quote,spec,timeframes:Object.fromEntries(Object.keys(frames).map((frame,i)=>[frame,datasets[i]]))};
     },
-    async market(id,symbol,timeframe) {
+    // Lightweight authenticated read-only strategy preview: OHLCV + quote + spec.
+    // No positions, orders, or forced terminal refresh. Exposure and order
+    // sizing are NOT inferred from missing execution data.
+    async previewMarket(id,symbol,timeframe) {
       if (!/^[A-Za-z0-9._-]{3,30}$/.test(symbol) || !['5m','15m'].includes(timeframe)) throw error('Invalid strategy market request.',400);
       const account=await metadata(id),info=await figures(id,account);
+      const {remoteId}=parse(id),base=`https://mt-client-api-v1.${account.region}.agiliumtrade.ai`,path=`/users/current/accounts/${remoteId}`;
+      const [quote,spec,candles]=await Promise.all([
+        call(base,`${path}/symbols/${encodeURIComponent(symbol)}/current-price`),
+        call(base,`${path}/symbols/${encodeURIComponent(symbol)}/specification`),
+        call(`https://mt-market-data-client-api-v1.${account.region}.agiliumtrade.ai`,
+          `${path}/historical-market-data/symbols/${encodeURIComponent(symbol)}/timeframes/${timeframe}/candles?limit=120`)
+      ]);
+      if(!Array.isArray(candles))throw error('MetaApi returned invalid historical candles.');
+      return {info,quote,spec,candles,exposureVerified:false};
+    },
+    // Execution risk checks must retain their fresh account/positions/order reads.
+    async market(id,symbol,timeframe) {
+      if (!/^[A-Za-z0-9._-]{3,30}$/.test(symbol) || !['5m','15m'].includes(timeframe)) throw error('Invalid strategy market request.',400);
+      const account=await metadata(id),info=await figures(id,account,{refreshTerminalState:true});
       const {remoteId}=parse(id),base=`https://mt-client-api-v1.${account.region}.agiliumtrade.ai`,path=`/users/current/accounts/${remoteId}`;
       const [quote,spec,positions,orders,candles]=await Promise.all([
         call(base,`${path}/symbols/${encodeURIComponent(symbol)}/current-price`),
@@ -283,7 +304,7 @@ export function createMetaApiGateway(env, fetchImpl = fetch) {
     },
     async demoOrder(id,plan,receiptId) {
       if(env.DEMO_EXECUTION_ENABLED!=='true')throw error('Demo execution is disabled on this worker.');
-      const a=await metadata(id),info=await figures(id,a);
+      const a=await metadata(id),info=await figures(id,a,{refreshTerminalState:true});
       if(info.type!=='ACCOUNT_TRADE_MODE_DEMO'||info.tradeAllowed!==true||info.investorMode!==false)throw error('Only trade-enabled demo accounts can receive engine orders.',403);
       if(!['ORDER_TYPE_BUY','ORDER_TYPE_SELL'].includes(plan.actionType)||!Number.isFinite(plan.volume)||plan.volume<=0||!Number.isFinite(plan.stopLoss)||plan.stopLoss<=0||!Number.isFinite(plan.takeProfit)||plan.takeProfit<=0||!idPattern.test(receiptId||''))throw error('Invalid protected demo order.',400);
       const result=await call(`https://mt-client-api-v1.${a.region}.agiliumtrade.ai`,`/users/current/accounts/${parse(id).remoteId}/trade`,'POST',{

@@ -636,10 +636,16 @@ export function createSupabaseApplication(options = {}) {
           message:'Genuine broker OHLCV; no order sent.'});
       }
       const preset=STRATEGIES[bot.strategy];
-      const market=await gateway.market(account.gateway_id,bot.symbol,preset.timeframe);
+      const readOnly=gateway.mode==='account-data' && typeof gateway.previewMarket==='function';
+      if(readOnly)rateLimit('strategy-preview:'+ctx.user.id,6,60000);
+      const market=readOnly ?
+        await gateway.previewMarket(account.gateway_id,bot.symbol,preset.timeframe) :
+        await gateway.market(account.gateway_id,bot.symbol,preset.timeframe);
       const signal=evaluateStrategy(bot.strategy,market.candles);
-      let order=null,riskMessage='No current entry signal.';
-      if(signal.side)try {order=planTrade({bot,...market,side:signal.side});riskMessage='Preliminary risk check passed. Worker rechecks risk, exposure and margin before execution.';}
+      let order=null,riskMessage=readOnly ?
+        'Read-only MT5 signal. Open orders, exposure, margin, and protective stops are not verified by preview. No order is authorized.' :
+        'No current entry signal.';
+      if(!readOnly && signal.side)try {order=planTrade({bot,...market,side:signal.side});riskMessage='Preliminary risk check passed. Worker rechecks risk, exposure and margin before execution.';}
       catch(error){riskMessage=error.message;}
       return json(res,{...marketDetails(market,preset.timeframe),signal,order,riskMessage,accountType:market.info.type==='ACCOUNT_TRADE_MODE_DEMO'?'demo':market.info.type==='ACCOUNT_TRADE_MODE_REAL'?'real':null,message:'Preview only. No order sent.',quote:{...Object.fromEntries(['bid','ask'].filter(k=>Number.isFinite(market.quote?.[k])).map(k=>[k,market.quote[k]]))},updatedAt:typeof market.quote?.time==='string'&&Number.isFinite(Date.parse(market.quote.time))?market.quote.time:null,retrievedAt:now()});
     }
