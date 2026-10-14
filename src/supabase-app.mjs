@@ -12,6 +12,7 @@ import { createGateway, createTelegram } from './services.mjs';
 import { createSupabaseData } from './supabase-data.mjs';
 import { engineReady } from './demo-engine.mjs';
 import { STRATEGIES,evaluateStrategy,planTrade } from './trading-strategies.mjs';
+import { evaluatePoiStrategy } from './poi-strategy.mjs';
 import {USDT_DESTINATION,usdtAmount} from './tron-payments.mjs';
 import { EBOOK, sendEbook } from './ebook.mjs';
 import QRCode from 'qrcode';
@@ -588,6 +589,17 @@ export function createSupabaseApplication(options = {}) {
       if(!gateway?.market)fail(503,'Configure MetaApi before previewing broker data.');
       const account=await db.one('elitetrade_accounts',`id=eq.${q(bot.account_id)}&user_id=eq.${q(ctx.user.id)}&select=gateway_id,status`,ctx.token);
       if(!account?.gateway_id||account.status!=='connected')fail(409,'Confirm the MT5 connection first.');
+      if(body?.poi === true) {
+        if(typeof gateway.poiMarket!=='function')fail(503,'The configured MT5 gateway does not support verified multi-timeframe history.');
+        rateLimit('poi:'+ctx.user.id,6,60000);
+        const market=await gateway.poiMarket(account.gateway_id,bot.symbol);
+        const accountType=market.info.type==='ACCOUNT_TRADE_MODE_DEMO'?'demo':market.info.type==='ACCOUNT_TRADE_MODE_REAL'?'real':null;
+        const poi=evaluatePoiStrategy({symbol:bot.symbol,quote:market.quote,spec:market.spec,timeframes:market.timeframes,accountType});
+        return json(res,{poi,accountType,updatedAt:market.quote.time,quote:{bid:market.quote.bid,ask:market.quote.ask},
+          timeframe:'5m',candles:market.timeframes.m5,signal:{side:poi.side},order:null,
+          riskMessage:'POI is read-only analysis. No broker order or risk approval is issued.',
+          message:'Genuine broker OHLCV; no order sent.'});
+      }
       const preset=STRATEGIES[bot.strategy];
       const market=await gateway.market(account.gateway_id,bot.symbol,preset.timeframe);
       const signal=evaluateStrategy(bot.strategy,market.candles);

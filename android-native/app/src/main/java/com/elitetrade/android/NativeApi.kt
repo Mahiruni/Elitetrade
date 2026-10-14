@@ -242,8 +242,8 @@ class EliteApi(context: Context) {
         return JSONObject().put("user",member).put("config",JSONObject().put("connectionMode",claudeConnectionMode)).toString()
     }
     /** Read-only backend strategy preview, authenticated with the existing member session. */
-    suspend fun previewBot(botId:String):JSONObject = withContext(Dispatchers.IO) {
-        server("/api/bots/" + safeId(botId) + "/preview", "POST", JSONObject())
+    suspend fun previewBot(botId:String, poi:Boolean=false):JSONObject = withContext(Dispatchers.IO) {
+        server("/api/bots/" + safeId(botId) + "/preview", "POST", JSONObject().put("poi",poi))
     }
     suspend fun payments(): JSONArray = withContext(Dispatchers.IO) { server("/api/payments").optJSONArray("payments") ?: JSONArray() }
     /** The production service is the source of truth for prices, wallet, network and invoice status. */

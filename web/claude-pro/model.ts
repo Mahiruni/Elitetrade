@@ -4,19 +4,28 @@ export type Preset = 'sonnet' | 'opus' | 'fable';
 export type Market = 'OTC' | 'Stock';
 export interface Preferences { mode: DataMode; asset: string; duration: number; preset: Preset; market: Market; botId: string }
 export interface Reading { title: string; detail: string; tone?: 'up' | 'down'; available: boolean }
-export interface SignalResult { id: string; instrument: string; direction: Direction; mode: DataMode; duration: number; preset: Preset; generatedAt: number; expiresAt: number; readings: Reading[]; note: string; timeframe?: string }
+export interface SignalResult { id: string; instrument: string; direction: Direction; mode: DataMode; duration: number; preset: Preset; generatedAt: number; expiresAt: number; readings: Reading[]; note: string; timeframe?: string; poi?: PoiPreview }
 export interface Bot { id: string; name: string; symbol: string; strategy: string; status: string; account_id?: string; risk_percent?: number; lot_size?: number; engineMessage?: string }
 export interface Account { id: string; broker: string; login: string; status: string }
 export interface User { id?: string; name?: string; email?: string; active?: boolean; role?: string }
 export interface Api { <T>(path: string, method?: string, body?: object): Promise<T> }
 export interface Host { api: Api; user: User; config: { connectionMode?: string }; standalone?: boolean }
-export interface Preview { updatedAt?: string; accountType?: string; timeframe?: string; candles?: { time: string; open: number; high: number; low: number; close: number }[]; signal?: { side?: string | null }; order?: unknown; riskMessage?: string }
+export interface PoiPreview {
+  version: string; source: string; symbol: string; state: 'BUY' | 'SELL' | 'WAIT'; validated: boolean; executionEnabled: false;
+  bid: number; ask: number; spread: number; quoteTime: string; reasons: string[];
+  w1: { bias: string; closedAt: string; samples: number };
+  h4: { description: string; support: number; resistance: number; atZone: boolean; closedAt: string };
+  m15: { liquiditySweep: boolean; structureShift: boolean; closedAt: string };
+  m5: { entryTrigger: boolean; displacement: boolean; closedAt: string };
+  plan?: { entry: number; stopLoss: number; takeProfit: number; riskReward: number; kind: string };
+}
+export interface Preview { updatedAt?: string; accountType?: string; timeframe?: string; candles?: { time: string; open: number; high: number; low: number; close: number }[]; signal?: { side?: string | null }; order?: unknown; riskMessage?: string; poi?: PoiPreview }
 
 export const DURATIONS = [3, 5, 15, 60, 180, 300, 1800, 3600];
 export const PRESETS: Record<Preset, { name: string; subtitle: string }> = {
-  sonnet: { name: 'Sonnet 5', subtitle: 'Balanced' },
-  opus: { name: 'Opus 5.5', subtitle: 'Deep focus' },
-  fable: { name: 'Fable 5.1', subtitle: 'Like a pro' },
+  sonnet: { name: 'Quick Scan', subtitle: 'Display preset' },
+  opus: { name: 'Structure', subtitle: 'Display preset' },
+  fable: { name: 'POI Deep', subtitle: 'Display preset' },
 };
 export const ASSETS = [
   ['EUR/GBP OTC', 'Euro / British Pound', '🇪🇺', '🇬🇧'],
@@ -42,7 +51,7 @@ export const durationWords = (seconds: number) => seconds < 60 ? `${seconds} sec
 export const countdown = (expiresAt: number, now: number) => Math.max(0, Math.ceil((expiresAt - now) / 1000));
 export const formatCountdown = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 export const cycleDelay = (mode: DataMode) => mode === 'mt5' ? 60_000 : 25_000;
-export const readingTitles = (prefs: Preferences) => ['Trend · 1h', 'Support / resistance', `Move over ${durationLabel(prefs.duration)}`, 'Momentum', 'Session', 'EMA 50/200', 'Price at level', 'RSI · 14'];
+export const readingTitles = (prefs: Preferences) => prefs.mode === 'mt5' ? ['W1 directional bias', 'H4 point of interest', 'H4 support / resistance', 'M15 liquidity sweep', 'M15 structure shift', 'M5 displacement', 'M5 entry trigger', 'Spread / distance gate'] : ['Trend · 1h', 'Support / resistance', `Move over ${durationLabel(prefs.duration)}`, 'Momentum', 'Session', 'EMA 50/200', 'Price at level', 'RSI · 14'];
 
 export function restorePreferences(raw: string | null): Preferences {
   try {
@@ -100,7 +109,30 @@ function rsi(prices: number[]) {
 export function brokerSignal(prefs: Preferences, bot: Bot, preview: Preview, now = Date.now()): SignalResult {
   const quotedAt = Date.parse(preview.updatedAt || '');
   if (!Number.isFinite(quotedAt) || quotedAt > now + 5000 || quotedAt < now - 60_000) throw new Error('Broker quote is stale or missing. Refresh the MT5 connection.');
-  if (!['demo', 'real'].includes(preview.accountType || '')) throw new Error('The broker account type could not be verified.');
+  if (!['demo', 'real'].includes(preview.accountType || '')) throw new Error('The broker account type could not be verified.'); 
+  if (preview.poi) {
+    const poi=preview.poi;
+    if(poi.symbol!==bot.symbol || poi.source!=='MT5 broker candles' || poi.executionEnabled!==false || poi.quoteTime!==preview.updatedAt) throw new Error('POI broker analysis identity is inconsistent.');
+    const qualified=poi.validated===true && (poi.state==='BUY'||poi.state==='SELL') && poi.plan?.kind==='indicative-read-only';
+    const direction: Direction = qualified ? (poi.state==='BUY' ? 'higher':'lower') : 'none';
+    const read=(title: string, ok: boolean, yes: string, no: string): Reading => ({title,available:true,detail:ok?yes:no,tone:ok?'up':undefined});
+    return {
+      id:'poi-'+bot.id+'-'+quotedAt, instrument:bot.symbol, mode:'mt5', duration:prefs.duration,preset:prefs.preset,
+      direction,generatedAt:now,expiresAt:Math.min(now+20_000,quotedAt+30_000),timeframe:'W1/H4/M15/M5',poi,
+      note:(qualified?'Qualified, read-only POI setup. ':'No entry: '+poi.reasons.join(' ')+' ')+'Broker candles are verified by the server. POI does not place orders or authorize the existing demo worker.',
+      readings:[
+        read('W1 directional bias',poi.w1.bias!=='NEUTRAL',poi.w1.bias,poi.w1.bias),
+        read('H4 point of interest',poi.h4.atZone,'Price at H4 POI','Waiting for POI'),
+        {title:'H4 support / resistance',detail:poi.h4.support+' / '+poi.h4.resistance,available:true},
+        read('M15 liquidity sweep',poi.m15.liquiditySweep,'Confirmed on closed candles','Not confirmed'),
+        read('M15 structure shift',poi.m15.structureShift,'Confirmed on closed candles','Not confirmed'),
+        read('M5 displacement',poi.m5.displacement,'Confirmed on closed candles','Not confirmed'),
+        read('M5 entry trigger',poi.m5.entryTrigger,'Confirmed on closed candles','Not confirmed'),
+        read('Spread / distance gate',qualified,'Indicative plan: 1:'+poi.plan!.riskReward,'No approved trading order')
+      ]
+    };
+  }
+
   const minutes = /^\d+m$/.test(preview.timeframe || '') ? Number(preview.timeframe!.slice(0, -1)) : 0;
   const bars = (preview.candles || []).filter(c => c && Number.isFinite(Date.parse(c.time)) && [c.open, c.high, c.low, c.close].every(n => valid(n) && n > 0) && c.high >= Math.max(c.open, c.close, c.low) && c.low <= Math.min(c.open, c.close) && minutes > 0 && Date.parse(c.time) + minutes * 60_000 <= now).sort((a, b) => Date.parse(a.time) - Date.parse(b.time));
   const prices = bars.map(c => c.close), last = bars.at(-1);

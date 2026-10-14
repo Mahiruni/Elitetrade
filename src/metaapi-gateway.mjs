@@ -165,6 +165,24 @@ export function createMetaApiGateway(env, fetchImpl = fetch) {
       const profit=Array.isArray(positions)&&positions.every(p=>Number.isFinite(p?.profit)) ? positions.reduce((total,p)=>total+p.profit,0) : undefined;
       return {connected:true,currency:info.currency,balance:info.balance,equity:info.equity,...(Number.isFinite(profit)?{profit}:{}),...(Array.isArray(positions)?{positions}:{}),accountType:info.type === 'ACCOUNT_TRADE_MODE_REAL' ? 'real' : 'demo',history:[]};
     },
+    // Separate, authenticated read-only OHLCV path for the POI research workspace.
+    // Does not expose provider credentials or support trading actions.
+    async poiMarket(id,symbol) {
+      if(!/^[A-Za-z0-9._-]{3,30}$/.test(symbol))throw error('Invalid broker symbol.',400);
+      const account=await metadata(id),info=await figures(id,account);
+      const remoteId=parse(id).remoteId;
+      const root='/users/current/accounts/'+remoteId;
+      const base='https://mt-client-api-v1.'+account.region+'.agiliumtrade.ai';
+      const history='https://mt-market-data-client-api-v1.'+account.region+'.agiliumtrade.ai';
+      const frames={w1:'1w',h4:'4h',m15:'15m',m5:'5m'};
+      const [quote,spec,...datasets]=await Promise.all([
+        call(base,root+'/symbols/'+encodeURIComponent(symbol)+'/current-price'),
+        call(base,root+'/symbols/'+encodeURIComponent(symbol)+'/specification'),
+        ...Object.values(frames).map(frame=>call(history,root+'/historical-market-data/symbols/'+encodeURIComponent(symbol)+'/timeframes/'+frame+'/candles?limit=120'))
+      ]);
+      if(datasets.some(data=>!Array.isArray(data)))throw error('The broker returned an incomplete multi-timeframe candle response.');
+      return {info,quote,spec,timeframes:Object.fromEntries(Object.keys(frames).map((frame,i)=>[frame,datasets[i]]))};
+    },
     async market(id,symbol,timeframe) {
       if (!/^[A-Za-z0-9._-]{3,30}$/.test(symbol) || !['5m','15m'].includes(timeframe)) throw error('Invalid strategy market request.',400);
       const account=await metadata(id),info=await figures(id,account);

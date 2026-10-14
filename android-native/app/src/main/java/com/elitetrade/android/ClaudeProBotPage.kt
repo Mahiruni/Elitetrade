@@ -110,7 +110,7 @@ private class TrustedClaudeView(context: Context, private val api: EliteApi,
                     val data=when {
                         path=="/accounts" && method=="GET" -> JSONObject().put("accounts",api.accounts())
                         path=="/bots" && method=="GET" -> api.claudeProBots()
-                        method=="POST" && path.matches(Regex("/bots/[A-Za-z0-9_-]{1,100}/preview")) -> api.previewBot(path.split('/')[2])
+                        method=="POST" && path.matches(Regex("/bots/[A-Za-z0-9_-]{1,100}/preview")) -> api.previewBot(path.split('/')[2],JSONObject(body).optBoolean("poi",false))
                         method=="POST" && path.matches(Regex("/bots/[A-Za-z0-9_-]{1,100}/control")) -> {
                             if(JSONObject(api.claudeProBootstrap()).optJSONObject("config")?.optString("connectionMode")!="account-data")throw ApiProblem("Only the existing demo worker can be controlled here.")
                             val running=JSONObject(body).opt("running") as? Boolean ?: throw ApiProblem("Choose start or stop.")

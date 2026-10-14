@@ -58,7 +58,7 @@ try {
   await page.getByRole('dialog',{name:'Choose an asset'}).getByRole('textbox',{name:'Search assets'}).fill('EUR/USD');
   await page.getByRole('dialog').getByRole('button',{name:/EUR\/USD OTC/}).click();
   await cp().getByRole('button',{name:'15 sec',exact:true}).click();
-  await cp().getByRole('button',{name:/Opus 5.5/}).click();
+  await cp().getByRole('button',{name:/Structure/}).click();
   await cp().getByRole('button',{name:'Get signal',exact:true}).click();
   await cp().getByRole('heading',{name:'Analyzing…',exact:true}).waitFor();
   assert.equal(await cp().locator('.cp-reading').count(),8);
@@ -76,7 +76,7 @@ try {
   assert.equal(await page.getByRole('dialog').count(),0);
   // Real expiry is checked against Date.now, including time spent outside the foreground.
   await page.clock.install();await page.clock.fastForward(21000);
-  await cp().getByText('Entry window closed',{exact:true}).waitFor();
+  await cp().getByText('Analysis expired',{exact:true}).waitFor();
   assert.ok(await cp().getByRole('button',{name:'Open',exact:true}).isDisabled());
   await cp().getByRole('button',{name:'New',exact:true}).click();
   assert.equal(await cp().getByRole('button',{name:'15 sec',exact:true}).getAttribute('aria-pressed'),'true');

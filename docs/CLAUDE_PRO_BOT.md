@@ -23,3 +23,15 @@ Android changes trigger the repository's existing signed release workflow on mai
 ## Verification
 
 Run `npm run build`, `npm run check`, `npm test`, and `node test/claude-pro-browser.mjs` with Playwright Chromium installed. The feature tests cover mobile overflow, the hamburger link, selectors, sequential readings, countdown expiry, both sample directions, repeated analysis, stopping/backgrounding, session history, profile, isolated MT5 previews, and broker errors. Existing regression and Android debug workflows must pass before merge.
+
+## POI Trader OS — new read-only MT5 analysis path
+
+POST /api/bots/:id/preview with poi:true now requests the member's verified broker quote, symbol specification and genuine W1 (1w), H4 (4h), M15 (15m), M5 (5m) candle series through the configured MetaApi account. The native Android bridge passes only the allowlisted poi boolean; no provider credentials enter the webview.
+
+The server-side POI strategy evaluates closed broker candles only. It rejects stale/malformed/missing/duplicate data and recent M15/M5 gaps, determines W1 bias, checks H4 POI proximity, then requires M15 liquidity sweep followed by structure shift and later M5 displacement/break. Spread and entry-distance gates must pass. Results display a timestamped BUY, SELL or WAIT / NO TRADE outcome and eight auditable POI readings. Indicative entry/SL/TP are labeled read-only and do not constitute broker risk approval.
+
+This is NOT a new order execution strategy. Existing MT5 demo worker orders still use the saved trend/scalping/breakout strategy with their established server risk checks. POI results never start or authorize worker orders. Real MT5 accounts are permitted for read-only research only, not unattended live-money execution. Demo OTC readings remain explicitly synthetic and separated from genuine MT5 data.
+
+The model labels in this release refer to display presets only. No Anthropic or other AI inference API, long-running POI worker, historical backtester, live POI order executor or continuous browser-independent polling is supplied by this milestone. Those components require their own integrations, deployment, risk controls and testing and should not be presented as running.
+
+Documentation: MetaApi historical candle endpoint supports 1w, 4h, 15m and 5m for MT5. Broker account status and provider entitlements must be valid for requests to succeed.
