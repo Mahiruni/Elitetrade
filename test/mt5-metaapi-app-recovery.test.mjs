@@ -57,6 +57,17 @@ test('MT5 owner sees only a safe hosted-link flag, never the MetaApi resource ID
  assert.equal(f.calls.snapshot,1);
  assert.equal(f.calls.orders,0);
 });
+test('fast MT5 inventory stays responsive when upstream MetaApi is slow',async t=>{
+ const f=await fixture(t);
+ const r=await f.call('/accounts?fast=1');
+ assert.equal(r.status,200);
+ assert.equal(r.data.accounts[0].hostedLinked,true);
+ assert.equal(r.data.accounts[0].status,'unknown');
+ assert.equal(r.data.accounts[0].savedStatus,'connected');
+ assert.match(r.data.accounts[0].note,/Check Live MT5/);
+ assert.equal(f.calls.snapshot,0);
+ assert.equal(f.calls.orders,0);
+});
 test('live account status uses existing owner-protected GET and never executes trades',async t=>{
  const f=await fixture(t);
  assert.equal((await f.call('/accounts/'+accountId+'/connection',false)).status,401);
@@ -74,6 +85,7 @@ test('MT5 UI exposes provider diagnostics and an honest demo-worker status panel
  assert.match(app,/account\.hostedLinked\?btn\('Check Live MT5','account-connection-check'/);
  assert.match(app,/'account-connection-check':showLiveMt5Connection/);
  assert.match(app,/api\('\/engine\/mobile\/status'\)/);
+ assert.match(app,/accounts\?fast=1/);
  assert.match(app,/DEMO worker:/);
  assert.match(app,/result\.brokerVerified===true/);
  assert.match(app,/Verified REAL · DEMO execution blocked/);
