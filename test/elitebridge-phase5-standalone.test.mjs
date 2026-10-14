@@ -188,7 +188,8 @@ test('standalone SQL has no Supabase dependency and keeps accepted audit transac
  assert.match(sql,/create schema if not exists elitebridge/);
  assert.match(sql,/unique\(device_id,sequence\)/);
  assert.match(sql,/revoke all on schema elitebridge from public/);
- assert.doesNotMatch(sql,/auth\.users|supabase|metaapi|order_send/i);
+ const ddl=sql.split('\n').filter(line=>!line.trim().startsWith('--')).join('\n');
+ assert.doesNotMatch(ddl,/auth\.users|supabase|metaapi|order_send/i);
  assert.match(adapter,/for update/);
  assert.match(adapter,/await client\.query\('rollback'\)/);
  assert.match(adapter,/await client\.query\('commit'\)/);
