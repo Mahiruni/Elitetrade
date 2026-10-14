@@ -423,6 +423,7 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                             "Gold SMC Scalper" -> GoldSmcPage(api,bots,accounts)
                             "Elite Engine" -> EliteEnginePage(api,context)
                             "EliteBridge" -> EliteBridgePage(api,onNavigate={screen=it})
+                            "EliteBridge Devices" -> EliteBridgeDevicesPage(api,onBack={screen="EliteBridge"})
                             "Account" -> AccountPage(api.user,panel,textColor,mutedColor,lightTheme,
                                 onNavigate={screen=it},onTheme=toggleTheme,onCheckUpdates={checkForUpdates()},
                                 onSignOut={
