@@ -12,6 +12,7 @@ import { token, digest, hashPassword, verifyPassword, encrypt, decrypt, base32, 
 import { createMailer, createGateway, createTelegram } from './services.mjs';
 import { EBOOK, sendEbook } from './ebook.mjs';
 import { USDT_DESTINATION } from './tron-payments.mjs';
+import { evaluateGoldSmc } from './gold-smc.mjs';
 
 const now = () => Date.now();
 const id = () => randomUUID();
@@ -425,6 +426,20 @@ export function createApplication(options = {}) {
       const risk = number(body.riskPercent, 'Risk', 0.1, 5), sl = number(body.stopLoss, 'Stop loss', 0.1, 20), tp = number(body.takeProfit, 'Take profit', 0.1, 50), draw = number(body.maxDrawdown, 'Drawdown', 1, 30), daily = number(body.dailyLoss, 'Daily loss', 0.1, 10), lot = number(body.lotSize, 'Lot size', 0.01, 10);
       run('UPDATE bots SET account_id=?,name=?,strategy=?,symbol=?,risk_percent=?,stop_loss=?,take_profit=?,max_drawdown=?,daily_loss=?,lot_size=? WHERE id=?', account?.id || null, name, strategy, symbol, risk, sl, tp, draw, daily, lot, bot.id); return json(res, { ok: true });
     }
+    // Standalone Gold SMC preview works only against a connected, owned MT5 account.
+    // This endpoint never calls an order or bot-control method.
+    const goldPreview = path.match(/^\/api\/bots\/([^/]+)\/preview$/);
+    if (goldPreview && method === 'POST' && body.goldSmc === true) {
+      const user = activeUser(context), bot = own('bots', goldPreview[1], user);
+      const account = bot.account_id ? get('SELECT * FROM accounts WHERE id=? AND user_id=?',bot.account_id,user.id) : null;
+      if(!account?.gateway_id || account.status !== 'connected')fail(409,'Confirm the owned MT5 connection first.');
+      if(typeof gateway?.poiMarket !== 'function')fail(503,'Verified MT5 multi-timeframe candles are unavailable.');
+      rateLimit('gold-smc:'+user.id,4,60000);
+      const market = await gateway.poiMarket(account.gateway_id,bot.symbol);
+      const accountType = market.info.type==='ACCOUNT_TRADE_MODE_DEMO'?'demo':market.info.type==='ACCOUNT_TRADE_MODE_REAL'?'real':null;
+      const goldSmc = evaluateGoldSmc({symbol:bot.symbol,quote:market.quote,spec:market.spec,timeframes:market.timeframes,accountType});
+      return json(res,{goldSmc,message:'Verified read-only MT5 research. No order placed.'});
+    }
     const botControl = path.match(/^\/api\/bots\/([^/]+)\/control$/);
     if (botControl && method === 'POST') {
       const user = needUser(context), bot = own('bots', botControl[1], user);
@@ -557,7 +572,7 @@ export function createApplication(options = {}) {
   }
 
   const publicPath = resolve(options.publicPath || new URL('../public/', import.meta.url).pathname);
-  const pages = new Set(['/', '/download', '/ebook', '/login', '/signup', '/forgot-email', '/forgot-password', '/verify-device', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/dashboard', '/claudebot', '/claude-pro-bot', '/trade', '/markets', '/activity', '/positions', '/history', '/notifications', '/account', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
+  const pages = new Set(['/', '/download', '/ebook', '/login', '/signup', '/forgot-email', '/forgot-password', '/verify-device', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/dashboard', '/claudebot', '/claude-pro-bot', '/gold-smc', '/trade', '/markets', '/activity', '/positions', '/history', '/notifications', '/account', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
   const server = createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Referrer-Policy', 'no-referrer'); res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
@@ -608,6 +623,8 @@ export function createApplication(options = {}) {
       files['/claude-bot.js'] = ['claude-bot.js','text/javascript'];
       files['/claude-bot.css'] = ['claude-bot.css','text/css'];
       files['/claude-pro-workspace.js'] = ['claude-pro-workspace.js','text/javascript'];
+      files['/gold-smc.js'] = ['gold-smc.js','text/javascript'];
+      files['/gold-smc.css'] = ['gold-smc.css','text/css'];
       files['/claude-pro-bot.js'] = ['claude-pro-bot.js','text/javascript'];
       files['/claude-pro-bot.css'] = ['claude-pro-bot.css','text/css'];
       files['/fonts/inter-latin.woff2'] = ['fonts/inter-latin.woff2','font/woff2'];
