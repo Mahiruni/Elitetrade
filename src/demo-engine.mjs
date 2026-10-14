@@ -2,6 +2,14 @@ import { randomUUID } from 'node:crypto';
 import { STRATEGIES,evaluateStrategy,planTrade,riskCheckpoint } from './trading-strategies.mjs';
 const q=encodeURIComponent;
 const time=()=>new Date().toISOString();
+const recoverableBeforeOrder = error =>
+  [502,503,504].includes(error?.providerStatus) ||
+  [
+    'Not enough closed candles.',
+    'Candle history is stale or interrupted.',
+    'Candle history has gaps.'
+  ].includes(error?.message);
+
 export async function engineReady(db,token='') {
   try {
     const h=await db.one('elitetrade_engine_heartbeat','id=eq.true&select=updated_at',token);
@@ -63,7 +71,13 @@ export async function processDemoRun({db,gateway,run,at=Date.now()}) {
   } catch(error) {
     // A timeout may have happened after broker acceptance: never retry an order.
     if(receipt)await db.update('elitetrade_engine_orders',`id=eq.${q(receipt)}`,{status:'unknown',result:{message:'Provider outcome requires manual reconciliation.'}}).catch(()=>{});
-    await halt(receipt?'Order outcome unknown. Check broker positions and reconcile before restarting.':String(error.message).slice(0,240));
+    if(!receipt && recoverableBeforeOrder(error)) {
+      // No order was reserved/sent. Keep this explicitly armed DEMO run
+      // ready for the next fresh broker candle rather than silently halting.
+      await message('Waiting for fresh MT5 candles or MetaApi recovery; no order submitted.');
+    } else {
+      await halt(receipt?'Order outcome unknown. Check broker positions and reconcile before restarting.':String(error.message).slice(0,240));
+    }
   } finally {
     await db.rpc('elitetrade_engine_lease',{p_account_id:run.account_id,p_owner:owner,p_release:true});
   }
