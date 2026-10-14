@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {parseRenderDevelopmentUrl} from '../scripts/elitebridge-render-dev-bootstrap.mjs';
+import {parseRenderDevelopmentUrl,classifyPsqlFailure} from '../scripts/elitebridge-render-dev-bootstrap.mjs';
 
 const base='postgresql://elitebridge_dev_v2:nonprod-test-only-password@dpg-db7vjjnavr4c73bke1pg-a.frankfurt-postgres.render.com/elitebridge_postgres_dev';
 test('only the explicitly approved Render Frankfurt dev database connection is valid',()=>{
@@ -31,4 +31,24 @@ test('reject blank, multiline or missing passwords',()=>{
  for(const s of ['',base.replace(':nonprod-test-only-password@',':@'),
    base.replace('nonprod-test-only-password','unsafe%0Apassword')])
   assert.throws(()=>parseRenderDevelopmentUrl(s),/Invalid Render development database URL/);
+});
+
+test('connection diagnostics distinguish root causes without leaking details',()=>{
+ const samples=[
+  ['psql: error: connection to server timed out','NETWORK_TIMEOUT'],
+  ['FATAL: password authentication failed for user "secret-user"','PASSWORD_REJECTED'],
+  ['no pg_hba.conf entry for host "10.0.0.1"','NETWORK_RULE_OR_TLS_DENIED'],
+  ['could not translate host name "secret.example.com"','DNS_FAILURE'],
+  ['connection refused','CONNECTION_REFUSED'],
+  ['SSL SYSCALL error','TLS_FAILURE'],
+  ['some unknown error with user=secret-user','OTHER_PSQL_FAILURE']
+ ];
+ for(const [message,prefix] of samples){
+   const result=classifyPsqlFailure(message,'',2);
+   assert.ok(result.startsWith(prefix),prefix+' : '+result);
+   assert.ok(!result.includes('secret-user'));
+   assert.ok(!result.includes('10.0.0.1'));
+   assert.ok(!result.includes('secret.example.com'));
+ }
+ assert.match(classifyPsqlFailure('', 'ENOENT',null),/^PSQL_CLIENT_MISSING/);
 });
