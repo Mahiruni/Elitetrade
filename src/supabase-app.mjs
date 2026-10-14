@@ -5,6 +5,7 @@ import { accountDetails } from './account-view.mjs';
 import { renderBlogPage } from './blog.mjs';
 import { createServer } from 'node:http';
 import { createBridgeEnrollmentService } from './elitebridge-enrollment.mjs';
+import { createSupabaseBridgeTelemetry } from './elitebridge-supabase-telemetry.mjs';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { readFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
@@ -87,11 +88,16 @@ export function createSupabaseApplication(options = {}) {
   const mobileDbKey=env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY;
   const engineDb=options.engineDb || (mobileEngineEnabled && mobileDbKey ?
     createSupabaseData({url:supabaseUrl,key:mobileDbKey}) : null);
-  // Independent, opt-in security registry. False by default, never in Android.
+  // Opt-in Supabase-backed security registry and signed DEMO telemetry.
+  // Both features remain OFF until the private SQL migration is reviewed.
   const bridgeEnrollmentEnabled=env.ELITEBRIDGE_ENROLLMENT_ENABLED === 'true';
-  const bridgeDb=bridgeEnrollmentEnabled ? (options.bridgeDb ||
+  const bridgeTelemetryEnabled=env.ELITEBRIDGE_TELEMETRY_ENABLED === 'true';
+  const bridgeDb=(bridgeEnrollmentEnabled || bridgeTelemetryEnabled) ? (options.bridgeDb ||
     (mobileDbKey ? createSupabaseData({url:supabaseUrl,key:mobileDbKey}) : null)) : null;
-  const bridgeEnrollment=bridgeDb ? createBridgeEnrollmentService({db:bridgeDb}) : null;
+  const bridgeEnrollment=bridgeEnrollmentEnabled && bridgeDb ?
+    createBridgeEnrollmentService({db:bridgeDb}) : null;
+  const bridgeTelemetry=bridgeTelemetryEnabled && bridgeDb ?
+    createSupabaseBridgeTelemetry({db:bridgeDb}) : null;
 
 
   const gateway = options.gateway === undefined ? createGateway(env) : options.gateway;
@@ -589,6 +595,44 @@ export function createSupabaseApplication(options = {}) {
       await needUser(req);
       res.setHeader('Cache-Control','no-store');
       return json(res,eliteBridgeProtocolStatus());
+    }
+
+    // Phase 5: server-verifiable Ed25519 DEMO telemetry only.
+    // The account owner comes from Supabase Auth, never from request JSON.
+    // Atomic replay decisions and the audit record live in private Postgres.
+    if (path==='/api/elitebridge/telemetry') {
+      if(method!=='POST') fail(405,'Method not allowed.');
+      res.setHeader('Cache-Control','no-store');
+      if(!bridgeTelemetryEnabled || !bridgeTelemetry)
+        fail(503,'EliteBridge signed DEMO telemetry is not activated.');
+      const ctx=await needUser(req);
+      if(!ctx.user.mfaEnabled)fail(403,'Enable two-factor authentication before submitting telemetry.');
+      rateLimit('elitebridge-telemetry:'+ctx.user.id,30,60000);
+      if(!body||Object.keys(body).length!==1||!Object.hasOwn(body,'packet')||
+        !body.packet || typeof body.packet!=='object' || Array.isArray(body.packet))
+        fail(400,'Send one signed DEMO telemetry packet.');
+      const packet=body.packet;
+      if(typeof packet.accountId!=='string'||
+        !/^[0-9a-f-]{36}$/i.test(packet.accountId))
+        fail(400,'Invalid account scope.');
+      const own=await db.one('elitetrade_accounts',
+        'id=eq.'+q(packet.accountId)+'&user_id=eq.'+q(ctx.user.id)+'&select=id',
+        ctx.token);
+      if(!own)fail(404,'MT5 account not found.');
+      let accepted;
+      try{accepted=await bridgeTelemetry.accept({ownerId:ctx.user.id,packet});}
+      catch(error){
+        if(/^EliteBridge telemetry:/.test(error?.message||''))
+          fail(400,'Invalid DEMO telemetry packet.');
+        if(/replay or out-of-order sequence/.test(error?.message||''))
+          fail(409,'Telemetry was already received or is out of sequence.');
+        if(/device is not approved|identity scope mismatch|signature verification failed|signer role mismatch/.test(error?.message||''))
+          fail(403,'Device signature or approval could not be verified.');
+        if(/^EliteBridge:/.test(error?.message||''))
+          fail(400,'Invalid, stale or unauthorized DEMO telemetry.');
+        throw error;
+      }
+      return json(res,accepted);
     }
 
     // Phase 4.1 enrollment is opt-in only. User auth, verified browser and
