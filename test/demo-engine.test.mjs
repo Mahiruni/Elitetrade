@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {engineReady,processDemoRun} from '../src/demo-engine.mjs';
 const bot={strategy:'breakout',symbol:'XAUUSDm',risk_percent:1,stop_loss:1,take_profit:2,lot_size:.01,daily_loss:3,max_drawdown:10};
-function fixture({type='ACCOUNT_TRADE_MODE_DEMO',outcome='confirmed',exposure=false,active=true,leased=false}={}) {
+function fixture({type='ACCOUNT_TRADE_MODE_DEMO',outcome='confirmed',exposure=false,active=true,leased=false,marketError=null,gapped=false}={}) {
  const now=Date.now(),boundary=Math.floor(now/900000)*900000;
  const run={bot_id:'bot',user_id:'member',account_id:'account',enabled:true,config:bot};
  const events=[],receipts=[];let orders=0;
@@ -18,7 +18,7 @@ function fixture({type='ACCOUNT_TRADE_MODE_DEMO',outcome='confirmed',exposure=fa
   async update(table,search,value){events.push({table,value});if(table==='elitetrade_engine_orders')Object.assign(receipts[0],value);if(table==='elitetrade_engine_runs')Object.assign(run,value);},async upsert(){}
  };
  const gateway={
-  async market(){return {info:{type,platform:'mt5',investorMode:false,tradeAllowed:true,equity:10000,balance:10000,freeMargin:9000},quote:{symbol:bot.symbol,ask:2000,bid:1999.9,lossTickValue:1,time:new Date().toISOString()},spec:{symbol:bot.symbol,tickSize:.01,point:.01,minVolume:.01,maxVolume:100,volumeStep:.01,digits:2,stopsLevel:10,tradeMode:'SYMBOL_TRADE_MODE_FULL',allowedOrderTypes:['SYMBOL_ORDER_MARKET','SYMBOL_ORDER_SL','SYMBOL_ORDER_TP']},positions:exposure?[{id:'manual'}]:[],orders:[],candles:Array.from({length:26},(_,i)=>({time:new Date(boundary-(26-i)*900000).toISOString(),open:i===25?2000:1900,high:i===25?2001:1901,low:i===25?1999:1899,close:i===25?2000:1900}))};},
+  async market(){if(marketError)throw marketError;return {info:{type,platform:'mt5',investorMode:false,tradeAllowed:true,equity:10000,balance:10000,freeMargin:9000},quote:{symbol:bot.symbol,ask:2000,bid:1999.9,lossTickValue:1,time:new Date().toISOString()},spec:{symbol:bot.symbol,tickSize:.01,point:.01,minVolume:.01,maxVolume:100,volumeStep:.01,digits:2,stopsLevel:10,tradeMode:'SYMBOL_TRADE_MODE_FULL',allowedOrderTypes:['SYMBOL_ORDER_MARKET','SYMBOL_ORDER_SL','SYMBOL_ORDER_TP']},positions:exposure?[{id:'manual'}]:[],orders:[],candles:Array.from({length:26},(_,i)=>({time:new Date(boundary-(26-i)*900000).toISOString(),open:i===25?2000:1900,high:i===25?2001:1901,low:i===25?1999:1899,close:i===25?2000:1900})).filter((_,i)=>!gapped||i!==22)};},
   async margin(){return {margin:20};},async demoOrder(){events.push('broker-order');orders++;if(outcome==='unknown')throw new Error('timeout');return {orderId:'123'};}
  };
  return {db,gateway,run,events,receipts,get orders(){return orders;}};
@@ -39,4 +39,18 @@ test('worker readiness requires a recent database heartbeat; database failure is
  assert.equal(await engineReady({one:async()=>({updated_at:new Date().toISOString()})}),true);
  assert.equal(await engineReady({one:async()=>({updated_at:new Date(Date.now()-100000).toISOString()})}),false);
  assert.equal(await engineReady({one:async()=>{throw new Error('offline');}}),false);
+});
+
+test('recoverable MetaApi 504 and candle gaps leave armed DEMO monitoring, never submit orders',async()=>{
+ for(const options of [
+  {marketError:Object.assign(new Error('MetaApi unavailable'),{providerStatus:504})},
+  {gapped:true}
+ ]) {
+   const f=fixture(options);
+   await processDemoRun(f);
+   assert.equal(f.orders,0);
+   assert.equal(f.run.enabled,true);
+   assert.match(f.run.message,/Waiting for fresh MT5 candles or MetaApi recovery/);
+   assert.ok(!f.events.includes('broker-order'));
+ }
 });
