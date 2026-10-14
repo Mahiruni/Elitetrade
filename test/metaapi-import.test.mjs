@@ -7,7 +7,8 @@ const localId='b7e99855-4533-4b31-a419-59df968e3aa4';
 const login='477054974', server='Exness-MT5Trial9';
 function fixture(options={}) {
   const calls=[];
-  const hosted={_id:remoteId,name:'EliteDemo',login,server,platform:'mt5',region:'london',state:'DEPLOYED',connectionStatus:'CONNECTED',metadata:{},...options.hosted};
+  // Provisioning read-account frequently omits platform (per MetaApi docs).
+  const hosted={_id:remoteId,name:'EliteDemo',login,server,region:'london',state:'DEPLOYED',connectionStatus:'CONNECTED',metadata:{},...options.hosted};
   const info={login,server,platform:'mt5',type:'ACCOUNT_TRADE_MODE_DEMO',balance:10000,equity:10000,currency:'USD',tradeAllowed:true,investorMode:false,...options.info};
   const fetchImpl=async(url,request)=>{
     const path=new URL(url).pathname;
@@ -33,6 +34,12 @@ test('adopts connected existing demo without creating or deleting a hosted accou
   assert.equal(removed.hostedAccountPreserved,true);
   assert.ok(calls.every(call=>call.method==='GET'));
   assert.ok(calls.every(call=>!call.path.endsWith('/trade')));
+});
+test('refuses explicitly non-MT5 hosted platform and broker non-MT5 result',async()=>{
+  const wrongHosted=fixture({hosted:{platform:'mt4'}});
+  await assert.rejects(wrongHosted.gateway.adoptDemo({accountId:localId,login,server},remoteId),/not an MT5 account/);
+  const wrongBroker=fixture({info:{platform:'mt4'}});
+  await assert.rejects(wrongBroker.gateway.adoptDemo({accountId:localId,login,server},remoteId),/verified MT5/);
 });
 test('refuses a real hosted account',async()=>{
   const {gateway}=fixture({info:{type:'ACCOUNT_TRADE_MODE_REAL'}});
