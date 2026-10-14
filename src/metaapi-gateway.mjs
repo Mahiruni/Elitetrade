@@ -194,6 +194,32 @@ export function createMetaApiGateway(env, fetchImpl = fetch) {
       if (info.type !== 'ACCOUNT_TRADE_MODE_DEMO') throw error('Only a broker-verified DEMO account can be imported using this action.',409);
       return {accountId:id,connected:true,tradingAllowed:info.tradeAllowed === true && info.investorMode === false};
     },
+    // Read-only live connection diagnostics; keep broker type unverified if
+    // the provider is disconnected or the account-information API times out.
+    async connectionHealth(id) {
+      const hosted=await metadata(id);
+      const hostingState=['CREATED','DEPLOYING','DEPLOYED','DEPLOY_FAILED','UNDEPLOYING','UNDEPLOYED','UNDEPLOY_FAILED','REDEPLOY_FAILED'].includes(hosted.state) ? hosted.state : 'UNKNOWN';
+      const connectionStatus=['CONNECTED','DISCONNECTED','DISCONNECTED_FROM_BROKER'].includes(hosted.connectionStatus) ? hosted.connectionStatus : 'UNKNOWN';
+      const base={hostingState,connectionStatus,brokerVerified:false,accountType:null,executionEnabled:false};
+      if(hostingState!=='DEPLOYED')
+        return {...base,message:'MetaApi hosting is not fully deployed. Review this account in the MetaApi MT Accounts dashboard.'};
+      if(connectionStatus==='DISCONNECTED_FROM_BROKER')
+        return {...base,message:'MetaApi reports that the MT5 terminal cannot connect to the broker. Check the MT5 trading login, exact server, broker access and MetaApi account diagnostics; wait for Connected.'};
+      if(connectionStatus!=='CONNECTED')
+        return {...base,message:'MetaApi terminal is not currently connected. Wait until its MT Accounts dashboard reports Connected; this does not mean the EliteTrade link was lost.'};
+      try {
+        const info=await figures(id,hosted);
+        return {...base,brokerVerified:true,accountType:info.type==='ACCOUNT_TRADE_MODE_DEMO'?'demo':'real',
+          tradeAllowed:info.tradeAllowed===true&&info.investorMode===false,
+          message:info.type==='ACCOUNT_TRADE_MODE_DEMO'?
+            'MetaApi hosting and broker account data are connected. This is a verified demo account; demo worker and risk checks are still required for orders.':
+            'This is a REAL account. Demo trade execution must remain disabled.'};
+      } catch (failure) {
+        if(![500,502,503,504].includes(failure.providerStatus))throw failure;
+        return {...base,providerStatus:failure.providerStatus,
+          message:'MetaApi reports Connected, but the broker account-information API is temporarily unavailable. The account type cannot be safely verified. Wait for the provider to recover; no order will be placed.'};
+      }
+    },
     // Read-only broker symbol discovery. Do not infer or auto-substitute an instrument.
     async goldSymbols(id,requestedSymbol='XAUUSD') {
       if(!/^[A-Za-z0-9._-]{3,30}$/.test(requestedSymbol))throw error('Invalid symbol.',400);

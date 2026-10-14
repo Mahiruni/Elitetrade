@@ -503,6 +503,19 @@ export function createSupabaseApplication(options = {}) {
       return json(res, { ok:true, message:'MT5 details saved for administrator review. Connection is not active yet.' }, 201);
     }
 
+    const accountHealth=path.match(/^\/api\/accounts\/([^/]+)\/connection$/);
+    if(accountHealth && method==='GET') {
+      const ctx=await needUser(req);
+      if(gateway?.mode!=='account-data'||typeof gateway.connectionHealth!=='function')fail(503,'MetaApi connection diagnostics are not configured.');
+      rateLimit('mt5-health:'+ctx.user.id,5,300000);
+      const account=await db.one('elitetrade_accounts',
+        `id=eq.${q(accountHealth[1])}&user_id=eq.${q(ctx.user.id)}&select=id,gateway_id,status`,ctx.token);
+      if(!account)fail(404,'MT5 account not found.');
+      if(!account.gateway_id)fail(409,'This account is not yet linked to a hosted MT5 terminal.');
+      const result=await gateway.connectionHealth(account.gateway_id);
+      return json(res,{...result,checkedAt:new Date().toISOString(),savedStatus:account.status});
+    }
+
     const accountSymbols = path.match(/^\/api\/accounts\/([^/]+)\/symbols$/);
     if (accountSymbols && method === 'GET') {
       const ctx=await needUser(req);
