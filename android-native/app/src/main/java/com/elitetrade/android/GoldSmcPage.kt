@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 /** Native authenticated, read-only Gold SMC research. Never issues an order. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GoldSmcPage(api: EliteApi, bots: List<JSONObject>, accounts: List<JSONObject>) {
     val gold = Color(0xFFD8B16A)
