@@ -7,8 +7,8 @@ export function termuxConfigIssues(env,nodeVersion='24.18.0') {
     problems.push('Install Node.js 24.12.0 or later in the Node 24 series: pkg install nodejs-lts');
   if (env.SUPABASE_URL!=='https://cgpvhayfwnpipktyltho.supabase.co')
     problems.push('SUPABASE_URL must point to the existing EliteTrade Supabase project.');
-  if (!String(env.SUPABASE_SERVICE_ROLE_KEY||'').trim())
-    problems.push('SUPABASE_SERVICE_ROLE_KEY is missing. Enter the legacy service_role key locally in Termux.');
+  if (!String(env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY||'').trim())
+    problems.push('SUPABASE_SECRET_KEY is missing. Create a new server-side sb_secret_ key for Termux, not a publishable/anon key.');
   if (!String(env.METAAPI_TOKEN||'').trim())
     problems.push('METAAPI_TOKEN is missing. Enter the same token that owns the connected MetaApi DEMO account.');
   if (env.METAAPI_REGION && !/^[a-z][a-z0-9-]{0,30}$/.test(env.METAAPI_REGION))

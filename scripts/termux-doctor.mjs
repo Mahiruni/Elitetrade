@@ -13,7 +13,7 @@ if(problems.length){
 }else{
  console.log('Node.js version and private configuration: present. Values not displayed.');
  try{
-  const db=createSupabaseData({url:env.SUPABASE_URL,key:env.SUPABASE_SERVICE_ROLE_KEY});
+  const db=createSupabaseData({url:env.SUPABASE_URL,key:env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY});
   // Limits provider lookups and intentionally displays neither broker IDs nor passwords.
   const accounts=await db.query('elitetrade_accounts',
     'status=eq.connected&gateway_id=not.is.null&select=gateway_id&limit=8');

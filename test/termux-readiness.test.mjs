@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {termuxConfigIssues} from '../src/termux-readiness.mjs';
 import {readFileSync} from 'node:fs';
-const correct={SUPABASE_URL:'https://cgpvhayfwnpipktyltho.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'local-test-only',METAAPI_TOKEN:'mock-provider-token',METAAPI_REGION:'london',DEMO_EXECUTION_ENABLED:'false'};
+const correct={SUPABASE_URL:'https://cgpvhayfwnpipktyltho.supabase.co',SUPABASE_SECRET_KEY:'sb_secret_TEST_KEY_NOT_LIVE',METAAPI_TOKEN:'mock-provider-token',METAAPI_REGION:'london',DEMO_EXECUTION_ENABLED:'false'};
 test('Node 24.12+ and private variable presence are required',()=>{
  assert.deepEqual(termuxConfigIssues(correct,'24.18.0'),[]);
  assert.deepEqual(termuxConfigIssues(correct,'24.12.0'),[]);

@@ -9,7 +9,9 @@ test('Termux installer does not echo secrets, enables no trading, and strips cop
  assert.match(source,/mode:0o600/);
  assert.match(source,/DEMO_EXECUTION_ENABLED=false/);
  assert.match(source,/u200e/);
- assert.match(source,/body\.role !== 'service_role'/);
- assert.match(source,/body\.ref !== 'cgpvhayfwnpipktyltho'/);
+ assert.match(source,/sb_secret_/);
+ assert.match(source,/SUPABASE_SECRET_KEY=/);
+ assert.doesNotMatch(source,/SUPABASE_SERVICE_ROLE_KEY=/);
+ assert.match(source,/NEW_KEYS_CREATED/);
  assert.doesNotMatch(source,/DEMO_EXECUTION_ENABLED=true|demoOrder\(|demoEngineTick\(|\/trade\b/);
 });

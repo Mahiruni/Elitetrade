@@ -2,9 +2,14 @@ export function createSupabaseData({ url, key, getDeviceToken = () => '' }) {
   const base = String(url || '').replace(/\/$/, '');
   if (!base || !key) throw new Error('Supabase configuration is missing.');
 
+  // New sb_secret_* keys are API gateway credentials, NOT JWTs. Sending
+  // Authorization: Bearer sb_secret_* produces Supabase "Invalid JWT".
+  // Legacy service_role keys still use the original Bearer fallback, while
+  // user-scoped calls continue to pass the signed-in user's JWT.
+  const modernSecret = String(key).startsWith('sb_secret_');
   const headers = (token, extra = {}) => ({
     apikey: key,
-    Authorization: `Bearer ${token || key}`,
+    ...(token ? {Authorization: `Bearer ${token}`} : modernSecret ? {} : {Authorization: `Bearer ${key}`}),
     'Content-Type': 'application/json',
     ...extra
   });
