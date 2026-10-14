@@ -351,7 +351,8 @@ void ManageOwnPositions()
 }
 int OnInit()
 {
-   if(StringFind(StringToUpper(_Symbol),"XAUUSD")!=0)
+   string upperSymbol=_Symbol;StringToUpper(upperSymbol);
+   if(StringFind(upperSymbol,"XAUUSD")!=0)
       {Print("Attach to an XAUUSD broker symbol only.");return INIT_FAILED;}
    if(AccountInfoInteger(ACCOUNT_MARGIN_MODE)!=ACCOUNT_MARGIN_MODE_RETAIL_HEDGING)
       {Print("v3 requires a hedging MT5 account for safe partial close semantics.");return INIT_FAILED;}
