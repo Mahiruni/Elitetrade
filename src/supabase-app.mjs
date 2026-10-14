@@ -639,6 +639,19 @@ export function createSupabaseApplication(options = {}) {
       let engineRuns=[];
       if(gateway?.mode === 'account-data') engineRuns=await db.query('elitetrade_engine_runs',`user_id=eq.${q(ctx.user.id)}&select=bot_id,enabled,updated_at,message`,ctx.token).catch(()=>[]);
       const ready=gateway?.mode === 'account-data' ? await engineReady(db,ctx.token) : false;
+      // Engine receipts are PostgreSQL owner-scoped, never demo simulations.
+      // Only allowlisted fields can reach the Android/web dashboard.
+      const receipts=gateway?.mode==='account-data' ? await db.query('elitetrade_engine_orders',
+        `user_id=eq.${q(ctx.user.id)}&select=bot_id,status,request,result,created_at&order=created_at.desc&limit=12`,ctx.token) : [];
+      const executionHistory=Array.isArray(receipts) ? receipts.filter(r=>r&&['confirmed','reserved','unknown','cancelled'].includes(r.status)).map(r=>({
+        botId:String(r.bot_id||'').slice(0,40),
+        status:r.status,
+        createdAt:typeof r.created_at==='string'?r.created_at:null,
+        side:r.request?.actionType==='ORDER_TYPE_BUY'?'buy':r.request?.actionType==='ORDER_TYPE_SELL'?'sell':null,
+        symbol:typeof r.request?.symbol==='string'&&/^[A-Za-z0-9._-]{3,30}$/.test(r.request.symbol)?r.request.symbol:null,
+        volume:Number.isFinite(Number(r.request?.volume))&&Number(r.request.volume)>0?Number(r.request.volume):null,
+        brokerOrderId:r.status==='confirmed'&&/^[a-z0-9_-]{1,72}$/i.test(String(r.result?.orderId||''))?String(r.result.orderId):null
+      })) : [];
       for (const bot of bots) {
         if(gateway?.mode === 'account-data') {
           const run=engineRuns.find(r=>r.bot_id===bot.id);
@@ -656,7 +669,7 @@ export function createSupabaseApplication(options = {}) {
           bot.status = status.running ? 'running' : 'stopped';
         } catch { bot.status = 'unknown'; }
       }
-      return json(res, { bots, ...(gateway?.mode === 'account-data' ? {engineReady:ready} : {}) });
+      return json(res, { bots, ...(gateway?.mode === 'account-data' ? {engineReady:ready,executionHistory} : {}) });
     }
 
     const botSave = path.match(/^\/api\/bots\/([^/]+)$/);
