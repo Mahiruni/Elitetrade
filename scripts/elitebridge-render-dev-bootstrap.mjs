@@ -37,7 +37,7 @@ export function parseRenderDevelopmentUrl(raw){
 export function classifyPsqlFailure(stderr='',code='',status=null){
   const s=String(stderr||'').toLowerCase(), c=String(code||'').toUpperCase();
   if(c==='ENOENT')return 'PSQL_CLIENT_MISSING: Install with pkg install postgresql.';
-  if(c==='ETIMEDOUT'||/connection timed out|operation timed out|timeout expired/.test(s))
+  if(c==='ETIMEDOUT'||/connection timed out|server timed out|operation timed out|timeout expired/.test(s))
     return 'NETWORK_TIMEOUT: Verify your current public IPv4 /32 in Render Networking, mobile data routing, and port 5432.';
   if(/password authentication failed|scram authentication failed/.test(s))
     return 'PASSWORD_REJECTED: The new credential or copied External Database URL is incorrect; copy it again from Render.';
