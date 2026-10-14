@@ -98,6 +98,22 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
                     fontSize=12.sp,color=muted,lineHeight=18.sp)
             }
         }
+        ElevatedCard{
+            Column(Modifier.fillMaxWidth().padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
+                Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){
+                    Icon(Icons.Default.Shield,contentDescription=null,tint=gold)
+                    Text("Trusted devices",fontSize=16.sp,fontWeight=FontWeight.Bold)
+                }
+                Text("Review pending, approved and revoked device enrollments. No independent MT5 connection or trading permissions are enabled.",
+                    fontSize=12.sp,color=muted,lineHeight=18.sp)
+                OutlinedButton(onClick={onNavigate("EliteBridge Devices")},
+                    modifier=Modifier.fillMaxWidth()){
+                    Icon(Icons.Default.Security,contentDescription=null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Manage trusted devices")
+                }
+            }
+        }
         Text("Available connections",fontSize=16.sp,fontWeight=FontWeight.Bold)
         if(providers!=null)for(i in 0 until providers.length()){
             val p=providers.optJSONObject(i)?:continue
