@@ -24,7 +24,7 @@ function validate(packet){
   if(size>4096)reject('packet exceeds DEMO telemetry size limit');
 }
 
-export function createSupabaseBridgeTelemetry({db,clock=()=>Date.now()}={}){
+export function createSupabaseBridgeTelemetry({db,clock=()=>Date.now(),recordSnapshots=false}={}){
   if(!db||typeof db.rpc!=='function')reject('private Supabase RPC required');
   const registry=createEliteBridgeRegistry({db});
   return {
@@ -33,7 +33,7 @@ export function createSupabaseBridgeTelemetry({db,clock=()=>Date.now()}={}){
       validate(packet);
       const result=await registry.verifySignedDemo({
         ownerId,accountId:packet.accountId,deviceId:packet.deviceId,
-        packet,nowMs:clock()
+        packet,nowMs:clock(),persistSnapshot:recordSnapshots===true
       });
       if(result.verified!==true||result.demoOnly!==true||
         result.actionsAllowed!==false||result.brokerVerified!==false)
