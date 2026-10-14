@@ -164,7 +164,11 @@ export function createMetaApiGateway(env, fetchImpl = fetch) {
     async adoptDemo(account,remoteId) {
       if (!idPattern.test(account?.accountId || '') || !idPattern.test(remoteId || '') || !/^\d+$/.test(String(account?.login || '')) || !account?.server) throw error('Invalid account binding request.',400);
       const hosted=await call(provisioning,`/users/current/accounts/${remoteId}`);
-      if (hosted?._id !== remoteId || hosted.platform !== 'mt5' || String(hosted.login) !== String(account.login) || hosted.server !== account.server) throw error('The hosted account does not match the saved MT5 login, server, and platform.',409);
+      // MetaApi's provisioning read-account response can omit 'platform'; its
+      // connected broker account-information endpoint is authoritative for MT5.
+      // If provisioning *does* explicitly report a non-MT5 platform, refuse it.
+      if (hosted?._id !== remoteId || String(hosted.login) !== String(account.login) || hosted.server !== account.server) throw error('The hosted account does not match the saved MT5 login and broker server.',409);
+      if (hosted.platform != null && hosted.platform !== 'mt5') throw error('The hosted MetaApi account is not an MT5 account.',409);
       if (hosted.metadata?.elitetradeAccountId != null && hosted.metadata.elitetradeAccountId !== account.accountId) throw error('This hosted account belongs to another EliteTrade record.',409);
       if (hosted.state !== 'DEPLOYED' || hosted.connectionStatus !== 'CONNECTED') throw error('Connect the hosted MetaApi account before importing it.',409);
       const id=`metaapi-existing:${account.accountId}:${remoteId}`;
