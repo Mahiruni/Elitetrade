@@ -672,7 +672,7 @@ export function createSupabaseApplication(options = {}) {
         accountId = account.id;
       }
       const name = string(body.name, 'Bot name', 2, 64);
-      const strategy = choice(body.strategy, ['trend','scalping','breakout'], 'strategy');
+      const strategy = choice(body.strategy, ['trend','scalping','scalping-m1','breakout'], 'strategy');
       const symbol = string(body.symbol, 'Symbol', 3, 30);
       if (!/^[A-Za-z0-9._-]+$/.test(symbol)) fail(400, 'Enter a valid broker symbol.');
       const patch = {
