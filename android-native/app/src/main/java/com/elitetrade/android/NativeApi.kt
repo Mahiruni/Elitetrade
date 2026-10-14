@@ -73,6 +73,7 @@ class EliteApi(context: Context) {
     private var publishableKey = ""
     private var accessToken = ""
     private var refreshToken = ""
+    private var claudeConnectionMode = ""
     var user: JSONObject? = null
         private set
 
@@ -132,6 +133,7 @@ class EliteApi(context: Context) {
 
     suspend fun config(): JSONObject = withContext(Dispatchers.IO) {
         val result = server("/api/config")
+        claudeConnectionMode=result.optString("connectionMode")
         val candidate = result.optString("supabaseUrl")
         if (!candidate.startsWith("https://")) throw ApiProblem("Sign-in is not configured on this server.")
         supabaseUrl = candidate.removeSuffix("/")
@@ -232,6 +234,13 @@ class EliteApi(context: Context) {
 
     suspend fun accounts(): JSONArray = withContext(Dispatchers.IO) { server("/api/accounts").optJSONArray("accounts") ?: JSONArray() }
     suspend fun bots(): JSONArray = withContext(Dispatchers.IO) { server("/api/bots").optJSONArray("bots") ?: JSONArray() }
+    suspend fun claudeProBots(): JSONObject = withContext(Dispatchers.IO) { server("/api/bots") }
+    /** Bootstrap contains display data only, never access/refresh tokens or device cookies. */
+    fun claudeProBootstrap(): String {
+        val member=JSONObject()
+        listOf("id","name","email","active","role").forEach { key -> user?.opt(key)?.let { member.put(key,it) } }
+        return JSONObject().put("user",member).put("config",JSONObject().put("connectionMode",claudeConnectionMode)).toString()
+    }
     /** Read-only backend strategy preview, authenticated with the existing member session. */
     suspend fun previewBot(botId:String):JSONObject = withContext(Dispatchers.IO) {
         server("/api/bots/" + safeId(botId) + "/preview", "POST", JSONObject())

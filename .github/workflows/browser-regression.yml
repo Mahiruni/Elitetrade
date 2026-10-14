@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'public/**'
+      - 'web/**'
       - 'src/**'
       - 'test/**'
       - '.github/workflows/browser-regression.yml'
@@ -19,10 +20,13 @@ jobs:
           node-version: '24'
           cache: 'npm'
       - run: npm ci
+      - run: npm run build
       - run: npm install --no-save playwright
       - run: npx playwright install --with-deps chromium
       - name: Run authenticated mobile and desktop browser tests
-        run: node test/browser.mjs
+        run: |
+          node test/claude-pro-browser.mjs
+          node test/browser.mjs
       - name: Upload QA captures on failure
         if: failure()
         uses: actions/upload-artifact@v4

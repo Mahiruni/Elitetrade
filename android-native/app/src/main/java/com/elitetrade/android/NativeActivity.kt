@@ -418,6 +418,7 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                             "Bot" -> BotPage(bots,accounts,panel,textColor,mutedColor,onConnect={showConnect=true},onControl={pendingControl=it})
                             "ClaudeBot" -> ClaudeBotPage(api,bots,accounts,
                                 api.user?.optBoolean("active")==true || api.user?.str("role")=="admin")
+                            "Claude Pro Bot" -> ClaudeProBotPage(api,onNavigate={screen=it})
                             "Account" -> AccountPage(api.user,panel,textColor,mutedColor,lightTheme,
                                 onNavigate={screen=it},onTheme=toggleTheme,onCheckUpdates={checkForUpdates()},
                                 onSignOut={
@@ -480,7 +481,7 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                         if(busy && screen != "Support") LinearProgressIndicator(
                             modifier=Modifier.fillMaxWidth().align(Alignment.TopCenter).height(2.dp),color=Gold)
                     }
-                    if (!keyboardOpen) {
+                    if (!keyboardOpen && screen!="Claude Pro Bot") {
                         FloatingTabs(mainTabs,screen,lightTheme) { screen=it;error="";message="" }
                     }
                 }
@@ -779,7 +780,7 @@ private fun NativeHeader(title:String,selected:JSONObject?,onBack:(()->Unit)?,on
                     Icon(Icons.Default.Menu,contentDescription="Open navigation menu",tint=textColor)
                 }
                 DropdownMenu(expanded=menuOpen,onDismissRequest={menuOpen=false}) {
-                    val items=listOf("Home","Markets","Trade","Bot","ClaudeBot","Account","MT5",
+                    val items=listOf("Home","Markets","Trade","Bot","ClaudeBot","Claude Pro Bot","Account","MT5",
                         "Activity","Billing","Settings","Support")+(if(isAdmin)listOf("Admin") else emptyList())
                     items.forEach { destination->
                         DropdownMenuItem(text={Text(destination,
@@ -1115,6 +1116,7 @@ private fun AccountPage(user:JSONObject?,panel:Color,textColor:Color,muted:Color
         EliteCard(panel){
             AccountRow(Icons.Default.AccountBalanceWallet,"MT5 accounts","Connections and broker status",onClick={onNavigate("MT5")})
             AccountRow(Icons.Default.AutoGraph,"ClaudeBot","Independent read-only trading signal analysis",onClick={onNavigate("ClaudeBot")})
+            AccountRow(Icons.Default.AutoGraph,"Claude Pro Bot","Automatic signal analysis and MT5 demo controls",onClick={onNavigate("Claude Pro Bot")})
             AccountRow(Icons.Default.History,"Activity","Subscription and recent records",onClick={onNavigate("Activity")})
         }
         SectionTitle("App updates & support")
