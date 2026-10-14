@@ -25,3 +25,11 @@ The Android APK contains **no privileged Supabase or MetaApi key**. It uses the 
 7. Disable `MOBILE_DEMO_ENGINE_ENABLED` if incident/abuse discovered.
 
 Test with locked screen, switching apps, loss of cellular data, denied notifications, sleep and Android FGS timeout. DO NOT market as always-on; use paid approved always-on worker when needing persistent service.
+
+## Connection recovery on Android (October 2026)
+
+- The foreground service monitors verified network connectivity. When internet drops, the worker **stops posting new engine pulses**, and the heartbeat expires naturally. If connectivity returns **while the service remains active**, the existing session resumes and sends a new authenticated pulse.
+- Failed backend/provider calls use bounded backoff rather than stopping after three errors. A revoked, expired or device-unverified session remains fail-closed and requires user interaction. The API client proactively refreshes signed-in user JWTs using Android Keystore-protected refresh tokens; privileged MetaApi and Supabase secrets remain only on Vercel.
+- Android 15/16 imposes a six-hour rolling background quota on dataSync foreground services; the service implements onTimeout and stops cleanly. The app does **not** try to restart covertly at boot, after a force-stop, an OS timeout or user logout.
+- This provides best-effort internet reconnection during a supervised phone session, **not guaranteed 24/7 execution**. WorkManager background periodic tasks cannot replace the 45-second worker (minimum 15-minute repeat interval and inexact scheduling). Use approved always-on hosting for continuous trading.
+- Existing broker DEMO positions may remain open when Android stops and require monitoring in MT5. Keep Termux's previous worker stopped to avoid two active engines.

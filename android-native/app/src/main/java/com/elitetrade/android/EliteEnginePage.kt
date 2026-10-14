@@ -35,6 +35,7 @@ fun EliteEnginePage(api:EliteApi,context:Context){
     var lastSuccess by remember{mutableLongStateOf(0L)}
     var cycles by remember{mutableIntStateOf(0)}
     var detail by remember{mutableStateOf("Stopped")}
+    var internetAvailable by remember{mutableStateOf(false)}
     val notifyPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     fun load(){
         scope.launch{
@@ -52,6 +53,7 @@ fun EliteEnginePage(api:EliteApi,context:Context){
             lastSuccess=EliteEngineSession.lastHeartbeatMillis
             cycles=EliteEngineSession.successfulCycles
             detail=EliteEngineSession.lastMessage
+            internetAvailable=EliteEngineSession.internetAvailable
             // Fetch backend confirmation regularly. Phone-local success alone
             // does not prove that Supabase still sees a fresh worker heartbeat.
             if(checkCount%15==0&&checkCount>0){
@@ -76,6 +78,9 @@ fun EliteEnginePage(api:EliteApi,context:Context){
                 Text(if(fresh&&ready)"● ENGINE ONLINE · SERVER CONFIRMED" else if(running&&fresh)"● PHONE ACTIVE · VERIFYING SERVER" else if(running)"● CONNECTION STALE" else "○ STOPPED",
                     color=if(fresh&&ready)Color(0xFF34D399) else gold,fontWeight=FontWeight.Bold)
                 Text(detail,color=muted,fontSize=12.sp)
+                Text(if(internetAvailable)"Internet: available · reconnect enabled while engine runs" else
+                    "Internet: offline/unverified · DEMO evaluation paused",
+                    color=if(internetAvailable)Color(0xFF34D399) else gold,fontSize=12.sp)
                 Text("Successful cycles: $cycles",fontSize=12.sp)
                 Text(if(lastSuccess==0L)"No successful phone heartbeat" else
                     "Last heartbeat: "+((System.currentTimeMillis()-lastSuccess)/1000).coerceAtLeast(0)+" sec ago",
@@ -104,12 +109,14 @@ fun EliteEnginePage(api:EliteApi,context:Context){
             Text(" Start native DEMO engine")
         }
         HorizontalDivider()
+        Text("Internet recovery",fontWeight=FontWeight.Bold)
+        Text("When connected, the engine continues checking your DEMO strategy. If Wi-Fi or mobile data disconnects, requests pause. They resume when validated internet returns — only while Android keeps this foreground service running.",color=muted,fontSize=12.sp,lineHeight=19.sp)
         Text("Safe supervised testing",fontWeight=FontWeight.Bold)
         Text("1. Stop the old Termux worker before starting this one.\n"+
             "2. The phone sends authenticated heartbeat requests every 45 seconds.\n"+
             "3. This does not arm trading. Start a broker-verified DEMO bot separately in Bots.\n"+
             "4. Broker DEMO orders are possible only for explicitly armed bots passing server risk checks.\n"+
-            "5. Android 15/16 can stop dataSync foreground services after six hours in a rolling day, or sooner. Not suitable for unattended trading.\n"+
+            "5. Android 15/16 limits dataSync foreground service background time to six hours per rolling day. Reopen/restart after the OS timeout; automatic internet recovery cannot bypass this limit.\n"+
             "6. Stopping this engine does not close existing MT5 positions.",
             color=muted,fontSize=12.sp,lineHeight=19.sp)
         Text("No Supabase service-role or MetaApi API token is stored in the APK.",color=gold,fontSize=12.sp)
