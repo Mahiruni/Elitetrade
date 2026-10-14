@@ -145,7 +145,7 @@ async function fetchApi(path, method = 'GET', body) {
     error.code = result.code || '';
     throw error;
   }
-  if (isStrategyPreview && (!jsonResponse || !result.signal)) {
+  if (isStrategyPreview && (!jsonResponse || !(result.signal || result.goldSmc || result.poi))) {
     throw new Error('EliteTrade returned an incomplete strategy preview. Check MT5 status and retry later. No preview order was submitted.');
   }
   return result;
