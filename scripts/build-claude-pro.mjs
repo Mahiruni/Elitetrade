@@ -2,8 +2,10 @@ import { build } from 'esbuild';
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, copyFileSync, writeFileSync } from 'node:fs';
 
-const check = spawnSync(process.execPath, ['node_modules/typescript/bin/tsc', '-p', 'web/claude-pro/tsconfig.json'], { stdio: 'inherit' });
-if (check.status !== 0) process.exit(check.status || 1);
+for (const project of ['tsconfig.json', 'web/claude-pro/tsconfig.json']) {
+  const check = spawnSync(process.execPath, ['node_modules/typescript/bin/tsc', '-p', project], { stdio: 'inherit' });
+  if (check.status !== 0) process.exit(check.status || 1);
+}
 await build({ entryPoints: ['web/claude-pro/index.tsx'], bundle: true, minify: true, format: 'esm', target: 'es2022', outfile: 'public/claude-pro-bot.js', define: { 'process.env.NODE_ENV': '"production"' }, legalComments: 'eof' });
 await build({ entryPoints: ['web/claude-pro/model.ts'], bundle: true, format: 'esm', target: 'es2022', outfile: 'public/claude-pro-model.js' });
 const css = spawnSync(process.execPath, ['node_modules/@tailwindcss/cli/dist/index.mjs', '-i', 'web/claude-pro/styles.css', '-o', 'public/claude-pro-bot.css', '--minify'], { stdio: 'inherit' });
