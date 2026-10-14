@@ -272,6 +272,12 @@ class EliteApi(context: Context) {
     suspend fun eliteBridgeStatus(): JSONObject = withContext(Dispatchers.IO) {
         server("/api/elitebridge/status")
     }
+    /** Owner-scoped read-only broker-DEMO connection and quote probe. */
+    suspend fun eliteBridgeProbe(accountId:String,symbol:String="XAUUSDm"): JSONObject = withContext(Dispatchers.IO) {
+        if(!accountId.matches(Regex("[0-9a-fA-F-]{36}")))throw ApiProblem("Invalid MT5 account selection.")
+        if(!symbol.matches(Regex("[A-Za-z0-9._-]{3,30}")))throw ApiProblem("Invalid broker symbol.")
+        server("/api/elitebridge/accounts/"+accountId+"/probe?symbol="+symbol)
+    }
     /** No privileged keys in Android: requests use the verified member session. */
     suspend fun mobileEngineStatus(): JSONObject = withContext(Dispatchers.IO) {
         ensureMobileEngineSession()

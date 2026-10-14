@@ -17,3 +17,13 @@
 - Connection status here is a saved database binding status, **not independently verified live MT5 connection**. Use existing MT5 connection diagnostics for live checks.
 - No exposure of a raw MT5 login, provider account ID, passwords, API token or service role credential from the status endpoint.
 - A reliable self-hosted bridge eventually needs a device/host running the official terminal or an actual broker API, with appropriate operational cost.
+
+## Phase 2 — owner-scoped read-only live broker diagnostic (implemented)
+
+- New strict provider-neutral read-only adapter in `src/elitebridge-router.mjs`.
+- Authenticated `GET /api/elitebridge/accounts/:accountId/probe?symbol=XAUUSDm` verifies account ownership before accessing MetaApi. A device-verified account owner may request **3 probes/minute**; this does not poll in the background.
+- Router identifies the existing bound provider and **never** falls back to a different provider. An unsupported EliteBridge binding fails closed.
+- Live broker session must return `DEPLOYED`, `CONNECTED`, `brokerVerified=true` and MT5 `demo`; REAL accounts are blocked before any quote request. Only then does the adapter fetch a **read-only 5-minute preview quote** using the existing MetaApi API. A quote is valid only if its broker timestamp is within 180 seconds old and not more than 30 seconds in the future, and bid/ask are positive and ordered.
+- UI shows safe provider state, broker-verified demo status, trade-permission indicator, quote and timestamp freshness. All sensitive provider errors are normalized, and the response omits account IDs, API credentials, passwords and raw history.
+- Execution `src/demo-engine.mjs` is unchanged; broker order API is never invoked by the probe. Stored MT5 binding IDs are owner-scoped local UUIDs, **not raw MetaApi account IDs**.
+- This **does not** implement independent MT5 connectivity. The feature will become available only after Vercel deploys the merged backend. Keep existing MetaApi free allowance while building the direct adapter.

@@ -37,6 +37,7 @@ export function eliteBridgeStatus({gateway,accounts=[],workerReady=false}={}) {
     const provider=bridgeProviderForBinding(account.gateway_id);
     const status=accountState.has(account.status)?account.status:'unknown';
     return {
+      accountId:/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(account.id||''))?account.id:null,
       provider:provider||'unverified',
       account:maskLogin(account.login),
       broker:typeof account.broker==='string'?account.broker.slice(0,60):'MT5',
@@ -48,7 +49,7 @@ export function eliteBridgeStatus({gateway,accounts=[],workerReady=false}={}) {
     };
   });
   return {
-    phase:1,readOnly:true,
+    phase:2,readOnly:true,
     executionEnabledByBridge:false,
     activeProvider:configured?'metaapi':gateway?'legacy-gateway':null,
     workerHeartbeatFresh:workerReady===true,

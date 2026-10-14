@@ -16,7 +16,8 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 /**
- * EliteBridge Phase 1: authenticated read-only connection inventory.
+ * EliteBridge Phase 2: authenticated connection inventory and explicit live
+ * DEMO broker/quote probe. No provider switching or orders.
  * This screen cannot place orders, swap provider, or collect broker secrets.
  */
 @Composable
@@ -27,6 +28,19 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
     var busy by remember {mutableStateOf(false)}
     var report by remember {mutableStateOf<JSONObject?>(null)}
     var error by remember {mutableStateOf("")}
+    var probes by remember {mutableStateOf(mapOf<String,JSONObject>())}
+    var probeErrors by remember {mutableStateOf(mapOf<String,String>())}
+    var probing by remember {mutableStateOf(setOf<String>())}
+    fun probe(accountId:String) {
+        if(accountId.isBlank() || probing.contains(accountId))return
+        scope.launch {
+            probing=probing+accountId
+            probeErrors=probeErrors-accountId
+            try {probes=probes+(accountId to api.eliteBridgeProbe(accountId))}
+            catch(e:Exception){probeErrors=probeErrors+(accountId to (e.message?:"Connection probe unavailable."))}
+            finally{probing=probing-accountId}
+        }
+    }
 
     fun load() {
         scope.launch {
@@ -91,6 +105,41 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
                     Text("Registered provider: "+a.optString("provider")+
                         " · Saved state: "+a.optString("status"),fontSize=12.sp,color=muted)
                     Text("Saved binding only — not a fresh broker verification.",fontSize=11.sp,color=gold)
+                    val accountId=a.optString("accountId").takeIf{it!="null"}.orEmpty()
+                    if(accountId.isNotBlank()){
+                        OutlinedButton(onClick={probe(accountId)},enabled=!probing.contains(accountId),
+                            modifier=Modifier.fillMaxWidth()){
+                            Icon(Icons.Default.Security,contentDescription=null)
+                            Spacer(Modifier.width(6.dp))
+                            Text(if(probing.contains(accountId))"Checking live DEMO…" else "Check live DEMO and XAUUSDm quote")
+                        }
+                        val result=probes[accountId]
+                        if(result!=null){
+                            val state=result.optString("state")
+                            val verification=result.optJSONObject("verification")
+                            val market=result.optJSONObject("market")
+                            Text("Broker verification: "+state,fontSize=12.sp,fontWeight=FontWeight.Bold,
+                                color=if(state=="verified-demo")Color(0xFF34D399) else gold)
+                            Text(result.optString("message"),fontSize=11.sp,color=muted,lineHeight=17.sp)
+                            if(verification!=null){
+                                Text("MT5 type: "+verification.optString("accountType","unverified")+
+                                    " · Trade permission: "+if(verification.optBoolean("tradeAllowed"))"allowed" else "not confirmed",
+                                    fontSize=11.sp,color=muted)
+                            }
+                            val quote=market?.optJSONObject("quote")
+                            if(market?.optString("state")=="fresh" && quote!=null){
+                                Text("XAUUSDm · BID "+quote.optString("bid")+"  /  ASK "+quote.optString("ask"),
+                                    fontSize=13.sp,fontWeight=FontWeight.SemiBold)
+                                Text("Spread "+quote.optString("spread")+
+                                    " · quote "+quote.optInt("ageSeconds")+"s old · read-only",
+                                    fontSize=11.sp,color=muted)
+                            } else if(market!=null) {
+                                Text("Quote: "+market.optString("state"),fontSize=11.sp,color=gold)
+                            }
+                        }
+                        if(probeErrors[accountId]!=null)
+                            Text(probeErrors[accountId].orEmpty(),fontSize=11.sp,color=Color(0xFFEF7777))
+                    }
                 }
             }
         }
@@ -110,7 +159,7 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
             Spacer(Modifier.width(8.dp))
             Text("Open Elite Engine")
         }
-        Text("Phase 1 is read-only. EliteBridge Direct MT5 requires an actual compatible MT5 terminal or broker API. No provider switch, new account charge or broker order is performed here.",
+        Text("Phase 2 is read-only. Live DEMO verification and XAUUSDm quotes use your existing MetaApi connection when requested. EliteBridge Direct MT5 remains unimplemented and needs a compatible terminal or broker API. No provider switch or broker order is performed here.",
             fontSize=12.sp,color=muted,lineHeight=19.sp)
     }
 }
