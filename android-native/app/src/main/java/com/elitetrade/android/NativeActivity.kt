@@ -122,7 +122,7 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
     var pendingReview by remember { mutableStateOf<JSONObject?>(null) }
     var showConnect by remember { mutableStateOf(false) }
     var pendingControl by remember { mutableStateOf<JSONObject?>(null) }
-    var pendingM1Strategy by remember { mutableStateOf<JSONObject?>(null) }
+    var pendingStrategySelection by remember { mutableStateOf<Pair<JSONObject,String>?>(null) }
     var selectedConversation by remember { mutableStateOf("") }
     var thread by remember { mutableStateOf<JSONObject?>(null) }
     val context = LocalContext.current
@@ -421,7 +421,7 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                             "Markets" -> MarketsPage(bots,selected,panel,textColor,mutedColor,onTrade={screen="Trade"})
                             "Trade" -> TradePage(selected,panel,textColor,mutedColor)
                             "Bot" -> BotPage(bots,accounts,executionHistory,panel,textColor,mutedColor,onConnect={showConnect=true},
-                                onControl={pendingControl=it},onEngine={screen="Elite Engine"},onM1={pendingM1Strategy=it})
+                                onControl={pendingControl=it},onEngine={screen="Elite Engine"},onStrategy={bot,strategy->pendingStrategySelection=bot to strategy})
                             "ClaudeBot" -> ClaudeBotPage(api,bots,accounts,
                                 api.user?.optBoolean("active")==true || api.user?.str("role")=="admin")
                             "Claude Pro Bot" -> ClaudeProBotPage(api,onNavigate={screen=it})
@@ -530,26 +530,32 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                         }
                     })
                 }
-                pendingM1Strategy?.let { bot ->
+                pendingStrategySelection?.let { (bot,strategy) ->
+                    val label=when(strategy){
+                        "scalping-m1"->"1-Min Scalper · M1"
+                        "scalping"->"Scalping · M5"
+                        "trend"->"Trend · M15"
+                        else->"Breakout · M15"
+                    }
                     AlertDialog(
-                        onDismissRequest={pendingM1Strategy=null},
-                        title={Text("Use M1 Fast Scalper?")},
-                        text={Text("This selects EMA 5/13 on CLOSED 1-minute MT5 DEMO candles. It may produce more signals but has no guaranteed win rate. Your broker, account, lot cap, stop loss, take profit and risk settings stay unchanged. This will NOT start the bot or place an order.")},
+                        onDismissRequest={pendingStrategySelection=null},
+                        title={Text("Select "+label+"?")},
+                        text={Text("This changes only the saved strategy. M1 uses EMA 5/13 on closed 1-minute MT5 DEMO candles. A shorter timeframe does not guarantee a higher win rate. Your account, lot limit, stop loss, take profit, daily loss and drawdown settings remain unchanged. No bot is started and no order is placed.")},
                         confirmButton={
                             TextButton(onClick={
-                                pendingM1Strategy=null
+                                pendingStrategySelection=null
                                 scope.launch {
                                     busy=true;error=""
                                     try {
-                                        api.selectM1Scalper(bot)
-                                        message="M1 strategy saved. Preview it and start your verified DEMO bot when the engine is ready."
+                                        api.selectStrategy(bot,strategy)
+                                        message=label+" saved. Preview the strategy before intentionally starting DEMO monitoring."
                                         refresh()
-                                    } catch(e:Exception){error=e.message ?: "M1 strategy could not be saved."}
+                                    } catch(e:Exception){error=e.message ?: "Strategy could not be saved."}
                                     finally {busy=false}
                                 }
-                            }) { Text("Save M1 strategy") }
+                            }) { Text("Save strategy") }
                         },
-                        dismissButton={TextButton(onClick={pendingM1Strategy=null}){Text("Cancel")}}
+                        dismissButton={TextButton(onClick={pendingStrategySelection=null}){Text("Cancel")}}
                     )
                 }
                 pendingControl?.let { bot ->
@@ -1079,7 +1085,7 @@ private fun TradePage(selected:JSONObject?,panel:Color,textColor:Color,muted:Col
 
 @Composable
 private fun BotPage(bots:List<JSONObject>,accounts:List<JSONObject>,executions:List<JSONObject>,panel:Color,textColor:Color,muted:Color,
-    onConnect:()->Unit,onControl:(JSONObject)->Unit,onEngine:()->Unit,onM1:(JSONObject)->Unit) {
+    onConnect:()->Unit,onControl:(JSONObject)->Unit,onEngine:()->Unit,onStrategy:(JSONObject,String)->Unit) {
     PageScroll {
         Spacer(Modifier.height(3.dp))
         Text("EliteBot",fontSize=27.sp,fontWeight=FontWeight.Bold,color=textColor)
@@ -1110,12 +1116,47 @@ private fun BotPage(bots:List<JSONObject>,accounts:List<JSONObject>,executions:L
                 Text("Execution status is confirmed by the server, not inferred from your phone.",fontSize=11.sp,color=muted)
                 if(bot.str("engineMessage").isNotBlank())
                     Text(bot.str("engineMessage"),fontSize=12.sp,color=muted)
-                if(bot.str("status")=="stopped" && bot.str("strategy")!="scalping-m1")
-                    OutlinedButton(onClick={onM1(bot)},modifier=Modifier.fillMaxWidth()){
+                var strategyMenuExpanded by remember(bot.str("id")) { mutableStateOf(false) }
+                val presets=listOf(
+                    "scalping-m1" to "1-Min Scalper · M1",
+                    "scalping" to "Scalping · M5",
+                    "trend" to "Trend · M15",
+                    "breakout" to "Breakout · M15"
+                )
+                val strategyLabel=presets.firstOrNull {it.first==bot.str("strategy")}?.second ?: "Choose strategy"
+                Box(Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick={strategyMenuExpanded=true},
+                        enabled=bot.str("status")=="stopped",
+                        modifier=Modifier.fillMaxWidth(),
+                        shape=RoundedCornerShape(14.dp)
+                    ) {
                         Icon(Icons.Default.Tune,contentDescription=null)
-                        Spacer(Modifier.width(7.dp))
-                        Text("Choose M1 Fast Scalper")
+                        Spacer(Modifier.width(8.dp))
+                        Text("Strategy: "+strategyLabel,modifier=Modifier.weight(1f),maxLines=1)
+                        Icon(Icons.Default.ArrowDropDown,contentDescription="Open strategy list")
                     }
+                    DropdownMenu(expanded=strategyMenuExpanded,onDismissRequest={strategyMenuExpanded=false}) {
+                        presets.forEach { (key,label) ->
+                            DropdownMenuItem(
+                                text={Column {
+                                    Text(label,fontWeight=if(bot.str("strategy")==key)FontWeight.Bold else FontWeight.Normal)
+                                    if(key=="scalping-m1")Text("EMA 5/13 · DEMO only · closed 1m candles",
+                                        fontSize=11.sp,color=Muted)
+                                }},
+                                onClick={
+                                    strategyMenuExpanded=false
+                                    if(key!=bot.str("strategy"))onStrategy(bot,key)
+                                },
+                                leadingIcon={if(key==bot.str("strategy")) {
+                                    Icon(Icons.Default.Check,contentDescription=null,tint=Up)
+                                }}
+                            )
+                        }
+                    }
+                }
+                if(bot.str("status")!="stopped")
+                    Text("Pause the bot to change its strategy.",fontSize=11.sp,color=muted)
                 Button(onClick={onControl(bot)},modifier=Modifier.fillMaxWidth().height(50.dp),
                     colors=ButtonDefaults.buttonColors(containerColor=if(bot.str("status")=="running")Down else Blue),
                     shape=RoundedCornerShape(14.dp)){
