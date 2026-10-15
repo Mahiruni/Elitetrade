@@ -14,6 +14,7 @@ test('isolated PostgreSQL 16 M1 migration preserves strict DEMO arm gates',async
  t.after(async()=>pool.end());
  const sql=[
  "create role authenticated nologin",
+ "create role anon nologin",
  "create schema auth",
  "create schema elitetrade_private",
  "grant usage on schema elitetrade_private to authenticated",
@@ -35,8 +36,20 @@ test('isolated PostgreSQL 16 M1 migration preserves strict DEMO arm gates',async
  await pool.query('insert into public.elitetrade_accounts values($1,$2,$3,$4)',[account,owner,'connected','metaapi-existing:local:remote']);
  await pool.query('insert into public.elitetrade_bots values($1,$2,$3,$4,$5)',[bot,owner,account,'scalping','stopped']);
  await pool.query('insert into public.elitetrade_engine_heartbeat values(now())');
+ // The engine control function is installed by the existing DEMO engine.
+ // Prove M1 changes the CHECK constraint only: no privileged function rewrite.
+ const baseline=readFileSync(new URL('../db/demo-engine.sql',import.meta.url),'utf8');
+ const from=baseline.indexOf('create or replace function elitetrade_private.engine_control(');
+ const to=baseline.indexOf('create or replace function public.elitetrade_engine_control(',from);
+ assert.ok(from>0&&to>from,'original engine-control fixture must exist');
+ await pool.query(baseline.slice(from,to));
+ const readDef=async()=>(await pool.query(
+   "select pg_get_functiondef('elitetrade_private.engine_control(uuid,boolean)'::regprocedure) as definition"
+ )).rows[0].definition;
+ const beforeDef=await readDef();
  const migration=readFileSync(new URL('../supabase/migrations/20261015000400_m1_demo_and_imported_account.sql',import.meta.url),'utf8');
  await pool.query(migration);
+ assert.equal(await readDef(),beforeDef,'M1 migration must never replace privileged production engine control');
  await t.test('old preset preserved, M1 accepted, unsupported preset rejected',async()=>{
   assert.equal((await pool.query('select strategy from public.elitetrade_bots')).rows[0].strategy,'scalping');
   await pool.query('update public.elitetrade_bots set strategy=$1 where id=$2',['scalping-m1',bot]);
