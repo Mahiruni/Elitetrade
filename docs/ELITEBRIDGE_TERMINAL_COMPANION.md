@@ -105,6 +105,34 @@ changed, and no live MT5 connection has been verified. A real Windows
 DEMO terminal test is still required before network telemetry enrollment
 can be considered.
 
+## Our own EliteBridge API token check (separate from MT5)
+
+After PR #48's private token migration has been approved, deployed and
+enabled, an administrator can issue a **read-only** EliteBridge key on the
+EliteBridge Android page. On any Node 24 device (including Termux), an
+operator can verify only **our token service**, without an MT5 terminal:
+
+```sh
+# Set these locally in your terminal; never paste a secret into chat.
+export ELITEBRIDGE_SERVER_URL=https://elitetradee.vercel.app
+export ELITEBRIDGE_OWN_STATUS_TOKEN='YOUR_ISSUED_EBD_TOKEN'
+npm run bridge:token:status
+unset ELITEBRIDGE_OWN_STATUS_TOKEN
+```
+
+The script uses a single HTTPS GET to
+`/api/elitebridge/token/status` with a 10-second deadline, does not
+follow redirects, never prints the token, and refuses any response
+claiming broker verification or order-execution authority. Revoked and
+expired tokens fail. This is **not** a quote upload or an authenticated
+terminal link; the MT5 Windows probe remains a separate local-only
+exercise.
+
+If the token service is not yet deployed, this command will fail
+`STATUS_BACKEND_NOT_READY` (or `TOKEN_UNAUTHORIZED_OR_REVOKED`).
+No amount of token generation can replace a running, authenticated MT5
+terminal or a broker-supported direct API.
+
 ## Next milestone
 
 Build separately reviewed, secure terminal-device enrollment (not status
