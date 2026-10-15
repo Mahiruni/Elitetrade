@@ -2,7 +2,7 @@ import { createAndroidReleaseService } from './android-release.mjs';
 import { hostedMt5Status } from './hosted-mt5-status.mjs';
 import { ORIGINAL_EX5, ORIGINAL_EX5_ID, isOriginalEx5 } from './original-ex5.mjs';
 import {createSupportHandler,supportRoute} from './support.mjs';
-import {marketDetails} from './market-view.mjs';
+import {marketDetails,liveMarketDetails} from './market-view.mjs';
 import { accountDetails } from './account-view.mjs';
 import { renderBlogPage } from './blog.mjs';
 import { createServer } from 'node:http';
@@ -711,6 +711,33 @@ export function createSupabaseApplication(options = {}) {
       await db.update('elitetrade_bots', `id=eq.${q(bot.id)}&user_id=eq.${q(ctx.user.id)}`, patch, ctx.token);
       await audit(ctx, 'bot.update', bot.id);
       return json(res, { ok:true });
+    }
+
+    // Fast owner-scoped read-only MT5 market view. Returns true broker data,
+    // not strategy preview or any trading authorization. Polling is
+    // visibility-gated by the browser; no auto trading or order methods here.
+    if(path==='/api/market/live' && method==='GET') {
+      const ctx=await needUser(req);
+      if(gateway?.mode!=='account-data'||typeof gateway.liveMarket!=='function')
+        fail(503,'Live MT5 market feed is not configured.');
+      rateLimit('market-live:'+ctx.user.id,24,60000);
+      const botId=url.searchParams.get('botId');
+      if(!/^[0-9a-fA-F-]{36}$/.test(botId||''))fail(400,'Choose a valid bot.');
+      const withCandles=url.searchParams.get('candles')==='1';
+      const withOrders=url.searchParams.get('orders')==='1';
+      const bot=await db.one('elitetrade_bots',
+        `id=eq.${q(botId)}&user_id=eq.${q(ctx.user.id)}&select=id,account_id,strategy,symbol`,ctx.token);
+      if(!bot?.account_id)fail(404,'Trading bot or MT5 account unavailable.');
+      const account=await db.one('elitetrade_accounts',
+        `id=eq.${q(bot.account_id)}&user_id=eq.${q(ctx.user.id)}&select=gateway_id,status`,ctx.token);
+      if(!account?.gateway_id||account.status!=='connected')
+        fail(409,'Verify the MT5 account connection to receive broker updates.');
+      const timeframe=STRATEGIES[bot.strategy]?.timeframe;
+      if(!timeframe)fail(409,'This EA strategy does not supply a web candle feed.');
+      const market=await gateway.liveMarket(account.gateway_id,bot.symbol,timeframe,{withCandles,withOrders});
+      const result=liveMarketDetails(market,{symbol:bot.symbol,timeframe,withCandles,withOrders});
+      res.setHeader('Cache-Control','private, no-store');
+      return json(res,result);
     }
 
     const botPreview=path.match(/^\/api\/bots\/([^/]+)\/preview$/);
