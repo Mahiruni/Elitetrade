@@ -44,6 +44,28 @@ export async function processDemoRun({db,gateway,run,at=Date.now()}) {
     const signalAt=preset.timeframe==='15s'?Date.now():at;
     const signal=evaluateStrategy(bot.strategy,market.candles,signalAt);
     if(!signal.side){await message(`Monitoring ${preset.timeframe}; waiting for a closed-candle signal.`);return;}
+    if(bot.strategy==='scalping-m1'){
+      // The more active M1 setup is still capped by account, not only bot:
+      // no more than 8 confirmed/unreconciled entries per UTC day, and no
+      // second entry until 3 minutes after the last reserved broker order.
+      // Retain loss/drawdown, risk sizing, margin and exposure checks below.
+      let history;
+      try {
+        const midnight=new Date(at).toISOString().slice(0,10)+'T00:00:00.000Z';
+        history=await db.query('elitetrade_engine_orders',
+          `account_id=eq.${q(run.account_id)}&created_at=gte.${q(midnight)}&status=in.(confirmed,reserved,unknown)&select=id,created_at&order=created_at.desc&limit=12`);
+        if(!Array.isArray(history))throw new Error('Missing verified order history.');
+      } catch {
+        await message('M1 entry history unavailable; skipped signal to avoid uncontrolled repeat orders.');
+        return;
+      }
+      if(history.length>=8){await message('M1 daily entry cap reached (8); monitoring without new orders.');return;}
+      const newest=history.reduce((best,item)=>Math.max(best,Date.parse(item.created_at)||0),0);
+      if(newest&&at-newest<3*60*1000){
+        await message('M1 entry cooldown active (3 minutes); monitoring without new orders.');
+        return;
+      }
+    }
     const prior=await db.one('elitetrade_engine_orders',`bot_id=eq.${q(run.bot_id)}&candle_time=eq.${signal.candleTime}&select=id`);
     if(prior){await message('Signal already processed; waiting for a new candle.');return;}
     const plan=planTrade({bot,...market,side:signal.side,at});
