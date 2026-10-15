@@ -29,6 +29,7 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
     var report by remember {mutableStateOf<JSONObject?>(null)}
     var protocol by remember {mutableStateOf<JSONObject?>(null)}
     var terminalInventory by remember {mutableStateOf<JSONObject?>(null)}
+    var telemetryDiagnostics by remember {mutableStateOf<JSONObject?>(null)}
     var protocolWarning by remember {mutableStateOf("")}
     var error by remember {mutableStateOf("")}
     var probes by remember {mutableStateOf(mapOf<String,JSONObject>())}
@@ -57,6 +58,8 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
                    protocol?.optBoolean("pairingEnabled")==true){
                     try{terminalInventory=api.eliteBridgeTerminals()}
                     catch(_:Exception){terminalInventory=null}
+                    try{telemetryDiagnostics=api.eliteBridgeDiagnostics()}
+                    catch(_:Exception){telemetryDiagnostics=null}
                 }
             }catch(e:Exception){
                 protocolWarning="Protocol status awaiting updated backend deployment."
@@ -129,6 +132,48 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
                 if(protocolWarning.isNotBlank())Text(protocolWarning,fontSize=11.sp,color=muted)
                 Text("The Termux protocol simulator proves signature and replay handling. It does not access Exness or replace MetaApi.",
                     fontSize=12.sp,color=muted,lineHeight=18.sp)
+            }
+        }
+        if(api.user?.optString("role")=="admin" &&
+           protocol?.optBoolean("pairingProofRequired")==true){
+            Text("Cloud observation diagnostics",fontSize=17.sp,fontWeight=FontWeight.Bold)
+            OutlinedButton(onClick={load()},enabled=!busy){
+                Icon(Icons.Default.Refresh,contentDescription=null)
+                Spacer(Modifier.width(7.dp))
+                Text("Refresh diagnostics")
+            }
+            val checks=telemetryDiagnostics?.optJSONArray("terminals")
+            if(checks==null){
+                Text("Diagnostics unavailable. No broker connection can be verified from this page.",
+                    fontSize=12.sp,color=muted)
+            }else if(checks.length()==0){
+                Text("No enrolled terminal. Provisioning a Windows MT5 terminal is still required.",
+                    fontSize=12.sp,color=muted)
+            }else for(i in 0 until checks.length()){
+                val item=checks.optJSONObject(i)?:continue
+                val state=item.optString("state","unknown")
+                val receiving=state=="receiving"
+                ElevatedCard {
+                    Column(Modifier.fillMaxWidth().padding(15.dp),
+                        verticalArrangement=Arrangement.spacedBy(6.dp)){
+                        Text(item.optString("label","Approved terminal"),
+                            fontSize=14.sp,fontWeight=FontWeight.Bold)
+                        Text(item.optString("accountMode","demo").uppercase()+
+                            " · "+state.replace('-',' '),
+                            fontSize=12.sp,fontWeight=FontWeight.SemiBold,
+                            color=if(receiving)Color(0xFF34D399) else gold)
+                        val hb=if(item.isNull("heartbeatAgeSeconds"))"not received" else
+                            item.optInt("heartbeatAgeSeconds").toString()+"s ago"
+                        val quote=if(item.isNull("quoteAgeSeconds"))"not received" else
+                            item.optInt("quoteAgeSeconds").toString()+"s ago"
+                        Text("Signed heartbeat: "+hb+" · quote: "+quote,
+                            fontSize=11.sp,color=muted)
+                        Text(item.optString("recovery","Inspection required."),
+                            fontSize=11.sp,color=muted,lineHeight=17.sp)
+                        Text("Broker verified: NO · Independent trades: DISABLED",
+                            fontSize=11.sp,color=muted)
+                    }
+                }
             }
         }
         if(api.user?.optString("role")=="admin" &&

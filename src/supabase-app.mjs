@@ -607,6 +607,13 @@ export function createSupabaseApplication(options = {}) {
       if(!bridgeEnabled || !bridgeDb)
         fail(503,'EliteBridge cloud transport is not configured.');
     };
+    if(path==='/api/elitebridge/diagnostics' && method==='GET'){
+      const ctx=await needAdmin(req);requireBridgeCloud();
+      // A server-held service-role key is the ONLY actor that may query the
+      // private diagnostics RPC. Device input cannot choose another owner.
+      res.setHeader('Cache-Control','no-store');
+      return json(res,await bridgeCloud.diagnostics({ownerId:ctx.user.id}));
+    }
     if(path==='/api/elitebridge/terminals' && method==='GET'){
       const ctx=await needAdmin(req);requireBridgeCloud();
       res.setHeader('Cache-Control','no-store');
