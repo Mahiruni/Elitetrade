@@ -41,6 +41,7 @@ test('bot arming retains fresh-worker, broker DEMO and no investor-mode safeguar
  assert.match(backend,/market.info.tradeAllowed!==true/);
  assert.match(backend,/market.info.investorMode!==false/);
  const ui=readFileSync(new URL('../android-native/app/src/main/java/com/elitetrade/android/EliteEnginePage.kt',import.meta.url),'utf8');
- assert.match(ui,/server=api.mobileEngineStatus\(\)/);
+ assert.match(ui,/status=api.mobileEngineStatus\(\)/);
+ assert.match(ui,/repeatOnLifecycle\(Lifecycle\.State\.STARTED\)/);
  assert.match(ui,/PHONE ACTIVE · VERIFYING SERVER/);
 });
