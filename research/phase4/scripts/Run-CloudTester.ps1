@@ -4,8 +4,8 @@
 param(
     [ValidateSet('signal','execution')][string]$Mode = 'signal',
     [string]$Symbol = 'XAUUSD',
-    [string]$FromDate = '2026.01.01',
-    [string]$ToDate = '2026.04.01',
+    [string]$FromDate = '2026.10.05',
+    [string]$ToDate = '2026.10.07',
     [string]$OutputDir = 'phase4-safe-output'
 )
 $ErrorActionPreference='Stop'
@@ -23,6 +23,7 @@ $reportCreated = $false
 $eventFound = $false
 $decisionFound = $false
 $terminalExitCode = $null
+$diagnosticStartUtc = (Get-Date).ToUniversalTime().ToString('o')
 
 function Publish-Status([string]$state) {
     $status = [ordered]@{
@@ -180,6 +181,18 @@ try {
             & python research/phase4/scripts/evidence_vault.py seal --source $staging --output (Join-Path $safe 'evidence.aesgcm')
             if ($LASTEXITCODE -ne 0) { $runState = 'ENCRYPTION_FAILED_NO_PLAINTEXT_ARTIFACTS' }
         }
+    }
+    # Analyze local logs without exporting any raw text, server name, account ID or file path.
+    # The classifier only records predetermined diagnostic categories and presence flags.
+    try {
+        & python research/phase4/scripts/diagnose_mt5.py `
+            --terminal-root $root `
+            --appdata-root (Join-Path $env:APPDATA 'MetaQuotes\Terminal') `
+            --since-utc $diagnosticStartUtc `
+            --output (Join-Path $safe 'safe-mt5-diagnostics.json')
+        if ($LASTEXITCODE -ne 0) { Write-Warning 'Private terminal diagnostic classification unavailable.' }
+    } catch {
+        Write-Warning 'Private terminal diagnostic classification unavailable.'
     }
     Publish-Status $runState
     Remove-Item -LiteralPath $protectedIni -Force -ErrorAction SilentlyContinue
