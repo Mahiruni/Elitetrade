@@ -106,12 +106,12 @@ export function createSandboxReplayStore(){
     return true;
   }};
 }
-export function eliteBridgeProtocolStatus(){
-  return {version:BRIDGE_VERSION,phase:3,state:'sandbox-only',
+export function eliteBridgeProtocolStatus({terminalEnrollmentAvailable=false}={}){
+  return {version:BRIDGE_VERSION,phase:3,state:terminalEnrollmentAvailable?'terminal-pairing-available':'sandbox-only',
     cryptography:'Ed25519 signed envelopes',demoOnly:true,
     supportedPackets:[...kinds],expiresAfterSeconds:90,
     antiReplay:'requires durable atomic sequence claim in production',
-    pairingEnabled:false,independentMT5Connected:false,
+    pairingEnabled:terminalEnrollmentAvailable,independentMT5Connected:false,
     terminalCompanionConnected:false,brokerVerified:false,ordersEnabled:false,
-    note:'The protocol is implemented and locally testable. No MT5 broker connection, production pairing or order transport is implemented.'};
+    note:terminalEnrollmentAvailable?'Signed terminal pairing and read-only DEMO telemetry ingestion are available. No independent broker authentication, native order transport or trading is implemented.':'The protocol is locally testable. No MT5 broker connection, pairing or order transport is implemented.'};
 }
