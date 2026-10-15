@@ -57,7 +57,7 @@ test('Ed25519 only; enrollment pending until explicitly approved; packets are de
   assert.deepEqual([ack.accepted,ack.brokerVerified,ack.ordersEnabled,ack.demoOnly],[true,false,false,true]);
   await assert.rejects(()=>bridge.receive(first),e=>e.status===409);
   await assert.rejects(()=>bridge.receive(packet(1)),e=>e.status===409);
-  await assert.rejects(()=>bridge.receive(packet(2,{accountType:'real',connected:true,tradeAllowed:true})),e=>e.status===403);
+  assert.throws(()=>packet(2,{accountType:'real',connected:true,tradeAllowed:true}),/REAL accounts are prohibited/);
   const second=packet(2);second.payload.tradeAllowed=true; // tampered after signing
   await assert.rejects(()=>bridge.receive(second),e=>e.status===403);
   assert.equal((await bridge.receive(packet(2))).sequence,2);
