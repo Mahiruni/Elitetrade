@@ -1,0 +1,18 @@
+{
+  "capture_type": "MT5_TRANSACTION_EVENTS_V1",
+  "dataset_kind": "USER_EXPORTED_MT5_UNVERIFIED",
+  "symbol": "XAUUSD",
+  "timeframe": "M1",
+  "tick_model": "REAL_TICKS_MODEL_4",
+  "from_date": "2026.01.01",
+  "to_date": "2026.04.01",
+  "initial_deposit": 10000,
+  "currency": "USD",
+  "broker_server": "FILL_WITH_YOUR_DEMO_SERVER_NAME",
+  "candidate_ex5_sha256": "16627b5419bd777662472479f4fed23f187ca6c3853e4352d0c01d0bc2168528",
+  "source_commit": "1f03cef853153dc294bf50f779768ea50471fd12",
+  "execution_enabled": true,
+  "tester_report_file": "MT5-report-export-not-yet-provided",
+  "broker_tick_data_verified": false,
+  "dataset_notes": "USER MUST DOCUMENT BROKER SYMBOL SUFFIX, TICK COVERAGE, SPREAD, SESSION, AND HISTORY WINDOW"
+}
