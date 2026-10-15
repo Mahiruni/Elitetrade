@@ -533,6 +533,7 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                 pendingStrategySelection?.let { (bot,strategy) ->
                     val label=when(strategy){
                         "scalping-m1"->"1-Min Scalper · M1"
+                        "scalping-s15"->"15-Second Scalper · S15"
                         "scalping"->"Scalping · M5"
                         "trend"->"Trend · M15"
                         else->"Breakout · M15"
