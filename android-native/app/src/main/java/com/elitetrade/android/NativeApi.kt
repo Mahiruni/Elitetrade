@@ -267,7 +267,26 @@ class EliteApi(context: Context) {
     }
 
     suspend fun accounts(): JSONArray = withContext(Dispatchers.IO) { server("/api/accounts").optJSONArray("accounts") ?: JSONArray() }
-    suspend fun bots(): JSONArray = withContext(Dispatchers.IO) { server("/api/bots").optJSONArray("bots") ?: JSONArray() }
+    suspend fun botsOverview(): JSONObject = withContext(Dispatchers.IO) { server("/api/bots") }
+    suspend fun bots(): JSONArray = botsOverview().optJSONArray("bots") ?: JSONArray()
+    /** Opt-in M1 strategy only; preserve every existing account and risk parameter. */
+    suspend fun selectM1Scalper(bot:JSONObject):JSONObject = withContext(Dispatchers.IO) {
+        if(bot.optString("status")!="stopped")throw ApiProblem("Stop the bot before changing its strategy.")
+        val id=safeId(bot.optString("id"))
+        val account=if(bot.isNull("account_id"))"" else bot.optString("account_id")
+        val body=JSONObject()
+            .put("name",bot.optString("name"))
+            .put("symbol",bot.optString("symbol"))
+            .put("accountId",account)
+            .put("strategy","scalping-m1")
+            .put("riskPercent",bot.optDouble("risk_percent"))
+            .put("stopLoss",bot.optDouble("stop_loss"))
+            .put("takeProfit",bot.optDouble("take_profit"))
+            .put("lotSize",bot.optDouble("lot_size"))
+            .put("dailyLoss",bot.optDouble("daily_loss"))
+            .put("maxDrawdown",bot.optDouble("max_drawdown"))
+        server("/api/bots/"+id,"PATCH",body)
+    }
     /** Read-only provider registry: no provider tokens or MT5 order fields. */
     suspend fun eliteBridgeStatus(): JSONObject = withContext(Dispatchers.IO) {
         server("/api/elitebridge/status")
