@@ -168,3 +168,13 @@ test('Windows companion has explicit real-mode match and no MT5 execution method
   if(command.error?.code==='ENOENT')return; // Node-only CI also checks static safety
   assert.equal(command.status,0,command.stderr);
 });
+
+test('phone-friendly REAL observation sandbox proves signing without any broker or network',()=>{
+  const run=spawnSync(process.execPath,['scripts/elitebridge-real-observation-sandbox.mjs'],{
+    encoding:'utf8',timeout:10000
+  });
+  assert.equal(run.status,0,run.stderr);
+  assert.match(run.stdout,/REAL v4 are isolated/);
+  assert.match(run.stdout,/REAL ORDERS: DISABLED/);
+  assert.match(run.stdout,/BROKER VERIFIED: NO/);
+});
