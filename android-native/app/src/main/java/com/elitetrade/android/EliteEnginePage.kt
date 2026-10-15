@@ -23,14 +23,16 @@ import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 @Composable
-fun EliteEnginePage(api:EliteApi,context:Context){
+fun EliteEnginePage(
+    api:EliteApi,
+    context:Context,
+    onRegisterRefresh: ((suspend () -> Unit)?) -> Unit
+){
     val gold=Color(0xFFD8B16A)
     val muted=MaterialTheme.colorScheme.onBackground.copy(alpha=.73f)
-    val scope=rememberCoroutineScope()
     val lifecycleOwner=LocalLifecycleOwner.current
     val refreshIntervalMillis=15_000L
     var enabled by remember{mutableStateOf(false)}
@@ -69,6 +71,12 @@ fun EliteEnginePage(api:EliteApi,context:Context){
             checkedAtMillis=System.currentTimeMillis()
             loading=false
         }
+    }
+    // Share this same verified read-only check with the common footer refresh.
+    // Disposing the page unregisters its handler to prevent stale callbacks.
+    DisposableEffect(api) {
+        onRegisterRefresh(suspend { refreshBackend() })
+        onDispose { onRegisterRefresh(null) }
     }
     // Poll only when the screen's Activity is at least STARTED. The
     // lifecycle cancels this loop when backgrounded; no Android alarms,
@@ -122,13 +130,6 @@ fun EliteEnginePage(api:EliteApi,context:Context){
         Text("Auto-refresh ON · Every 15 seconds while this screen is open",color=Color(0xFF34D399),fontSize=12.sp)
         Text(if(backendCheckedAge==null)"First backend check pending" else
             "Last backend check: ${backendCheckedAge}s ago",color=muted,fontSize=12.sp)
-        OutlinedButton(onClick={scope.launch { refreshBackend() }},
-            enabled=!loading,modifier=Modifier.fillMaxWidth()){
-            if(loading)CircularProgressIndicator(Modifier.size(16.dp),strokeWidth=2.dp)
-            else Icon(Icons.Default.Refresh,contentDescription=null)
-            Spacer(Modifier.width(8.dp))
-            Text(if(loading)"Checking backend…" else "Refresh backend now")
-        }
         if(error.isNotBlank())Text(error,color=Color(0xFFEF7777),fontSize=12.sp)
         if(running){
             Button(onClick={EliteEngineService.stop(context)},modifier=Modifier.fillMaxWidth(),

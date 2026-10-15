@@ -108,6 +108,9 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
     var awaitingDeviceVerification by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
+    // The Elite Engine page registers its own read-only server readiness check.
+    // Our single footer refresh awaits it after the shared account refresh.
+    var engineRefreshHandler by remember { mutableStateOf<(suspend () -> Unit)?>(null) }
     val accounts = remember { mutableStateListOf<JSONObject>() }
     val bots = remember { mutableStateListOf<JSONObject>() }
     val executionHistory = remember { mutableStateListOf<JSONObject>() }
@@ -219,6 +222,7 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                     billingInvoices=api.cryptoInvoices()
                     billingPayments=api.payments()
                 }
+                if (screen=="Elite Engine") engineRefreshHandler?.invoke()
             } catch (e: Exception) { error = e.message ?: "Could not refresh account information." }
             finally { busy=false; refreshing=false }
         }
@@ -432,7 +436,8 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                                 api.user?.optBoolean("active")==true || api.user?.str("role")=="admin")
                             "Claude Pro Bot" -> ClaudeProBotPage(api,onNavigate={screen=it})
                             "Gold SMC Scalper" -> GoldSmcPage(api,bots,accounts)
-                            "Elite Engine" -> EliteEnginePage(api,context)
+                            "Elite Engine" -> EliteEnginePage(api,context,
+                                onRegisterRefresh={ handler -> engineRefreshHandler=handler })
                             "EliteBridge" -> EliteBridgePage(api,onNavigate={screen=it})
                             "Account" -> AccountPage(api.user,panel,textColor,mutedColor,lightTheme,
                                 onNavigate={screen=it},onTheme=toggleTheme,onCheckUpdates={checkForUpdates()},
@@ -495,12 +500,18 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                         }
                         if(busy && screen != "Support") LinearProgressIndicator(
                             modifier=Modifier.fillMaxWidth().align(Alignment.TopCenter).height(2.dp),color=Gold)
-                        // One native refresh control on every signed-in screen, floating immediately
-                        // above footer navigation. Hide while typing to protect the chat composer.
-                        if (!keyboardOpen) {
+                    }
+                    // Footer tool is in its own row, never layered over Stop engine
+                    // or other critical actions. One tap reloads the relevant backend.
+                    if (!keyboardOpen) {
+                        Row(
+                            modifier=Modifier.fillMaxWidth().padding(horizontal=19.dp,vertical=6.dp),
+                            horizontalArrangement=Arrangement.End,
+                            verticalAlignment=Alignment.CenterVertically
+                        ) {
                             FloatingActionButton(
                                 onClick={refresh()},
-                                modifier=Modifier.align(Alignment.BottomEnd).padding(end=19.dp,bottom=14.dp).size(54.dp),
+                                modifier=Modifier.size(54.dp),
                                 shape=CircleShape,
                                 containerColor=if(lightTheme)Color(0xFF295FC3) else Gold,
                                 contentColor=if(lightTheme)Color.White else Night,
