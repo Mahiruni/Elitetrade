@@ -22,7 +22,8 @@
     "bridge:diagnostics:sandbox": "node scripts/elitebridge-diagnostics-sandbox.mjs",
     "bridge:windows:check": "node scripts/elitebridge-windows-doctor.mjs",
     "bridge:windows:simulate": "node scripts/elitebridge-windows-sandbox.mjs",
-    "bridge:terminal:snapshot": "python companion/mt5_readonly_probe.py --snapshot"
+    "bridge:terminal:snapshot": "python companion/mt5_readonly_probe.py --snapshot",
+    "bridge:termux:monitor": "node scripts/elitebridge-termux-monitor.mjs"
   },
   "dependencies": {
     "lucide-react": "1.57.0",
