@@ -34,3 +34,4 @@ jobs:
             throw "Unsafe: unconfigured Windows runner did not fail closed (exit $result)"
           }
           Write-Output "PASS: no MT5/identity configured, Windows checker remains blocked"
+          exit 0 # The doctor intentionally returned 2; prevent PowerShell from propagating it.
