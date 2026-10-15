@@ -128,7 +128,7 @@ test('cloud routes cannot enroll anonymous/non-admins; show no broker authorizat
   const protocol=await fetch(origin+'/api/elitebridge/protocol',{headers:{Authorization:'Bearer sample'}});
   assert.equal(protocol.status,200);
   const p=await protocol.json();
-  assert.equal(p.phase,4);
+  assert.equal(p.phase,7);
   assert.equal(p.independentMT5Connected,false);
   assert.equal(p.ordersEnabled,false);
 });
