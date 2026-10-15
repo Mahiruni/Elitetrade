@@ -10,6 +10,7 @@ import {
 import {isAbsolute,join} from 'node:path';
 import {signBridgePacket} from './elitebridge-protocol.mjs';
 import {signLiveObservation} from './elitebridge-live-observation.mjs';
+import {signTerminalChallenge} from './elitebridge-device-proof.mjs';
 
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SYMBOL=/^[A-Za-z0-9._-]{3,30}$/;
@@ -103,6 +104,13 @@ function loadedIdentity(directory){
   const home=checkedHome(directory);
   const pem=safeReadFile(join(home,'private.pem'));
   return {privateKey:createPrivateKey(pem),fingerprint:terminalFingerprint(pemPublic(pem))};
+}
+export function signLocalPairingProof({directory,challenge}={}){
+  const identity=loadedIdentity(directory);
+  // The PEM is read locally, never exported. Challenge validation prevents
+  // using this CLI as an arbitrary signing oracle for trading instructions.
+  return {signature:signTerminalChallenge({privateKey:identity.privateKey,challenge}),
+    fingerprint:identity.fingerprint,ordersEnabled:false};
 }
 export function reserveTerminalSequences({directory,accountId,deviceId,count=2}){
   const home=checkedHome(directory);
