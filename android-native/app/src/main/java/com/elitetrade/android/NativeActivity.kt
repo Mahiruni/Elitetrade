@@ -107,6 +107,7 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
     var pendingConfirmationEmail by remember { mutableStateOf("") }
     var awaitingDeviceVerification by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
+    var refreshing by remember { mutableStateOf(false) }
     val accounts = remember { mutableStateListOf<JSONObject>() }
     val bots = remember { mutableStateListOf<JSONObject>() }
     val executionHistory = remember { mutableStateListOf<JSONObject>() }
@@ -196,9 +197,12 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
     }
 
     fun refresh() {
+        if (refreshing) return // Do not duplicate broker or payment requests on rapid taps.
+        refreshing = true
         scope.launch {
             busy = true; error = ""
             try {
+                api.refreshMember() // Update server-authoritative subscription and role before showing account data.
                 val a = api.accounts().objects()
                 val overview = api.botsOverview()
                 val b = (overview.optJSONArray("bots") ?: JSONArray()).objects()
@@ -210,8 +214,13 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                 if (screen=="Support") supportData=api.support()
                 if (screen=="Admin" && api.user?.str("role")=="admin") adminData=api.admin()
                 if (screen=="Activity") payments=api.payments()
+                if (screen in listOf("Billing","Payment Methods","Payment History")) {
+                    billingMethods=api.paymentMethods()
+                    billingInvoices=api.cryptoInvoices()
+                    billingPayments=api.payments()
+                }
             } catch (e: Exception) { error = e.message ?: "Could not refresh account information." }
-            finally { busy=false }
+            finally { busy=false; refreshing=false }
         }
     }
 
@@ -373,7 +382,7 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                     NativeHeader(
                         title=screen,selected=selected,
                         onBack=if(screen !in mainTabs) {{screen="Account";selectedConversation=""}} else null,
-                        onRefresh={refresh()},onNotifications={screen="Activity"},
+                        onNotifications={screen="Activity"},
                         onMenuNavigate={destination->screen=destination;error="";message=""},
                         isAdmin=api.user?.str("role")=="admin",
                         light=lightTheme,textColor=textColor
@@ -413,9 +422,6 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                     Box(Modifier.weight(1f)) {
                         when(screen) {
                             "Home" -> HomePage(selected,accounts,bots,panel,textColor,mutedColor,
-                                active=api.user?.optBoolean("active")==true || api.user?.str("role")=="admin",
-                                priceCents=billingMethods?.optLong("priceCents",0) ?: 0,
-                                onBilling={screen="Billing"},
                                 onSelect={activeAccount=it},onConnect={showConnect=true},
                                 onBot={screen="Bot"},onPositions={screen="Trade"},onActivity={screen="Activity"})
                             "Markets" -> MarketsPage(bots,selected,panel,textColor,mutedColor,onTrade={screen="Trade"})
@@ -489,6 +495,24 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                         }
                         if(busy && screen != "Support") LinearProgressIndicator(
                             modifier=Modifier.fillMaxWidth().align(Alignment.TopCenter).height(2.dp),color=Gold)
+                        // One native refresh control on every signed-in screen, floating immediately
+                        // above footer navigation. Hide while typing to protect the chat composer.
+                        if (!keyboardOpen) {
+                            FloatingActionButton(
+                                onClick={refresh()},
+                                modifier=Modifier.align(Alignment.BottomEnd).padding(end=19.dp,bottom=14.dp).size(54.dp),
+                                shape=CircleShape,
+                                containerColor=if(lightTheme)Color(0xFF295FC3) else Gold,
+                                contentColor=if(lightTheme)Color.White else Night,
+                                elevation=FloatingActionButtonDefaults.elevation(defaultElevation=7.dp)
+                            ) {
+                                if(refreshing) CircularProgressIndicator(
+                                    modifier=Modifier.size(23.dp),strokeWidth=2.4.dp,
+                                    color=if(lightTheme)Color.White else Night)
+                                else Icon(Icons.Default.Refresh,contentDescription="Refresh backend data",
+                                    modifier=Modifier.size(25.dp))
+                            }
+                        }
                     }
                     if (!keyboardOpen && screen!="Claude Pro Bot") {
                         FloatingTabs(mainTabs,screen,lightTheme) { screen=it;error="";message="" }
@@ -787,7 +811,7 @@ private fun AuthPage(busy:Boolean,error:String,message:String,light:Boolean,
 }
 
 @Composable
-private fun NativeHeader(title:String,selected:JSONObject?,onBack:(()->Unit)?,onRefresh:()->Unit,
+private fun NativeHeader(title:String,selected:JSONObject?,onBack:(()->Unit)?,
     onNotifications:()->Unit,onMenuNavigate:(String)->Unit,isAdmin:Boolean,
     light:Boolean,textColor:Color) {
     var menuOpen by remember {mutableStateOf(false)}
@@ -830,9 +854,6 @@ private fun NativeHeader(title:String,selected:JSONObject?,onBack:(()->Unit)?,on
                             onClick={menuOpen=false;onMenuNavigate(destination)})
                     }
                 }
-            }
-            IconButton(onClick=onRefresh,modifier=Modifier.size(40.dp)) {
-                Icon(Icons.Default.Refresh,contentDescription="Refresh",tint=Muted)
             }
             IconButton(onClick=onNotifications,modifier=Modifier.size(40.dp)) {
                 Icon(Icons.Default.NotificationsNone,contentDescription="Notifications",tint=textColor)
@@ -898,7 +919,7 @@ private fun PageScroll(content:@Composable ColumnScope.()->Unit) {
 
 @Composable
 private fun HomePage(selected:JSONObject?,accounts:List<JSONObject>,bots:List<JSONObject>,panel:Color,
-    textColor:Color,muted:Color,active:Boolean,priceCents:Long,onBilling:()->Unit,
+    textColor:Color,muted:Color,
     onSelect:(String)->Unit,onConnect:()->Unit,onBot:()->Unit,
     onPositions:()->Unit,onActivity:()->Unit) {
     var hidden by remember { mutableStateOf(false) }
@@ -907,22 +928,6 @@ private fun HomePage(selected:JSONObject?,accounts:List<JSONObject>,bots:List<JS
     PageScroll {
         Spacer(Modifier.height(4.dp))
         Text("PORTFOLIO OVERVIEW",color=Gold,fontSize=11.sp,fontWeight=FontWeight.Bold,letterSpacing=1.5.sp)
-        EliteCard(panel) {
-            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
-                Icon(Icons.Default.AccountBalanceWallet,contentDescription=null,tint=Gold,modifier=Modifier.size(22.dp))
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)){
-                    Text(if(active)"EliteBot subscription active" else "Activate your EliteBot",fontSize=18.sp,fontWeight=FontWeight.Bold,color=textColor)
-                    Text(if(active)"Your lifetime subscription is enabled" else "Unlock MT5 trading controls and managed bot access",color=muted,fontSize=12.sp)
-                }
-                StatusPill(if(active)"approved" else "pending")
-            }
-            if(!active&&priceCents>0) Text("$"+String.format(Locale.US,"% ,.2f".trim(),priceCents/100.0)+" USD",color=textColor,fontSize=24.sp,fontWeight=FontWeight.Bold)
-            Button(onClick=onBilling,modifier=Modifier.fillMaxWidth().heightIn(min=48.dp),
-                colors=ButtonDefaults.buttonColors(containerColor=Blue),shape=RoundedCornerShape(14.dp)){
-                Text(if(active)"View billing & payment history" else "Activate EliteBot · Pay now",fontWeight=FontWeight.Bold)
-            }
-        }
         EliteCard(panel) {
             Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                 Text("Account balance",color=muted,fontSize=13.sp,modifier=Modifier.weight(1f))
