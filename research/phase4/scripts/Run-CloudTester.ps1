@@ -160,7 +160,7 @@ try {
 } catch {
     # Do not serialize exception text; it might contain a broker account or server.
     Write-Warning 'Phase 4 did not complete all evidence gates. See safe-status.json.'
-    $runState = 'INCOMPLETE_OR_BLOCKED'
+    $runState = 'BLOCKED_AFTER_' + $runState
 } finally {
     # Always encrypt any captured raw report/CSV before archiving.
     if (Test-Path -LiteralPath $staging -PathType Container) {
