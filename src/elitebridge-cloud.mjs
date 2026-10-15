@@ -1,4 +1,4 @@
-import {createPublicKey, randomUUID, randomBytes} from 'node:crypto';
+import {createPublicKey, createHash, randomUUID, randomBytes} from 'node:crypto';
 import {terminalChallenge,verifyTerminalChallenge} from './elitebridge-device-proof.mjs';
 import {verifyBridgePacket} from './elitebridge-protocol.mjs';
 import {verifyLiveObservation} from './elitebridge-live-observation.mjs';
@@ -37,11 +37,20 @@ export function createEliteBridgeCloud({db}={}){
     async list({ownerId}){
       ready();requireUuid(ownerId,'owner');
       const rows=await db.query('elitetrade_bridge_terminals',
-        'owner_id=eq.'+encodeURIComponent(ownerId)+'&select=id,account_id,label,account_mode,status,created_at,approved_at,revoked_at,last_sequence,last_seen_at,proof_verified_at&order=created_at.desc&limit=30');
+        'owner_id=eq.'+encodeURIComponent(ownerId)+'&select=id,account_id,label,account_mode,status,created_at,approved_at,last_sequence,last_seen_at,proof_verified_at,public_key,revoked_at&order=created_at.desc&limit=30');
       const at=Date.now();
       const terminals=(rows||[]).map(t=>{
         const {id,account_id,label,account_mode,status,created_at,approved_at,
           revoked_at,last_sequence,last_seen_at,proof_verified_at}=t;
+        // Read-only public-key identity fingerprint. Do not return raw PEM.
+        // Matches the Windows companion's SHA-256 of SPKI DER.
+        let fingerprint=null;
+        try {
+          if(typeof t.public_key==='string')
+            fingerprint=createHash('sha256').update(createPublicKey(t.public_key)
+              .export({type:'spki',format:'der'})).digest('hex');
+        } catch {/* Malformed existing key: no fingerprint, never trust it. */}
+
         const seen=last_seen_at?Date.parse(last_seen_at):NaN;
         const ageSeconds=Number.isFinite(seen)?Math.max(0,Math.floor((at-seen)/1000)):null;
         const telemetryState=status!=='approved'?'not-approved':
@@ -50,7 +59,7 @@ export function createEliteBridgeCloud({db}={}){
         // Never include public/private PEMs, challenge nonces or other internals.
         return {id,account_id,label,account_mode,status,created_at,approved_at,
           revoked_at,last_sequence,last_seen_at,proof_verified_at,
-          telemetryState,ageSeconds,brokerVerified:false,ordersEnabled:false};
+          telemetryState,ageSeconds,fingerprint,brokerVerified:false,ordersEnabled:false};
       });
       return {terminals,brokerVerified:false,ordersEnabled:false};
     },
