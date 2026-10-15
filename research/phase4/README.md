@@ -40,3 +40,5 @@ Once the **signal-only** tester is confirmed to produce valid MT5 records and **
 
 **MT5 testing model**: https://www.metaquotes.net/en/metatrader5/algorithmic-trading/tester
 <!-- Phase 4 signal-only demo smoke-test requested via Android Termux, 2026-10-15; no credentials or accounts stored in source. -->
+
+<!-- Phase 4 rerun after user independently rotated evidence-encryption passphrase; signal-only demo research; no secret values present. -->
