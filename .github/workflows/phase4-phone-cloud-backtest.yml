@@ -68,6 +68,7 @@ jobs:
           name: elitetrade-phase4-encrypted-evidence
           path: |
             phase4-safe-output/safe-status.json
+            phase4-safe-output/safe-mt5-diagnostics.json
             phase4-safe-output/evidence.aesgcm
           if-no-files-found: warn
           retention-days: 7
