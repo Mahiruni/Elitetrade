@@ -296,6 +296,20 @@ class EliteApi(context: Context) {
     suspend fun eliteBridgeProtocolStatus(): JSONObject = withContext(Dispatchers.IO) {
         server("/api/elitebridge/protocol")
     }
+    /** Our self-issued read-only EliteBridge keys; never accepts MetaApi tokens. */
+    suspend fun eliteBridgeKeys():JSONObject = withContext(Dispatchers.IO) {
+        server("/api/elitebridge/tokens")
+    }
+    suspend fun issueEliteBridgeKey(label:String,expiresHours:Int=168):JSONObject = withContext(Dispatchers.IO) {
+        if(label.length !in 3..48 || expiresHours !in 1..720)
+            throw ApiProblem("Invalid EliteBridge token label or lifetime.")
+        server("/api/elitebridge/tokens","POST",JSONObject()
+            .put("label",label).put("expiresHours",expiresHours))
+    }
+    suspend fun revokeEliteBridgeKey(id:String):JSONObject = withContext(Dispatchers.IO) {
+        if(!id.matches(Regex("[0-9a-fA-F-]{36}")))throw ApiProblem("Invalid EliteBridge key ID.")
+        server("/api/elitebridge/tokens/revoke","POST",JSONObject().put("id",id))
+    }
     /** Owner-scoped read-only broker-DEMO connection and quote probe. */
     suspend fun eliteBridgeProbe(accountId:String,symbol:String="XAUUSDm"): JSONObject = withContext(Dispatchers.IO) {
         if(!accountId.matches(Regex("[0-9a-fA-F-]{36}")))throw ApiProblem("Invalid MT5 account selection.")

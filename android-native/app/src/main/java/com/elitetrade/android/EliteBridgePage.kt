@@ -8,12 +8,18 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import android.content.Context
+import android.content.ClipData
+import android.content.ClipDescription
+import android.content.ClipboardManager
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import org.json.JSONArray
 
 /**
  * EliteBridge Phase 3: signed protocol sandbox plus explicit live
@@ -25,6 +31,14 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
     val gold=Color(0xFFD8B16A)
     val muted=MaterialTheme.colorScheme.onBackground.copy(alpha=.70f)
     val scope=rememberCoroutineScope()
+    val context=LocalContext.current
+    val isBridgeAdmin=api.user?.optString("role")=="admin"
+    var bridgeKeys by remember {mutableStateOf<JSONArray?>(null)}
+    var keyLabel by remember {mutableStateOf("EliteBridge Android status")}
+    var keyBusy by remember {mutableStateOf(false)}
+    var keyWarning by remember {mutableStateOf("")}
+    var issuedToken by remember {mutableStateOf("")}
+    var issuedId by remember {mutableStateOf("")}
     var busy by remember {mutableStateOf(false)}
     var report by remember {mutableStateOf<JSONObject?>(null)}
     var protocol by remember {mutableStateOf<JSONObject?>(null)}
@@ -56,6 +70,12 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
                 protocolWarning="Protocol status awaiting updated backend deployment."
             }
             finally{busy=false}
+            if(isBridgeAdmin)try{
+                bridgeKeys=api.eliteBridgeKeys().optJSONArray("tokens")
+                keyWarning=""
+            }catch(e:Exception){
+                keyWarning="Our API key service is not yet activated on the backend."
+            }
         }
     }
     LaunchedEffect(Unit){load()}
@@ -96,6 +116,92 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
                 if(protocolWarning.isNotBlank())Text(protocolWarning,fontSize=11.sp,color=muted)
                 Text("The Termux protocol simulator proves signature and replay handling. It does not access Exness or replace MetaApi.",
                     fontSize=12.sp,color=muted,lineHeight=18.sp)
+            }
+        }
+        if(isBridgeAdmin) ElevatedCard {
+            Column(Modifier.fillMaxWidth().padding(16.dp),
+                verticalArrangement=Arrangement.spacedBy(9.dp)) {
+                Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.Key,contentDescription=null,tint=gold)
+                    Text("EliteBridge · Our API tokens",fontWeight=FontWeight.Bold,fontSize=16.sp)
+                }
+                Text("Self-issued credentials · status-only access · Not MetaApi keys",
+                    color=gold,fontSize=11.sp,fontWeight=FontWeight.SemiBold)
+                Text("Protected by administrator access and two-factor authentication. Our own API token verifies EliteBridge status; it cannot connect to MT5 or place trades yet.",
+                    fontSize=12.sp,color=muted,lineHeight=18.sp)
+                OutlinedTextField(value=keyLabel,onValueChange={keyLabel=it.take(48)},
+                    label={Text("Token label")},singleLine=true,modifier=Modifier.fillMaxWidth())
+                Button(onClick={
+                    scope.launch {
+                        keyBusy=true;keyWarning=""
+                        try{
+                            val issued=api.issueEliteBridgeKey(keyLabel.trim())
+                            issuedToken=issued.optString("token")
+                            issuedId=issued.optString("id")
+                            bridgeKeys=api.eliteBridgeKeys().optJSONArray("tokens")
+                            keyWarning="Token created. Copy it now — it cannot be shown again."
+                        }catch(e:Exception){keyWarning=e.message?:"Could not create EliteBridge key."}
+                        finally{keyBusy=false}
+                    }
+                },enabled=!keyBusy && keyLabel.trim().length in 3..48,
+                    modifier=Modifier.fillMaxWidth()){
+                    Icon(Icons.Default.Add,contentDescription=null)
+                    Spacer(Modifier.width(6.dp))
+                    Text(if(keyBusy)"Working…" else "Issue our API token · 7 days")
+                }
+                if(issuedToken.isNotBlank()){
+                    Text("New key (displayed only during this session). Store securely.",
+                        color=gold,fontSize=12.sp,fontWeight=FontWeight.Bold)
+                    Button(onClick={
+                        val clipboard=context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        val clip=ClipData.newPlainText("EliteBridge secret API token",issuedToken)
+                        clip.description.extras=android.os.PersistableBundle().apply{
+                            putBoolean(ClipDescription.EXTRA_IS_SENSITIVE,true)
+                        }
+                        clipboard.setPrimaryClip(clip)
+                        keyWarning="Copied. Save your key securely; clipboard contents may be accessible to other apps."
+                    },modifier=Modifier.fillMaxWidth()){
+                        Icon(Icons.Default.ContentCopy,contentDescription=null)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Copy token securely")
+                    }
+                    TextButton(onClick={issuedToken="";issuedId=""},modifier=Modifier.fillMaxWidth()){
+                        Text("Hide token permanently")
+                    }
+                }
+                if(keyWarning.isNotBlank())Text(keyWarning,fontSize=11.sp,color=gold)
+                val keys=bridgeKeys
+                if(keys!=null) {
+                    Text("Issued keys (secret values never displayed)",fontSize=12.sp,fontWeight=FontWeight.Bold)
+                    if(keys.length()==0)Text("No EliteBridge API keys yet",fontSize=12.sp,color=muted)
+                    for(i in 0 until keys.length()){
+                        val row=keys.optJSONObject(i)?:continue
+                        val id=row.optString("id")
+                        val revoked=!row.isNull("revokedAt")
+                        Column(verticalArrangement=Arrangement.spacedBy(4.dp)){
+                            Text(row.optString("label"),fontSize=12.sp,fontWeight=FontWeight.SemiBold)
+                            Text(if(revoked)"Revoked" else "Expires "+row.optString("expiresAt").take(10),
+                                color=muted,fontSize=11.sp)
+                            if(!revoked && id.isNotBlank())OutlinedButton(
+                                onClick={
+                                    scope.launch{
+                                        keyBusy=true
+                                        try {
+                                            api.revokeEliteBridgeKey(id)
+                                            bridgeKeys=api.eliteBridgeKeys().optJSONArray("tokens")
+                                            if(issuedId==id){issuedToken="";issuedId=""}
+                                            keyWarning="Token revoked immediately."
+                                        }catch(e:Exception){keyWarning=e.message?:"Could not revoke key."}
+                                        finally {keyBusy=false}
+                                    }
+                                },enabled=!keyBusy){
+                                Icon(Icons.Default.Block,contentDescription=null)
+                                Spacer(Modifier.width(5.dp))
+                                Text("Revoke",fontSize=11.sp)
+                            }
+                        }
+                    }
+                }
             }
         }
         Text("Available connections",fontSize=16.sp,fontWeight=FontWeight.Bold)
