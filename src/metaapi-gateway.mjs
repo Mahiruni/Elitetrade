@@ -287,6 +287,31 @@ export function createMetaApiGateway(env, fetchImpl = fetch) {
       if(!Array.isArray(candles))throw error('MetaApi returned invalid historical candles.');
       return {info,quote,spec,candles,exposureVerified:false};
     },
+    // Owner-scoped, read-only display feed. Faster than a full strategy/risk
+    // preview: only quote, open positions and optional true broker candles.
+    // No order mutation, invented ticks, or account refresh impersonation.
+    async liveMarket(id,symbol,timeframe,{withCandles=false,withOrders=false}={}) {
+      if (!/^[A-Za-z0-9._-]{3,30}$/.test(symbol) ||
+          !['15s','1m','5m','15m'].includes(timeframe))throw error('Invalid live instrument.',400);
+      const account=await metadata(id),info=await figures(id,account);
+      const {remoteId}=parse(id),root=`/users/current/accounts/${remoteId}`;
+      const client=`https://mt-client-api-v1.${account.region}.agiliumtrade.ai`;
+      const history=`https://mt-market-data-client-api-v1.${account.region}.agiliumtrade.ai`;
+      const jobs=[
+        call(client,`${root}/symbols/${encodeURIComponent(symbol)}/current-price`),
+        call(client,`${root}/positions`),
+        ...(withOrders ? [call(client,`${root}/orders`)] : []),
+        ...(withCandles ? [timeframe==='15s'
+          ? call(history,`${root}/historical-market-data/symbols/${encodeURIComponent(symbol)}/ticks?limit=1000`).then(ticks=>build15sTickCandles(ticks,Date.now()))
+          : call(history,`${root}/historical-market-data/symbols/${encodeURIComponent(symbol)}/timeframes/${timeframe}/candles?limit=120`)] : [])
+      ];
+      const out=await Promise.all(jobs);
+      const quote=out[0],positions=out[1];
+      if(!Array.isArray(positions)||withOrders&&!Array.isArray(out[2])||
+          withCandles&&!Array.isArray(out[out.length-1]))throw error('Broker display feed is incomplete.');
+      return {info,quote,positions,...(withOrders?{orders:out[2]}:{}),
+        ...(withCandles?{candles:out[out.length-1]}:{})};
+    },
     // Execution risk checks must retain their fresh account/positions/order reads.
     async market(id,symbol,timeframe) {
       if (!/^[A-Za-z0-9._-]{3,30}$/.test(symbol) || !['15s','1m','5m','15m'].includes(timeframe)) throw error('Invalid strategy market request.',400);

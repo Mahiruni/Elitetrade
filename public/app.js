@@ -39,6 +39,8 @@ const navigationEndpoints = new Set(['/accounts','/bots']);
 const submitLocks = new Set();
 const state = { user: null, csrf: null, config: {}, data: {}, chat: null, adminTab: 'payments', version: 0, stream: null, auth: readStoredAuth(), pendingMfa: null, requiresDeviceVerification:false,deviceEmail:'',deviceDestination:'/mt5',deviceEmailSession:'' };
 let refreshInProgress = false;
+let liveFeedTimer=null;
+let liveFeedGeneration=0;
 function saveAuth(session) {
   if (!session?.access_token) return;
   const expiresAt = Number(session.expires_at || (Date.now() / 1000 + Number(session.expires_in || 3600)));
@@ -579,7 +581,58 @@ async function adminPage() {
   if (state.adminTab === 'audit') content = d.audit.length ? table(['Time','Administrator','Action','Record'],d.audit.map(a => `<tr><td>${date(a.created_at)}</td><td>${esc(a.email || 'System')}</td><td>${esc(a.action)}</td><td class="mono">${esc(a.target)}</td></tr>`)) : empty('No administrative activity','Changes to access, payments, and configuration will be recorded here.');
   return heading('Administration','A focused view of members, payments, and connected services.') + `<div class="stats">${stat('Members',d.users.length,'Registered workspace members','referrals')}${stat('Pending payments',pending.payments,'Submissions awaiting verification','wallet')}${stat('Pending connections',pending.accounts,'MT5 accounts awaiting review','terminal')}</div><div class="admin-section-picker"><label for="admin-section-select">Administration section</label><select id="admin-section-select">${tabs.map(([id,label]) => `<option value="${id}" ${state.adminTab === id ? 'selected' : ''}>${label}${pending[id] ? ` · ${pending[id]} pending` : ''}</option>`).join('')}</select></div><div class="admin-layout"><div class="tabs admin-nav" role="tablist" aria-label="Administration sections" aria-orientation="vertical">${tabs.map(([id,label]) => btn(`${icon(sections[id][0])}<span>${label}</span>${pending[id] ? `<span class="tab-count" aria-hidden="true">${pending[id]}</span>` : ''}`,'admin-tab',id,`id="admin-tab-${id}" role="tab" aria-label="${label}" aria-controls="admin-panel" aria-selected="${state.adminTab === id}" tabindex="${state.adminTab === id ? '0' : '-1'}" class="${state.adminTab === id ? 'selected' : ''}"`)).join('')}</div><section class="card admin-panel" id="admin-panel" role="tabpanel" aria-labelledby="admin-panel-title"><div class="admin-panel-heading"><div><h2 id="admin-panel-title">${tabs.find(([id]) => id === state.adminTab)[1]}</h2><p>${sections[state.adminTab][1]}</p></div></div>${content}</section></div>`;
 }
+
+// Poll only while the authenticated Trade page is visible. No market data or
+// trade orders are fabricated; MetaApi is the sole provider of the quote,
+// positions, open P/L and OHLC candles. Browser polling is not tick streaming.
+function stopLiveFeed() {
+  liveFeedGeneration++;
+  if(liveFeedTimer!==null){clearTimeout(liveFeedTimer);liveFeedTimer=null;}
+}
+function startLiveFeed() {
+  stopLiveFeed();
+  if(location.pathname!=='/trade'||!state.user)return;
+  const generation=liveFeedGeneration,owner=state.user.id;
+  let lastCandles=0,lastOrders=0;
+  const tick=async()=>{
+    if(generation!==liveFeedGeneration || location.pathname!=='/trade' ||
+       state.user?.id!==owner)return;
+    if(document.hidden||!navigator.onLine||modal.open ||
+       document.body.classList.contains('menu-open')) {
+      if(!navigator.onLine)workspaceUI.markLiveError('Network unavailable · waiting to reconnect');
+      if(generation===liveFeedGeneration)liveFeedTimer=setTimeout(tick,3000);
+      return;
+    }
+    const botId=state.workspace?.instrument;
+    const bot=state.data.bots?.find(item=>item.id===botId);
+    if(!bot){workspaceUI.markLiveError('Select a connected bot to load broker prices');return;}
+    const at=Date.now();
+    const withCandles=at-lastCandles>=20000||!state.quotes?.[botId]?.candles?.length;
+    const withOrders=at-lastOrders>=30000||state.workspace?.tradeTab==='orders';
+    const path=`/market/live?botId=${encodeURIComponent(botId)}&candles=${withCandles?'1':'0'}&orders=${withOrders?'1':'0'}`;
+    try {
+      const feed=await api(path,'GET');
+      if(generation!==liveFeedGeneration || state.user?.id!==owner ||
+         location.pathname!=='/trade' || state.workspace?.instrument!==botId)return;
+      if(withCandles&&Array.isArray(feed.candles))lastCandles=Date.now();
+      if(withOrders&&Array.isArray(feed.orders))lastOrders=Date.now();
+      await workspaceUI.applyLiveMarket(botId,feed);
+    }catch(error){
+      if(generation===liveFeedGeneration){
+        workspaceUI.markLiveError(error.status===429
+          ? 'Broker polling limit reached · retrying automatically'
+          : 'Broker update unavailable · retrying automatically');
+      }
+    }finally {
+      if(generation===liveFeedGeneration && location.pathname==='/trade')
+        liveFeedTimer=setTimeout(tick,8000);
+    }
+  };
+  void tick();
+}
+
 async function render({ quiet = false, navigation = false } = {}) {
+  stopLiveFeed();
   supportUI.dispose();
   claudeUI.dispose();
   claudeProUI.dispose();
@@ -631,6 +684,7 @@ async function render({ quiet = false, navigation = false } = {}) {
     if(restoreAction)[...root.querySelectorAll('[data-action]')].find(el=>el.dataset.action===restoreAction.action&&el.dataset.id===restoreAction.id)?.focus({preventScroll:true});
     if (path === '/ebook' && state.user) { try { sessionStorage.removeItem('elite-auth-return'); } catch {} }
     void workspaceUI.mountChart();
+    if(path==='/trade')startLiveFeed();
     stopHeroMarket = mountHeroMarket(document.querySelector('[data-hero-market]'));
     const messages = document.querySelector('#messages'); if (messages) messages.scrollTop = messages.scrollHeight;
     const pageTitle = path === '/' ? 'Elite Bot · MT5 Trading Automation Platform' : path === '/download' ? 'EliteTrade for Android · Official Signed APK & Updates' : `${document.querySelector('h1')?.textContent || 'Workspace'} · Elite Bot`;
@@ -1051,7 +1105,7 @@ try {
 setInterval(() => { if (!document.hidden && location.pathname.includes('support') && state.chat) refreshChat().catch(() => {}); },15000);
 let workspacePolling=false;
 setInterval(async () => {
-  if(workspacePolling || !navigator.onLine || document.hidden || !state.user || modal.open || document.body.classList.contains('menu-open') || document.activeElement?.matches('input,textarea,select') || !['/dashboard','/trade','/markets','/mt5','/bots','/activity','/positions','/notifications'].includes(location.pathname))return;
+  if(workspacePolling || !navigator.onLine || document.hidden || !state.user || modal.open || document.body.classList.contains('menu-open') || document.activeElement?.matches('input,textarea,select') || !['/dashboard','/markets','/mt5','/bots','/activity','/positions','/notifications'].includes(location.pathname))return;
   workspacePolling=true;try {await render({quiet:true});}finally{workspacePolling=false;}
 },15000);
 
@@ -1068,6 +1122,7 @@ async function refreshCryptoStatus() {
 }
 setInterval(refreshCryptoStatus,30000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshCryptoStatus();});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden && location.pathname==='/trade' && state.user)startLiveFeed();});
 
 function syncOffline() {
   const banner=document.querySelector('#offline-banner');if(banner)banner.hidden=navigator.onLine;

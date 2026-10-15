@@ -145,6 +145,39 @@ try {
   await dialog.getByRole('button',{name:'Save configuration',exact:true}).click();
   await page.getByRole('heading',{name:'My gold bot',exact:true}).waitFor();
   await capture(page,{path:'test-results/bots-desktop.png',fullPage:true});
+  // Isolated read-only broker fixture proves Trade can auto-load chart and
+  // update account P/L without a refresh button. Not a real broker result.
+  let feedCalls=0;
+  await page.route('**/api/market/live?**',async route=>{
+    feedCalls++;
+    const value=feedCalls===1?4146.238:4147.238;
+    const stamp=new Date().toISOString();
+    const params=new URL(route.request().url()).searchParams;
+    await route.fulfill({json:{
+      symbol:'XAUUSD',timeframe:'15m',accountType:'demo',fresh:true,
+      updatedAt:stamp,retrievedAt:stamp,
+      quote:{bid:value,ask:value+.24},
+      snapshot:{accountType:'demo',currency:'USD',balance:1000,equity:1000+feedCalls,
+        profit:feedCalls,updatedAt:stamp,
+        positions:[{id:'test-200',symbol:'XAUUSD',type:'POSITION_TYPE_BUY',
+          volume:.01,openPrice:4140,currentPrice:value,profit:feedCalls,
+          stopLoss:4130,takeProfit:4150}]},
+      ...(params.get('candles')==='1'?{candles:Array.from({length:24},(_,i)=>({
+        time:new Date(Date.now()-(24-i)*900000).toISOString(),
+        open:4140+i*.1,high:4141+i*.1,low:4139+i*.1,close:4140.5+i*.1
+      }))}:{}),
+      ...(params.get('orders')==='1'?{orders:[]}:{})
+    }});
+  });
+  await navigate('/trade');await ready('Trade');
+  await page.locator('[data-market-chart] svg').waitFor({timeout:15000});
+  await page.waitForFunction(()=>document.querySelector('[data-live-bid]')?.textContent.includes('4,146'),{timeout:15000});
+  assert.ok(await page.getByText('Auto-updating · broker data').isVisible());
+  await page.getByRole('tab',{name:'Positions'}).click();
+  await page.waitForFunction(()=>document.querySelector('[data-live-positions]')?.textContent.includes('test-200'),{timeout:15000});
+  assert.ok(feedCalls>=2,'read-only broker feed refreshed automatically on Trade tab switch');
+  assert.equal(await page.locator('[data-action="market-refresh"]').count(),0,'no manual Trade refresh required');
+  await capture(page,{path:'test-results/broker-live-positions.png',fullPage:true});
   // ClaudeBot lives on its own route and does not send trading commands.
   await navigate('/claudebot'); await ready('ClaudeBot');
   assert.equal(await page.locator('#claudebot .cb-check').count(),8);
