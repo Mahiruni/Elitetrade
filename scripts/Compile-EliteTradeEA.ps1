@@ -47,8 +47,20 @@ if ([string]::IsNullOrWhiteSpace($MetaEditorPath)) {
     }
     $args = @('/auto', ('/path:"' + $root + '"'))
     $setup = Start-Process -FilePath $setupFile -ArgumentList $args -Wait -PassThru
-    if ($setup.ExitCode -ne 0) { throw "MetaTrader installation failed: exit code $($setup.ExitCode)." }
     $MetaEditorPath = Join-Path $root 'metaeditor64.exe'
+    $installSummary = @(
+        'Official MetaQuotes installer status (no broker credentials):',
+        "Exit code: $($setup.ExitCode)",
+        "Installer bytes: $((Get-Item -LiteralPath $setupFile).Length)",
+        "MetaEditor present: $(Test-Path -LiteralPath $MetaEditorPath)",
+        "Terminal present: $(Test-Path -LiteralPath (Join-Path $root 'terminal64.exe'))",
+        'Install-directory entries:'
+    )
+    $installSummary += @(Get-ChildItem -LiteralPath $root -Force -ErrorAction SilentlyContinue | Select-Object -First 30 -ExpandProperty Name)
+    $installSummary | Set-Content -LiteralPath (Join-Path $evidence 'installer-diagnostics.txt') -Encoding UTF8
+    if ($setup.ExitCode -ne 0) {
+        throw "MetaTrader installation failed: exit code $($setup.ExitCode). Check installer-diagnostics artifact."
+    }
     Wait-ForFile $MetaEditorPath 150
     $Mql5Root = Join-Path $root 'MQL5'
     $terminalPath = Join-Path $root 'terminal64.exe'
