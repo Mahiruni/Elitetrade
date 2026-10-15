@@ -17,6 +17,7 @@ import {eliteBridgeStatus} from './elitebridge.mjs';
 import {eliteBridgeProtocolStatus} from './elitebridge-protocol.mjs';
 import {createReadOnlyBrokerRouter} from './elitebridge-router.mjs';
 import { mobileEnginePulse } from './mobile-demo-engine.mjs';
+import { brokerRiskAffordability } from './broker-risk-affordability.mjs';
 import { loadSelectedDemoAccount } from './demo-account-access.mjs';
 import { STRATEGIES,evaluateStrategy,planTrade } from './trading-strategies.mjs';
 import { evaluatePoiStrategy } from './poi-strategy.mjs';
@@ -752,13 +753,14 @@ export function createSupabaseApplication(options = {}) {
       const market=readOnly ?
         await gateway.previewMarket(account.gateway_id,bot.symbol,preset.timeframe) :
         await gateway.market(account.gateway_id,bot.symbol,preset.timeframe);
+      const riskFit=brokerRiskAffordability({bot,market});
       const signal=evaluateStrategy(bot.strategy,market.candles);
       let order=null,riskMessage=readOnly ?
         'Read-only MT5 signal. Open orders, exposure, margin, and protective stops are not verified by preview. No order is authorized.' :
         'No current entry signal.';
       if(!readOnly && signal.side)try {order=planTrade({bot,...market,side:signal.side});riskMessage='Preliminary risk check passed. Worker rechecks risk, exposure and margin before execution.';}
       catch(error){riskMessage=error.message;}
-      return json(res,{...marketDetails(market,preset.timeframe),signal,order,riskMessage,accountType:market.info.type==='ACCOUNT_TRADE_MODE_DEMO'?'demo':market.info.type==='ACCOUNT_TRADE_MODE_REAL'?'real':null,message:'Preview only. No order sent.',quote:{...Object.fromEntries(['bid','ask'].filter(k=>Number.isFinite(market.quote?.[k])).map(k=>[k,market.quote[k]]))},updatedAt:typeof market.quote?.time==='string'&&Number.isFinite(Date.parse(market.quote.time))?market.quote.time:null,retrievedAt:now()});
+      return json(res,{...marketDetails(market,preset.timeframe),signal,order,riskMessage,riskFit,accountType:market.info.type==='ACCOUNT_TRADE_MODE_DEMO'?'demo':market.info.type==='ACCOUNT_TRADE_MODE_REAL'?'real':null,message:'Preview only. No order sent.',quote:{...Object.fromEntries(['bid','ask'].filter(k=>Number.isFinite(market.quote?.[k])).map(k=>[k,market.quote[k]]))},updatedAt:typeof market.quote?.time==='string'&&Number.isFinite(Date.parse(market.quote.time))?market.quote.time:null,retrievedAt:now()});
     }
 
     const botControl = path.match(/^\/api\/bots\/([^/]+)\/control$/);
