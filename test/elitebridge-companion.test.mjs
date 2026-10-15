@@ -37,6 +37,6 @@ test('signed registration never publishes Ed25519 private material to web',()=>{
  assert.match(src,/Register public identity/);
  assert.match(src,/Approve identity/);
  assert.match(src,/Revoke/);
- assert.match(src,/terminal-private\.pem/);
+ assert.doesNotMatch(src,/-----BEGIN PRIVATE KEY-----|privateKey\s*[:=]|terminal-private\\.pem/);
  assert.doesNotMatch(src,/\/api\/elitebridge\/telemetry.+POST/);
 });
