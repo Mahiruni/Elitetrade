@@ -1,5 +1,6 @@
 import { createAndroidReleaseService } from './android-release.mjs';
 import { hostedMt5Status } from './hosted-mt5-status.mjs';
+import { ORIGINAL_EX5, ORIGINAL_EX5_ID, isOriginalEx5 } from './original-ex5.mjs';
 import {createSupportHandler,sqliteSupport,supportRoute} from './support.mjs';
 import { accountDetails } from './account-view.mjs';
 import { renderBlogPage } from './blog.mjs';
@@ -427,7 +428,7 @@ export function createApplication(options = {}) {
     if (botSave && method === 'PATCH') {
       const user = needUser(context), bot = own('bots', botSave[1], user); if (bot.status !== 'stopped') fail(409, 'Stop the bot before changing its configuration.');
       const account = body.accountId ? own('accounts', body.accountId, user) : null;
-      const name = string(body.name, 'Bot name', 2, 64), strategy = choice(body.strategy, ['trend','scalping','breakout'], 'strategy'), symbol = string(body.symbol, 'Symbol', 3, 30).toUpperCase();
+      const name = string(body.name, 'Bot name', 2, 64), strategy = choice(body.strategy, ['trend','scalping','breakout',ORIGINAL_EX5_ID], 'strategy'), symbol = string(body.symbol, 'Symbol', 3, 30).toUpperCase();
       if (!/^[A-Z0-9._-]+$/.test(symbol)) fail(400, 'Enter a valid broker symbol.');
       const risk = number(body.riskPercent, 'Risk', 0.1, 5), sl = number(body.stopLoss, 'Stop loss', 0.1, 20), tp = number(body.takeProfit, 'Take profit', 0.1, 50), draw = number(body.maxDrawdown, 'Drawdown', 1, 30), daily = number(body.dailyLoss, 'Daily loss', 0.1, 10), lot = number(body.lotSize, 'Lot size', 0.01, 10);
       run('UPDATE bots SET account_id=?,name=?,strategy=?,symbol=?,risk_percent=?,stop_loss=?,take_profit=?,max_drawdown=?,daily_loss=?,lot_size=? WHERE id=?', account?.id || null, name, strategy, symbol, risk, sl, tp, draw, daily, lot, bot.id); return json(res, { ok: true });
@@ -450,6 +451,8 @@ export function createApplication(options = {}) {
     if (botControl && method === 'POST') {
       const user = needUser(context), bot = own('bots', botControl[1], user);
       if (typeof body.running !== 'boolean') fail(400, 'Choose start or stop.');
+      if (body.running && isOriginalEx5(bot.strategy))
+        fail(409, 'Original EX5 runs only inside Windows MT5. No verified terminal is connected; the web gateway cannot start this EA.');
       // Stopping remains available after a subscription is revoked.
       if (body.running) activeUser(context);
       if (!gateway) fail(503, 'Live trading requires a configured MT5 gateway.');
