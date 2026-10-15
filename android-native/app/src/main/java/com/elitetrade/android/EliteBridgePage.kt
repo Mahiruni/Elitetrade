@@ -28,6 +28,8 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
     var busy by remember {mutableStateOf(false)}
     var report by remember {mutableStateOf<JSONObject?>(null)}
     var protocol by remember {mutableStateOf<JSONObject?>(null)}
+    var terminalInventory by remember {mutableStateOf<JSONObject?>(null)}
+    var telemetryDiagnostics by remember {mutableStateOf<JSONObject?>(null)}
     var protocolWarning by remember {mutableStateOf("")}
     var error by remember {mutableStateOf("")}
     var probes by remember {mutableStateOf(mapOf<String,JSONObject>())}
@@ -52,6 +54,13 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
             try{
                 protocol=api.eliteBridgeProtocolStatus()
                 protocolWarning=""
+                if(api.user?.optString("role")=="admin" &&
+                   protocol?.optBoolean("pairingEnabled")==true){
+                    try{terminalInventory=api.eliteBridgeTerminals()}
+                    catch(_:Exception){terminalInventory=null}
+                    try{telemetryDiagnostics=api.eliteBridgeDiagnostics()}
+                    catch(_:Exception){telemetryDiagnostics=null}
+                }
             }catch(e:Exception){
                 protocolWarning="Protocol status awaiting updated backend deployment."
             }
@@ -86,16 +95,120 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
         }
         ElevatedCard{
             Column(Modifier.fillMaxWidth().padding(16.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){
-                Text("EliteBridge · Protocol v3",fontSize=16.sp,fontWeight=FontWeight.Bold,color=gold)
-                Text("Signed DEMO telemetry · Ed25519 · sandbox only",fontSize=12.sp)
-                Text(if(protocol?.optString("state")=="sandbox-only")
+                Text(when(protocol?.optInt("phase")){
+                    7 -> "EliteBridge · Verified terminal pairing"
+                    5 -> "EliteBridge · Dual-mode observation"
+                    4 -> "EliteBridge · Protocol v3 / Cloud Phase 4"
+                    else -> "EliteBridge · Protocol v3"
+                },
+                    fontSize=16.sp,fontWeight=FontWeight.Bold,color=gold)
+                Text(when(protocol?.optInt("phase")){
+                    7 -> "DEMO + REAL observation · one-time key possession proof"
+                    5 -> "DEMO v3 + REAL v4 · signed, read-only telemetry"
+                    4 -> "Signed DEMO telemetry · Ed25519 · secured cloud storage"
+                    else -> "Signed DEMO telemetry · Ed25519 · sandbox only"
+                },fontSize=12.sp)
+                Text(if(protocol?.optString("state")=="observation-ready")
+                    "● REAL observation prepared · MT5 BROKER NOT VERIFIED"
+                    else if(protocol?.optString("state")=="enrollment-ready")
+                    "● Secure cloud enrollment available · Independent MT5 NOT CONNECTED"
+                    else if(protocol?.optString("state")=="sandbox-only")
                     "● Protocol specification available · Independent MT5 NOT CONNECTED"
                     else "○ Protocol backend pending · Independent MT5 NOT CONNECTED",
                     color=gold,fontSize=12.sp)
-                Text("Pairing: disabled · Direct broker orders: disabled",fontSize=11.sp,color=muted)
+                Text(if(protocol?.optBoolean("pairingEnabled")==true)
+                    "Enrollment: administrator approval required · Direct broker orders: disabled"
+                    else "Pairing: disabled · Direct broker orders: disabled",fontSize=11.sp,color=muted)
+                if(protocol?.optBoolean("realObservationEnabled")==true){
+                    Text("REAL account data: read-only · REAL orders: DISABLED",
+                        fontSize=12.sp,fontWeight=FontWeight.Bold,color=gold)
+                    Text("Manual enrollment and separate live-trading safeguards required. This page cannot place real orders.",
+                        fontSize=11.sp,color=muted,lineHeight=17.sp)
+                }
+                if(protocol?.optBoolean("pairingProofRequired")==true){
+                    Text("Admin-approved terminals must complete a signed 10-minute key ownership challenge.",
+                        fontSize=11.sp,color=muted,lineHeight=17.sp)
+                }
                 if(protocolWarning.isNotBlank())Text(protocolWarning,fontSize=11.sp,color=muted)
                 Text("The Termux protocol simulator proves signature and replay handling. It does not access Exness or replace MetaApi.",
                     fontSize=12.sp,color=muted,lineHeight=18.sp)
+            }
+        }
+        if(api.user?.optString("role")=="admin" &&
+           protocol?.optBoolean("pairingProofRequired")==true){
+            Text("Cloud observation diagnostics",fontSize=17.sp,fontWeight=FontWeight.Bold)
+            OutlinedButton(onClick={load()},enabled=!busy){
+                Icon(Icons.Default.Refresh,contentDescription=null)
+                Spacer(Modifier.width(7.dp))
+                Text("Refresh diagnostics")
+            }
+            val checks=telemetryDiagnostics?.optJSONArray("terminals")
+            if(checks==null){
+                Text("Diagnostics unavailable. No broker connection can be verified from this page.",
+                    fontSize=12.sp,color=muted)
+            }else if(checks.length()==0){
+                Text("No enrolled terminal. Provisioning a Windows MT5 terminal is still required.",
+                    fontSize=12.sp,color=muted)
+            }else for(i in 0 until checks.length()){
+                val item=checks.optJSONObject(i)?:continue
+                val state=item.optString("state","unknown")
+                val receiving=state=="receiving"
+                ElevatedCard {
+                    Column(Modifier.fillMaxWidth().padding(15.dp),
+                        verticalArrangement=Arrangement.spacedBy(6.dp)){
+                        Text(item.optString("label","Approved terminal"),
+                            fontSize=14.sp,fontWeight=FontWeight.Bold)
+                        Text(item.optString("accountMode","demo").uppercase()+
+                            " · "+state.replace('-',' '),
+                            fontSize=12.sp,fontWeight=FontWeight.SemiBold,
+                            color=if(receiving)Color(0xFF34D399) else gold)
+                        val hb=if(item.isNull("heartbeatAgeSeconds"))"not received" else
+                            item.optInt("heartbeatAgeSeconds").toString()+"s ago"
+                        val quote=if(item.isNull("quoteAgeSeconds"))"not received" else
+                            item.optInt("quoteAgeSeconds").toString()+"s ago"
+                        Text("Signed heartbeat: "+hb+" · quote: "+quote,
+                            fontSize=11.sp,color=muted)
+                        Text(item.optString("recovery","Inspection required."),
+                            fontSize=11.sp,color=muted,lineHeight=17.sp)
+                        Text("Broker verified: NO · Independent trades: DISABLED",
+                            fontSize=11.sp,color=muted)
+                    }
+                }
+            }
+        }
+        if(api.user?.optString("role")=="admin" &&
+           protocol?.optBoolean("pairingProofRequired")==true){
+            Text("Trusted terminal health",fontSize=17.sp,fontWeight=FontWeight.Bold)
+            val terminals=terminalInventory?.optJSONArray("terminals")
+            if(terminals==null)
+                Text("Terminal registry not available yet. No independent broker connection is confirmed.",
+                    fontSize=12.sp,color=muted)
+            else if(terminals.length()==0)
+                Text("No approved EliteBridge terminals registered.",fontSize=12.sp,color=muted)
+            else for(i in 0 until terminals.length()){
+                val terminal=terminals.optJSONObject(i)?:continue
+                val telemetry=terminal.optString("telemetryState","never-received")
+                val approved=terminal.optString("status")=="approved"
+                ElevatedCard{
+                    Column(Modifier.fillMaxWidth().padding(15.dp),
+                        verticalArrangement=Arrangement.spacedBy(6.dp)){
+                        Text(terminal.optString("label","Terminal"),
+                            fontSize=14.sp,fontWeight=FontWeight.Bold)
+                        Text(terminal.optString("account_mode","demo").uppercase()+
+                            " observation · "+terminal.optString("status","pending"),
+                            fontSize=12.sp,color=gold)
+                        Text("Key proof: "+if(terminal.isNull("proof_verified_at"))
+                            "Awaiting challenge" else "Verified",
+                            fontSize=11.sp,color=muted)
+                        Text("Signed telemetry: "+telemetry.replace('-',' ')+
+                            (if(terminal.isNull("ageSeconds"))"" else
+                              " · "+terminal.optInt("ageSeconds")+"s ago"),
+                            fontSize=12.sp,
+                            color=if(approved&&telemetry=="recent")Color(0xFF34D399) else gold)
+                        Text("Broker-verified: NO · Trading through EliteBridge: DISABLED",
+                            fontSize=11.sp,color=muted)
+                    }
+                }
             }
         }
         Text("Available connections",fontSize=16.sp,fontWeight=FontWeight.Bold)
