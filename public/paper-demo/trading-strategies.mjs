@@ -1,7 +1,7 @@
 export const STRATEGIES = Object.freeze({
   trend:{timeframe:'15m',minutes:15,fast:20,slow:50,description:'EMA 20/50 crossover on closed 15-minute candles'},
   scalping:{timeframe:'5m',minutes:5,fast:9,slow:21,description:'EMA 9/21 crossover on closed 5-minute candles'},
-  'scalping-m1':{timeframe:'1m',minutes:1,fast:5,slow:13,description:'M1 EMA 5/13 crossover on a closed 1-minute candle; experimental DEMO-only, no win-rate guarantee'},
+  'scalping-m1':{timeframe:'1m',minutes:1,fast:5,slow:13,description:'M1 EMA 5/13 crossover or trend-aligned pullback recovery on fully closed 1-minute candles; experimental DEMO-only, no win-rate guarantee'},
   'scalping-s15':{timeframe:'15s',minutes:.25,fast:3,slow:6,
     description:'Experimental DEMO-only 15-second momentum using observed MT5 ticks; no win-rate guarantee'},
   breakout:{timeframe:'15m',minutes:15,lookback:20,description:'Close beyond the previous 20 closed 15-minute candles'}
@@ -42,6 +42,22 @@ export function evaluateStrategy(strategy,raw,at=Date.now()) {
         side='buy';
       else if(fast[i]<slow[i]&&last.close<previous.close&&last.close<last.open)
         side='sell';
+    }else if(strategy==='scalping-m1'){
+      // More signal opportunities than EMA crossover alone, but never guess
+      // from an unfinished candle or replace real MT5 broker history.
+      // A recovery entry requires (a) an established directional EMA trend,
+      // (b) a completed counter-trend pullback touching EMA 5, and
+      // (c) a completed confirming bar that breaks the prior bar extreme.
+      const crossUp=fast[i-1]<=slow[i-1]&&fast[i]>slow[i];
+      const crossDown=fast[i-1]>=slow[i-1]&&fast[i]<slow[i];
+      const pullbackBuy=fast[i]>slow[i]&&fast[i]>fast[i-1]&&
+        previous.close<previous.open&&previous.low<=fast[i-1]&&
+        last.close>last.open&&last.close>previous.high&&last.close>fast[i];
+      const pullbackSell=fast[i]<slow[i]&&fast[i]<fast[i-1]&&
+        previous.close>previous.open&&previous.high>=fast[i-1]&&
+        last.close<last.open&&last.close<previous.low&&last.close<fast[i];
+      if(crossUp||pullbackBuy)side='buy';
+      else if(crossDown||pullbackSell)side='sell';
     }else{
       if(fast[i-1]<=slow[i-1]&&fast[i]>slow[i])side='buy';
       if(fast[i-1]>=slow[i-1]&&fast[i]<slow[i])side='sell';
