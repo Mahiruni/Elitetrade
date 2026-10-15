@@ -87,7 +87,7 @@ test('owner-scoped private RPC handles failure as 503 without exposing database 
   await assert.rejects(()=>bridge.diagnostics({ownerId:'not-valid'}),e=>e.status===400);
 });
 test('authenticated admin-only diagnostics HTTP route returns safe result; unauthenticated rejected',async t=>{
-  const owner=randomUUID(),row=base();
+  const owner=randomUUID(),row=base({last_heartbeat_at:new Date(Date.now()-140000).toISOString(),last_quote_at:new Date(Date.now()-5000).toISOString()});
   const db={
     authUser:async()=>({id:owner,factors:[]}),
     one:async(table)=>table==='elitetrade_profiles'?
