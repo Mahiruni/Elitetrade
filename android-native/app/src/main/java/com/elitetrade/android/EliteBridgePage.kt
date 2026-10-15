@@ -12,12 +12,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 /**
- * EliteBridge Phase 3: signed protocol sandbox plus explicit live
- * DEMO broker/quote probe. No provider switching or orders.
+ * EliteBridge cloud enrollment and signed terminal health dashboard.
+ * DEMO/REAL telemetry is observation-only. No provider switching or orders.
  * This screen cannot place orders, swap provider, or collect broker secrets.
  */
 @Composable
@@ -67,7 +68,15 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
             finally{busy=false}
         }
     }
-    LaunchedEffect(Unit){load()}
+    // Refresh only while this Compose screen remains in view. No background
+    // polling, order execution, or broker login occurs from the Android UI.
+    LaunchedEffect(Unit){
+        load()
+        while(true){
+            delay(20000L)
+            if(!busy)load()
+        }
+    }
     val providers=report?.optJSONArray("providers")
     val accounts=report?.optJSONArray("accounts")
     val heartbeat=report?.optBoolean("workerHeartbeatFresh")==true
