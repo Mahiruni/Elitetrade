@@ -16,6 +16,7 @@ test('isolated PostgreSQL 16 M1 migration preserves strict DEMO arm gates',async
  "create role authenticated nologin",
  "create schema auth",
  "create schema elitetrade_private",
+ "grant usage on schema elitetrade_private to authenticated",
  "grant usage on schema auth to authenticated",
  "create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$",
  "create function auth.jwt() returns jsonb language sql stable as $$select jsonb_build_object('aal',current_setting('request.jwt.claim.aal',true))$$",
