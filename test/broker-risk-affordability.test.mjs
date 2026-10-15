@@ -58,6 +58,7 @@ test('no recommendation if broker is REAL, stale or malformed',()=>{
 test('no unsafe narrower stop recommendation if spread is too high',()=>{
   const m=broker();
   const r=brokerRiskAffordability({bot,market:{...m,quote:{...m.quote,bid:3995}},at:now});
-  assert.equal(r.status,'blocked_minimum_lot');
+  assert.equal(r.status,'unverified');
   assert.equal(r.suggestion,null);
+  assert.equal(r.tradeAuthorized,false);
 });
