@@ -630,6 +630,18 @@ export function createSupabaseApplication(options = {}) {
       res.setHeader('Cache-Control','no-store');
       return json(res,enrolled,201);
     }
+    const terminalPairing=path.match(/^\/api\/elitebridge\/terminals\/([0-9a-fA-F-]{36})\/(challenge|prove)$/);
+    if(terminalPairing && method==='POST'){
+      const ctx=await needAdmin(req);requireBridgeCloud();
+      rateLimit('elitebridge-pairing:'+ctx.user.id,10,3600000);
+      const result=terminalPairing[2]==='challenge'?
+        await bridgeCloud.issueChallenge({ownerId:ctx.user.id,deviceId:terminalPairing[1]}):
+        await bridgeCloud.prove({ownerId:ctx.user.id,deviceId:terminalPairing[1],
+          signature:body.signature});
+      await audit(ctx,'elitebridge.terminal.'+terminalPairing[2],terminalPairing[1]);
+      res.setHeader('Cache-Control','no-store');
+      return json(res,result);
+    }
     const terminalDecision=path.match(/^\/api\/elitebridge\/terminals\/([0-9a-fA-F-]{36})\/(approve|revoke)$/);
     if(terminalDecision && method==='POST'){
       const ctx=await needAdmin(req);requireBridgeCloud();
