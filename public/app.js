@@ -215,7 +215,7 @@ const workspaceUI = createWorkspace({state,api,esc,money,date,icon,btn,badge,hea
 const claudeUI = createClaudeBot({state,api,esc,date});
 const claudeProUI = createClaudeProWorkspace({state,api});
 const goldSmcUI = createGoldSmcWorkspace({state,api,esc});
-const hostedMt5UI = createHostedMt5Workspace({api,esc});
+const hostedMt5UI = createHostedMt5Workspace({api,esc,isAdmin:()=>state.user?.role==='admin'});
 const bridgeUI = createEliteBridgeWorkspace({api,esc,state});
 function shell(content) {
   const path = location.pathname;
@@ -640,6 +640,7 @@ async function render({ quiet = false, navigation = false } = {}) {
   claudeUI.dispose();
   claudeProUI.dispose();
   goldSmcUI.dispose();
+  hostedMt5UI.dispose();
   stopHeroMarket(); stopHeroMarket = () => {};
   const focused=document.activeElement;
   const restoreAction=quiet && focused?.dataset?.action ? {action:focused.dataset.action,id:focused.dataset.id}:null;
