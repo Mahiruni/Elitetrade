@@ -90,7 +90,7 @@ test('owner-scoped confirmed broker receipts display on DEMO app; never fabricat
 
 test('Android/web bot UI exposes opt-in M1 and true broker receipt states',()=>{
  const source=readFileSync(new URL('../public/app.js',import.meta.url),'utf8');
- assert.match(source,/Fast Scalper · M1 \(experimental\)/);
+ assert.match(source,/1-Min Scalper · M1 \(experimental\)/);
  assert.match(source,/MT5 DEMO trade execution/);
  assert.match(source,/No broker-confirmed DEMO executions recorded yet/);
  assert.match(source,/Unknown · reconcile in MT5/);
@@ -99,4 +99,19 @@ test('Android/web bot UI exposes opt-in M1 and true broker receipt states',()=>{
  const server=readFileSync(new URL('../src/supabase-app.mjs',import.meta.url),'utf8');
  assert.match(server,/scalping-m1/);
  assert.match(server,/elitetrade_engine_orders/);
+});
+
+test('native Android strategy list includes M1 next to M5 and M15 presets',()=>{
+ const ui=readFileSync(new URL('../android-native/app/src/main/java/com/elitetrade/android/NativeActivity.kt',import.meta.url),'utf8');
+ const api=readFileSync(new URL('../android-native/app/src/main/java/com/elitetrade/android/NativeApi.kt',import.meta.url),'utf8');
+ for(const item of ['1-Min Scalper · M1','Scalping · M5','Trend · M15','Breakout · M15']){
+   assert.ok(ui.includes(item),item);
+ }
+ assert.match(ui,/DropdownMenu\(expanded=strategyMenuExpanded/);
+ assert.match(ui,/onStrategy\(bot,key\)/);
+ assert.match(ui,/enabled=bot\.str\("status"\)=="stopped"/);
+ assert.match(api,/suspend fun selectStrategy\(bot:JSONObject,strategy:String\)/);
+ assert.match(api,/if\(strategy !in setOf\("trend","scalping","scalping-m1","breakout"\)\)/);
+ assert.match(api,/if\(bot\.optString\("status"\)!="stopped"\)/);
+ assert.doesNotMatch(api.slice(api.indexOf('suspend fun selectStrategy'),api.indexOf('suspend fun eliteBridgeStatus')),/controlBot\(|demoOrder\(|executeOrder\(/);
 });
