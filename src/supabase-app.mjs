@@ -13,6 +13,8 @@ import { createSupabaseData } from './supabase-data.mjs';
 import { engineReady } from './demo-engine.mjs';
 import {eliteBridgeStatus} from './elitebridge.mjs';
 import {eliteBridgeProtocolStatus} from './elitebridge-protocol.mjs';
+import {mintEliteBridgeToken,eliteBridgeTokenDigest,validateBridgeTokenLabel,validateBridgeTokenExpiry,
+  extractEliteBridgeToken,publicBridgeTokenRecord,ELITEBRIDGE_TOKEN_SCOPE} from './elitebridge-tokens.mjs';
 import {createReadOnlyBrokerRouter} from './elitebridge-router.mjs';
 import { mobileEnginePulse } from './mobile-demo-engine.mjs';
 import { loadSelectedDemoAccount } from './demo-account-access.mjs';
@@ -87,6 +89,12 @@ export function createSupabaseApplication(options = {}) {
   const engineDb=options.engineDb || (mobileEngineEnabled && mobileDbKey ?
     createSupabaseData({url:supabaseUrl,key:mobileDbKey}) : null);
 
+
+  // Bridge-issued tokens are independent credentials and are DISABLED until
+  // the private Supabase token table/RPC migration has been reviewed.
+  const bridgeTokensEnabled=env.ELITEBRIDGE_TOKENS_ENABLED==='true';
+  const bridgeTokenDb=options.bridgeTokenDb || (bridgeTokensEnabled && mobileDbKey ?
+    createSupabaseData({url:supabaseUrl,key:mobileDbKey}) : null);
 
   const gateway = options.gateway === undefined ? createGateway(env) : options.gateway;
   // Phase 2 is a separate read-only broker adapter; the live DEMO worker still
@@ -586,6 +594,77 @@ export function createSupabaseApplication(options = {}) {
       const result=await bridgeRouter.probe({account,symbol});
       res.setHeader('Cache-Control','no-store');
       return json(res,result);
+    }
+
+    // Own EliteBridge API keys. These are NOT tokens for MetaApi and do NOT
+    // grant market-order, MT5 password, device-enrollment or bot-control access.
+    // All issuance/revocation requires admin + verified browser + MFA; DB RPCs
+    // independently require auth.uid, admin role and aal2.
+    if (path === '/api/elitebridge/tokens' &&
+        ['GET','POST'].includes(method)) {
+      if(!bridgeTokensEnabled)fail(404,'EliteBridge token service is not activated.');
+      const ctx=await needAdmin(req);
+      if(ctx.user.mfaEnabled!==true)
+        fail(403,'Enroll and verify two-factor authentication before managing EliteBridge tokens.');
+      res.setHeader('Cache-Control','no-store');
+      if(method==='GET'){
+        rateLimit('bridge-token-list:'+ctx.user.id,20,60000);
+        const rows=await db.rpc('elitetrade_bridge_token_list',{},ctx.token);
+        if(!Array.isArray(rows))fail(503,'Token inventory is temporarily unavailable.');
+        return json(res,{provider:'elitebridge',metaapiUnchanged:true,
+          ordersEnabled:false,tokens:rows.map(publicBridgeTokenRecord)});
+      }
+      rateLimit('bridge-token-issue:'+ctx.user.id,3,3600000);
+      let label,hours;
+      try{
+        label=validateBridgeTokenLabel(body.label);
+        hours=validateBridgeTokenExpiry(body.expiresHours===undefined?168:body.expiresHours);
+      }catch(e){fail(400,e.message)}
+      const secret=mintEliteBridgeToken();
+      const hashed=eliteBridgeTokenDigest(secret);
+      const issued=await db.rpc('elitetrade_bridge_token_issue',
+        {p_label:label,p_hash:hashed,p_expires_hours:hours},ctx.token);
+      if(typeof issued!=='string'||!/^[a-f0-9-]{36}$/i.test(issued))
+        fail(503,'EliteBridge token issuance could not be confirmed.');
+      return json(res,{
+        id:issued,token:secret,scope:ELITEBRIDGE_TOKEN_SCOPE,
+        expiresInHours:hours,showOnce:true,ordersEnabled:false,
+        message:'Copy this EliteBridge token now. It cannot be retrieved again, and cannot access MetaApi or send MT5 trades.'
+      },201);
+    }
+    if (path === '/api/elitebridge/tokens/revoke' && method==='POST') {
+      if(!bridgeTokensEnabled)fail(404,'EliteBridge token service is not activated.');
+      const ctx=await needAdmin(req);
+      if(ctx.user.mfaEnabled!==true)
+        fail(403,'Verified two-factor authentication is required.');
+      rateLimit('bridge-token-revoke:'+ctx.user.id,20,60000);
+      const id=String(body.id||'');
+      if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))
+        fail(400,'A valid EliteBridge token ID is required.');
+      const revoked=await db.rpc('elitetrade_bridge_token_revoke',{p_id:id},ctx.token);
+      if(revoked!==true)fail(404,'Active EliteBridge token not found.');
+      res.setHeader('Cache-Control','no-store');
+      return json(res,{revoked:true,ordersEnabled:false});
+    }
+    if (path === '/api/elitebridge/token/status' && method==='GET') {
+      if(!bridgeTokensEnabled||!bridgeTokenDb)
+        fail(503,'EliteBridge token validation is not activated.');
+      res.setHeader('Cache-Control','no-store');
+      const key=extractEliteBridgeToken(req.headers.authorization);
+      if(!key)fail(401,'Valid EliteBridge API token required.');
+      const hashed=eliteBridgeTokenDigest(key);
+      rateLimit('bridge-token-status:'+hashed.slice(0,16),30,60000);
+      const records=await bridgeTokenDb.rpc('elitetrade_bridge_token_verify',
+        {p_hash:hashed});
+      if(!Array.isArray(records)||records.length!==1||
+         records[0]?.scope!==ELITEBRIDGE_TOKEN_SCOPE)
+        fail(401,'EliteBridge API token expired, revoked or invalid.');
+      return json(res,{
+        provider:'elitebridge',authenticated:true,scope:ELITEBRIDGE_TOKEN_SCOPE,
+        bridgeBackendReady:true,mt5TerminalConnected:false,brokerVerified:false,
+        tradeExecutionEnabled:false,metaapiFallbackPreserved:true,
+        message:'EliteBridge API-token validation is online. A separate MT5 terminal and approved signed device enrollment are still required.'
+      });
     }
 
     if (path === '/api/elitebridge/protocol' && method === 'GET') {
