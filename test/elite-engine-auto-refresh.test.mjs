@@ -33,6 +33,7 @@ test('polling GET never pulses engine, arms bot, or changes background service l
  const refresh=page.slice(page.indexOf('suspend fun refreshBackend()'),page.indexOf('    // The phone service reports'));
  assert.match(refresh,/api\.mobileEngineStatus\(\)/);
  assert.doesNotMatch(refresh,/mobileEnginePulse|selectStrategy|startForeground|start\(|post\(|order_send/);
- assert.match(service,/withTimeoutOrNull\(45_000L\)/);
+ assert.match(service,/withTimeoutOrNull\(monitoringDelayMs\)/);
+ assert.match(service,/monitoringDelayMs=if\(reply\.optInt\("scanIntervalSeconds",45\)==15\)15_000L else 45_000L/);
  assert.match(service,/override fun onTimeout/);
 });
