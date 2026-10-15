@@ -8,7 +8,7 @@ const owner='11111111-2222-4333-8444-555555555555';
 const other='99999999-2222-4333-8444-555555555555';
 const id='aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 const jwt=(user,aal='aal2')=>'header.'+Buffer.from(JSON.stringify({sub:user,aal})).toString('base64url')+'.sig';
-async function fixture(t,{enabled=true,role='admin',mfa=true,device=true}={}){
+async function fixture(t,{enabled=true,role='admin',mfa=true,device=false}={}){
  const tokens=new Map(); let trade=0; let calls=0;
  const db={
   authUser:async token=>{
