@@ -166,5 +166,5 @@ export function createEliteBridgeEnrollmentConsole({api,esc,isAdmin=()=>false}) 
     refreshTimer=setInterval(()=>{if(!document.hidden&&location.pathname==='/hosted-mt5'&&!loading)void reload();},30000);
   }
   function dispose(){if(refreshTimer!==null)clearInterval(refreshTimer);refreshTimer=null;panel=null;loading=false;challenge=null;}
-  return {render:()=>render(lastData),mount,dispose,load};
+  return {render:(data=lastData)=>render(data),mount,dispose,load};
 }
