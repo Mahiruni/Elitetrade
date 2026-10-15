@@ -32,7 +32,7 @@ export function validatedChallenge(challenge,nowMs=Date.now()){
 export function signTerminalChallenge({privateKey,challenge,nowMs=Date.now()}={}){
   validatedChallenge(challenge,nowMs);
   if(!privateKey)invalid();
-  const key=createPrivateKey(privateKey);
+  const key=privateKey?.type==='private'?privateKey:createPrivateKey(privateKey);
   if(key.asymmetricKeyType!=='ed25519')invalid();
   return sign(null,Buffer.from(challenge,'base64url'),key).toString('base64url');
 }
