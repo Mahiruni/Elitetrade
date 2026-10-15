@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {randomUUID,generateKeyPairSync,createHash} from 'node:crypto';
+import {createEliteBridgeCloud} from '../src/elitebridge-cloud.mjs';
 import {createEliteBridgeEnrollmentConsole} from '../public/elitebridge-enrollment.js';
 import {createHostedMt5Workspace} from '../public/hosted-mt5.js';
 const esc=value=>String(value??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -57,6 +59,20 @@ test('proof-verified terminal is approvable; no private key or direct trading ac
  assert.match(source,/accountMode:'demo'/);
  assert.match(source,/\/elitebridge\/terminals/);
  assert.doesNotMatch(source,/demoOrder\(|submitOrder\(|private\.pem|MT5_DEMO_PASSWORD|SUPABASE_SECRET_KEY/);
+});
+test('server exposes only the public Ed25519 fingerprint matching the Windows companion',async()=>{
+ const {publicKey}=generateKeyPairSync('ed25519');
+ const pem=publicKey.export({type:'spki',format:'pem'}).toString();
+ const ownerId=randomUUID(),record={id:randomUUID(),account_id:randomUUID(),
+   label:'Windows demo',account_mode:'demo',status:'pending',public_key:pem};
+ const bridge=createEliteBridgeCloud({db:{query:async()=>[record]}});
+ const result=await bridge.list({ownerId});
+ const expected=createHash('sha256').update(publicKey.export({type:'spki',format:'der'})).digest('hex');
+ assert.equal(result.terminals[0].fingerprint,expected);
+ assert.doesNotMatch(JSON.stringify(result),/BEGIN PUBLIC KEY|END PUBLIC KEY|private_key|public_key/);
+ const client=code('public/elitebridge-enrollment.js');
+ assert.match(client,/Public-key fingerprint unavailable; approval blocked/);
+ assert.match(client,/t\.fingerprint/);
 });
 test('Hosted MT5 route embeds the console and server maps its JS file without exposing it publicly outside authenticated shell',async()=>{
  const page=createHostedMt5Workspace({api:async()=>({
