@@ -22,6 +22,7 @@ DECISIONS = ['server_epoch_ms','bar_epoch','run_tag','symbol','timeframe','mode'
              'setup_low','setup_close','atr_points','spread_points','entry','sl',
              'tp','lots','retcode']
 MAX_SIZE = 64*1024*1024
+VERIFIED_EX5_SHA256 = '16627b5419bd777662472479f4fed23f187ca6c3853e4352d0c01d0bc2168528'
 D = Decimal
 
 class EvidenceError(ValueError):
@@ -72,6 +73,8 @@ def validate_manifest(path:Path)->dict[str,Any]:
     if (not isinstance(obj['candidate_ex5_sha256'],str) or len(obj['candidate_ex5_sha256'])!=64 or
         any(c not in '0123456789abcdef' for c in obj['candidate_ex5_sha256'].lower())):
         raise EvidenceError('EX5 SHA256 must have 64 hex digits')
+    if obj['candidate_ex5_sha256'].lower()!=VERIFIED_EX5_SHA256:
+        raise EvidenceError('EX5 fingerprint differs from verified Phase 3 candidate build')
     if number(str(obj['initial_deposit']),'initial_deposit')<=0:
         raise EvidenceError('initial_deposit must be positive')
     if obj['from_date']>=obj['to_date']:
@@ -159,7 +162,9 @@ def evaluate(events_path:Path, manifest_path:Path, decisions_path:Path|None=None
     initial=number(str(manifest['initial_deposit']),'initial_deposit')
     report={
       'classification':'SYNTHETIC_FIXTURE_NOT_MARKET_PERFORMANCE' if manifest['dataset_kind']=='SYNTHETIC_TEST_ONLY' else 'USER_DECLARED_EVIDENCE_NOT_INDEPENDENTLY_VERIFIED',
-      'status':'INCOMPLETE_EVIDENCE' if issues else 'METRICS_COMPUTED_REAL_TICK_PROVENANCE_NOT_VERIFIED',
+      'status':('INCOMPLETE_EVIDENCE' if issues else
+                'SYNTHETIC_TEST_ONLY' if manifest['dataset_kind']=='SYNTHETIC_TEST_ONLY' else
+                'METRICS_COMPUTED_REAL_TICK_PROVENANCE_NOT_VERIFIED'),
       'issues':issues,
       'input_sha256':{'events':sha256(events_path),'manifest':sha256(manifest_path),
                       'decisions':sha256(decisions_path) if decisions_path else None,
