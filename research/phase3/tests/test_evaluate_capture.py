@@ -58,7 +58,7 @@ class TestCapture(unittest.TestCase):
         self.assertEqual(r['metrics']['net_profit'],5)
         self.assertEqual(r['metrics']['win_rate_pct'],50)
         self.assertAlmostEqual(r['metrics']['net_profit_factor'],11.0/6.0,places=6)
-        self.assertIn('REAL_TICK_PROVENANCE_NOT_VERIFIED',r['status'])
+        self.assertEqual(r['status'],'SYNTHETIC_TEST_ONLY')
     def test_zero_trades_never_zero_win_rate(self):
         ev,m=self.files([])
         r=evaluate(ev,m,tester_report=self.report)
@@ -105,6 +105,9 @@ class TestCapture(unittest.TestCase):
     def test_reject_missing_manifest_details(self):
         man=dict(self.manifest);del man['broker_server']
         ev,m=self.files(manifest=man)
+        with self.assertRaises(EvidenceError):evaluate(ev,m,tester_report=self.report)
+    def test_reject_wrong_compiled_binary(self):
+        ev,m=self.files(manifest=dict(self.manifest,candidate_ex5_sha256='0'*64))
         with self.assertRaises(EvidenceError):evaluate(ev,m,tester_report=self.report)
     def test_reject_wrong_tick_model(self):
         ev,m=self.files(manifest=dict(self.manifest,tick_model='OPEN_PRICES'))
