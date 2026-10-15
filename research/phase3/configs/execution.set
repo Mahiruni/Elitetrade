@@ -1,0 +1,10 @@
+; MT5 tester only. EA also rejects live accounts outside tester.
+InpExecuteOrders=true
+InpRunTag=phase3_q1_execution
+InpMagic=2026101501
+InpWriteAudit=true
+InpWriteEvents=true
+InpRiskPercent=0.25
+InpDailyLossLimitPct=2.0
+InpMaxEntriesPerDay=6
+InpTakeProfitR=1.5
