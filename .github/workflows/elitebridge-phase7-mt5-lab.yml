@@ -12,6 +12,9 @@ on:
       - "src/elitebridge-own-token-health-client.mjs"
       - "scripts/elitebridge-own-token-check.mjs"
       - "scripts/elitebridge-windows-demo-probe.ps1"
+      - "scripts/elitebridge-windows-vps-preflight.ps1"
+      - "test/elitebridge-windows-vps-preflight.test.mjs"
+      - "docs/ELITEBRIDGE_WINDOWS_VPS_RUNBOOK.md"
       - "docs/ELITEBRIDGE_TERMINAL_COMPANION.md"
       - ".github/workflows/elitebridge-phase7-mt5-lab.yml"
   workflow_dispatch:
@@ -42,3 +45,9 @@ jobs:
         run: node --test test/elitebridge-phase7-mt5-companion.test.mjs
       - name: Verify self-issued read-only token status HTTP safety
         run: node --test test/elitebridge-own-token-health.test.mjs
+      - name: Audit Windows VPS prerequisites (no broker terminal or network required)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: pwsh -NoProfile -File ./scripts/elitebridge-windows-vps-preflight.ps1 -Mode Audit
+      - name: Verify read-only VPS preflight and setup guardrails
+        run: node --test test/elitebridge-windows-vps-preflight.test.mjs
