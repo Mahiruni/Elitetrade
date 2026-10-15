@@ -14,10 +14,15 @@ test('Elite Engine automatically checks backend every 15s only while Activity is
  assert.match(gradle,/lifecycle-runtime-ktx:2\.9\.4/);
  assert.match(gradle,/lifecycle-runtime-compose:2\.9\.4/);
 });
-test('manual refresh remains available and prevents overlapping requests',()=>{
+test('manual refresh is merged into shared footer control and prevents overlapping requests',()=>{
+ const native=readFileSync(new URL('../android-native/app/src/main/java/com/elitetrade/android/NativeActivity.kt',import.meta.url),'utf8');
  assert.match(page,/if\(loading\)return/);
- assert.match(page,/OutlinedButton\(onClick=\{scope\.launch \{ refreshBackend\(\) \}\}/);
- assert.match(page,/enabled=!loading/);
+ assert.match(page,/onRegisterRefresh\(suspend \{ refreshBackend\(\) \}\)/);
+ assert.match(page,/onDispose \{ onRegisterRefresh\(null\) \}/);
+ assert.match(native,/if \(screen=="Elite Engine"\) engineRefreshHandler\?\.invoke\(\)/);
+ assert.match(native,/FloatingActionButton\(/);
+ assert.doesNotMatch(page,/Refresh backend now/);
+ assert.match(page,/enabled=backendKnown&&enabled&&!loading/);
  assert.match(page,/Auto-refresh ON · Every 15 seconds/);
  assert.match(page,/Last backend check:/);
  assert.match(page,/checkedAtMillis=System\.currentTimeMillis\(\)/);
