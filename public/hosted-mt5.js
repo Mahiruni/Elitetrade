@@ -1,3 +1,4 @@
+import { createEliteBridgeEnrollmentConsole } from './elitebridge-enrollment.js';
 // Premium authenticated Hosted MT5 console.
 // Read-only: no trading actions, no passwords, no remote-machine provisioning.
 const SHA = '16627b5419bd777662472479f4fed23f187ca6c3853e4352d0c01d0bc2168528';
@@ -15,7 +16,8 @@ const MONITOR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
 const LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 1 1 8 0v3"/></svg>';
 const LINK = (url,label,cls='') => '<a class="'+cls+'" href="'+url+'" target="_blank" rel="noopener noreferrer">'+label+ARROW+'</a>';
 
-export function createHostedMt5Workspace({api,esc}) {
+export function createHostedMt5Workspace({api,esc,isAdmin=()=>false}) {
+  const enrollment=createEliteBridgeEnrollmentConsole({api,esc,isAdmin});
   function pill(label, kind='waiting') { return '<span class="host-chip host-chip--'+kind+'"><i aria-hidden="true"></i>'+esc(label)+'</span>'; }
   function stat(name,value,note,cls='') {return '<div class="host-metric '+cls+'"><span>'+esc(name)+'</span><strong>'+esc(value)+'</strong><small>'+esc(note)+'</small></div>';}
   function pageMarkup(data) {
@@ -95,6 +97,7 @@ export function createHostedMt5Workspace({api,esc}) {
           </section>
         </aside>
       </div>
+      <div data-bridge-console></div>
       <div class="host-bottom-note"><span class="host-note-icon">${MONITOR}</span><div><strong>Web console deployed separately from the trading host</strong><p>This page is hosted by EliteTrade; the dedicated Windows machine must still be provisioned and verified. The latest cloud Strategy Tester attempt failed before producing reliable broker-history results.</p></div>${LINK(GUIDE,'Open technical plan','host-note-link')}</div>
     </div>`;
   }
@@ -103,8 +106,10 @@ export function createHostedMt5Workspace({api,esc}) {
     return pageMarkup(status);
   }
   function mount() {
+    enrollment.dispose();
     const root = document.querySelector('.host-ui');
     if(!root)return;
+    enrollment.mount();
     root.querySelector('[data-host-copy]')?.addEventListener('click',async e=>{
       const button=e.currentTarget;
       try { await navigator.clipboard.writeText(SHA); button.querySelector('span').textContent='Copied'; }
@@ -125,5 +130,5 @@ export function createHostedMt5Workspace({api,esc}) {
       }
     });
   }
-  return {page,mount};
+  return {page,mount,dispose:enrollment.dispose};
 }
