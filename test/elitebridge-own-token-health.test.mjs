@@ -37,7 +37,10 @@ test('only explicit HTTPS root is allowed for status endpoint',()=>{
   'https://elitetradee.vercel.app/redirect',
   'https://elitetradee.vercel.app/?s=1',
   'https://elitetradee.vercel.app/#attack',
-  'https://elitetradee.vercel.app:8080'
+  'https://elitetradee.vercel.app:8080',
+  'https://evil.example',
+  'https://elite-trade.vercel.app',
+  'https://elitetradee.vercel.app.evil.example'
  ])assert.throws(()=>eliteBridgeSafeStatusEndpoint(url),/HTTPS_BASE_URL_REQUIRED/);
 });
 test('reject revoked keys, malformed tokens, untrusted authority claims, and network failures',async()=>{
