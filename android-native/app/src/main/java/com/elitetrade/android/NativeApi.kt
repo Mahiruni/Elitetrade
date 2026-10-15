@@ -300,6 +300,10 @@ class EliteApi(context: Context) {
     suspend fun eliteBridgeTerminals(): JSONObject = withContext(Dispatchers.IO) {
         server("/api/elitebridge/terminals")
     }
+    /** Server-receipt-only terminal health. Never authorizes broker orders. */
+    suspend fun eliteBridgeDiagnostics(): JSONObject = withContext(Dispatchers.IO) {
+        server("/api/elitebridge/diagnostics")
+    }
     /** Owner-scoped read-only broker-DEMO connection and quote probe. */
     suspend fun eliteBridgeProbe(accountId:String,symbol:String="XAUUSDm"): JSONObject = withContext(Dispatchers.IO) {
         if(!accountId.matches(Regex("[0-9a-fA-F-]{36}")))throw ApiProblem("Invalid MT5 account selection.")
