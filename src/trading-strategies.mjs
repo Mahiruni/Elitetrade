@@ -1,6 +1,7 @@
 export const STRATEGIES = Object.freeze({
   trend:{timeframe:'15m',minutes:15,fast:20,slow:50,description:'EMA 20/50 crossover on closed 15-minute candles'},
   scalping:{timeframe:'5m',minutes:5,fast:9,slow:21,description:'EMA 9/21 crossover on closed 5-minute candles'},
+  'scalping-m1':{timeframe:'1m',minutes:1,fast:5,slow:13,description:'M1 EMA 5/13 crossover on a closed 1-minute candle; experimental DEMO-only, no win-rate guarantee'},
   breakout:{timeframe:'15m',minutes:15,lookback:20,description:'Close beyond the previous 20 closed 15-minute candles'}
 });
 const reject = message => { throw new Error(message); };

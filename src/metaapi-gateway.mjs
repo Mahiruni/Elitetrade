@@ -273,7 +273,7 @@ export function createMetaApiGateway(env, fetchImpl = fetch) {
     // No positions, orders, or forced terminal refresh. Exposure and order
     // sizing are NOT inferred from missing execution data.
     async previewMarket(id,symbol,timeframe) {
-      if (!/^[A-Za-z0-9._-]{3,30}$/.test(symbol) || !['5m','15m'].includes(timeframe)) throw error('Invalid strategy market request.',400);
+      if (!/^[A-Za-z0-9._-]{3,30}$/.test(symbol) || !['1m','5m','15m'].includes(timeframe)) throw error('Invalid strategy market request.',400);
       const account=await metadata(id),info=await figures(id,account);
       const {remoteId}=parse(id),base=`https://mt-client-api-v1.${account.region}.agiliumtrade.ai`,path=`/users/current/accounts/${remoteId}`;
       const [quote,spec,candles]=await Promise.all([
@@ -287,7 +287,7 @@ export function createMetaApiGateway(env, fetchImpl = fetch) {
     },
     // Execution risk checks must retain their fresh account/positions/order reads.
     async market(id,symbol,timeframe) {
-      if (!/^[A-Za-z0-9._-]{3,30}$/.test(symbol) || !['5m','15m'].includes(timeframe)) throw error('Invalid strategy market request.',400);
+      if (!/^[A-Za-z0-9._-]{3,30}$/.test(symbol) || !['1m','5m','15m'].includes(timeframe)) throw error('Invalid strategy market request.',400);
       const account=await metadata(id),info=await figures(id,account,{refreshTerminalState:true});
       const {remoteId}=parse(id),base=`https://mt-client-api-v1.${account.region}.agiliumtrade.ai`,path=`/users/current/accounts/${remoteId}`;
       const [quote,spec,positions,orders,candles]=await Promise.all([

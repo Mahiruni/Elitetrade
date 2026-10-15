@@ -109,6 +109,7 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
     var busy by remember { mutableStateOf(false) }
     val accounts = remember { mutableStateListOf<JSONObject>() }
     val bots = remember { mutableStateListOf<JSONObject>() }
+    val executionHistory = remember { mutableStateListOf<JSONObject>() }
     var activeAccount by remember { mutableStateOf("") }
     var adminData by remember { mutableStateOf<JSONObject?>(null) }
     var supportData by remember { mutableStateOf<JSONObject?>(null) }
@@ -121,6 +122,7 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
     var pendingReview by remember { mutableStateOf<JSONObject?>(null) }
     var showConnect by remember { mutableStateOf(false) }
     var pendingControl by remember { mutableStateOf<JSONObject?>(null) }
+    var pendingStrategySelection by remember { mutableStateOf<Pair<JSONObject,String>?>(null) }
     var selectedConversation by remember { mutableStateOf("") }
     var thread by remember { mutableStateOf<JSONObject?>(null) }
     val context = LocalContext.current
@@ -198,9 +200,12 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
             busy = true; error = ""
             try {
                 val a = api.accounts().objects()
-                val b = api.bots().objects()
+                val overview = api.botsOverview()
+                val b = (overview.optJSONArray("bots") ?: JSONArray()).objects()
+                val receipts = (overview.optJSONArray("executionHistory") ?: JSONArray()).objects()
                 accounts.clear(); accounts.addAll(a)
                 bots.clear(); bots.addAll(b)
+                executionHistory.clear(); executionHistory.addAll(receipts)
                 if (a.none { it.str("id") == activeAccount }) activeAccount = a.firstOrNull()?.str("id") ?: ""
                 if (screen=="Support") supportData=api.support()
                 if (screen=="Admin" && api.user?.str("role")=="admin") adminData=api.admin()
@@ -217,7 +222,7 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
     }
     LaunchedEffect(signedIn) {
         if(signedIn){refresh();refreshBilling()}
-        else {billingMethods=null;billingInvoices=null;billingPayments=JSONArray()}
+        else {billingMethods=null;billingInvoices=null;billingPayments=JSONArray();executionHistory.clear()}
     }
     LaunchedEffect(screen) {
         if (signedIn) {
@@ -415,8 +420,8 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                                 onBot={screen="Bot"},onPositions={screen="Trade"},onActivity={screen="Activity"})
                             "Markets" -> MarketsPage(bots,selected,panel,textColor,mutedColor,onTrade={screen="Trade"})
                             "Trade" -> TradePage(selected,panel,textColor,mutedColor)
-                            "Bot" -> BotPage(bots,accounts,panel,textColor,mutedColor,onConnect={showConnect=true},
-                                onControl={pendingControl=it},onEngine={screen="Elite Engine"})
+                            "Bot" -> BotPage(bots,accounts,executionHistory,panel,textColor,mutedColor,onConnect={showConnect=true},
+                                onControl={pendingControl=it},onEngine={screen="Elite Engine"},onStrategy={bot,strategy->pendingStrategySelection=bot to strategy})
                             "ClaudeBot" -> ClaudeBotPage(api,bots,accounts,
                                 api.user?.optBoolean("active")==true || api.user?.str("role")=="admin")
                             "Claude Pro Bot" -> ClaudeProBotPage(api,onNavigate={screen=it})
@@ -426,7 +431,7 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                             "Account" -> AccountPage(api.user,panel,textColor,mutedColor,lightTheme,
                                 onNavigate={screen=it},onTheme=toggleTheme,onCheckUpdates={checkForUpdates()},
                                 onSignOut={
-                                    scope.launch {EliteEngineService.stop(context);api.signOut();accounts.clear();bots.clear();signedIn=false;screen="Home"}
+                                    scope.launch {EliteEngineService.stop(context);api.signOut();accounts.clear();bots.clear();executionHistory.clear();signedIn=false;screen="Home"}
                                 })
                             "MT5" -> AccountsPage(accounts,panel,textColor,mutedColor,onConnect={showConnect=true})
                             "Support" -> SupportPage(supportData,selectedConversation,thread,panel,textColor,mutedColor,
@@ -524,6 +529,34 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                             finally {busy=false}
                         }
                     })
+                }
+                pendingStrategySelection?.let { (bot,strategy) ->
+                    val label=when(strategy){
+                        "scalping-m1"->"1-Min Scalper · M1"
+                        "scalping"->"Scalping · M5"
+                        "trend"->"Trend · M15"
+                        else->"Breakout · M15"
+                    }
+                    AlertDialog(
+                        onDismissRequest={pendingStrategySelection=null},
+                        title={Text("Select "+label+"?")},
+                        text={Text("This changes only the saved strategy. M1 uses EMA 5/13 on closed 1-minute MT5 DEMO candles. A shorter timeframe does not guarantee a higher win rate. Your account, lot limit, stop loss, take profit, daily loss and drawdown settings remain unchanged. No bot is started and no order is placed.")},
+                        confirmButton={
+                            TextButton(onClick={
+                                pendingStrategySelection=null
+                                scope.launch {
+                                    busy=true;error=""
+                                    try {
+                                        api.selectStrategy(bot,strategy)
+                                        message=label+" saved. Preview the strategy before intentionally starting DEMO monitoring."
+                                        refresh()
+                                    } catch(e:Exception){error=e.message ?: "Strategy could not be saved."}
+                                    finally {busy=false}
+                                }
+                            }) { Text("Save strategy") }
+                        },
+                        dismissButton={TextButton(onClick={pendingStrategySelection=null}){Text("Cancel")}}
+                    )
                 }
                 pendingControl?.let { bot ->
                     val running = bot.str("status")!="running"
@@ -1051,8 +1084,8 @@ private fun TradePage(selected:JSONObject?,panel:Color,textColor:Color,muted:Col
 }
 
 @Composable
-private fun BotPage(bots:List<JSONObject>,accounts:List<JSONObject>,panel:Color,textColor:Color,muted:Color,
-    onConnect:()->Unit,onControl:(JSONObject)->Unit,onEngine:()->Unit) {
+private fun BotPage(bots:List<JSONObject>,accounts:List<JSONObject>,executions:List<JSONObject>,panel:Color,textColor:Color,muted:Color,
+    onConnect:()->Unit,onControl:(JSONObject)->Unit,onEngine:()->Unit,onStrategy:(JSONObject,String)->Unit) {
     PageScroll {
         Spacer(Modifier.height(3.dp))
         Text("EliteBot",fontSize=27.sp,fontWeight=FontWeight.Bold,color=textColor)
@@ -1069,7 +1102,9 @@ private fun BotPage(bots:List<JSONObject>,accounts:List<JSONObject>,panel:Color,
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(bot.str("name","EliteBot"),fontSize=17.sp,fontWeight=FontWeight.SemiBold,color=textColor)
-                        Text(bot.str("symbol","—") + " · " + labelStatus(bot.str("strategy","trend")),color=muted,fontSize=12.sp)
+                        Text(bot.str("symbol","—") + " · " +
+                            (if(bot.str("strategy")=="scalping-m1")"M1 Fast Scalper · EMA 5/13" else labelStatus(bot.str("strategy","trend"))),
+                            color=muted,fontSize=12.sp)
                     }
                     StatusPill(bot.str("status","unknown"))
                 }
@@ -1079,6 +1114,49 @@ private fun BotPage(bots:List<JSONObject>,accounts:List<JSONObject>,panel:Color,
                     Metric("MT5 account",accounts.find {it.str("id")==bot.str("account_id")}?.str("login","Unassigned") ?: "Unassigned",Modifier.weight(1f))
                 }
                 Text("Execution status is confirmed by the server, not inferred from your phone.",fontSize=11.sp,color=muted)
+                if(bot.str("engineMessage").isNotBlank())
+                    Text(bot.str("engineMessage"),fontSize=12.sp,color=muted)
+                var strategyMenuExpanded by remember(bot.str("id")) { mutableStateOf(false) }
+                val presets=listOf(
+                    "scalping-m1" to "1-Min Scalper · M1",
+                    "scalping" to "Scalping · M5",
+                    "trend" to "Trend · M15",
+                    "breakout" to "Breakout · M15"
+                )
+                val strategyLabel=presets.firstOrNull {it.first==bot.str("strategy")}?.second ?: "Choose strategy"
+                Box(Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick={strategyMenuExpanded=true},
+                        enabled=bot.str("status")=="stopped",
+                        modifier=Modifier.fillMaxWidth(),
+                        shape=RoundedCornerShape(14.dp)
+                    ) {
+                        Icon(Icons.Default.Tune,contentDescription=null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Strategy: "+strategyLabel,modifier=Modifier.weight(1f),maxLines=1)
+                        Icon(Icons.Default.ArrowDropDown,contentDescription="Open strategy list")
+                    }
+                    DropdownMenu(expanded=strategyMenuExpanded,onDismissRequest={strategyMenuExpanded=false}) {
+                        presets.forEach { (key,label) ->
+                            DropdownMenuItem(
+                                text={Column {
+                                    Text(label,fontWeight=if(bot.str("strategy")==key)FontWeight.Bold else FontWeight.Normal)
+                                    if(key=="scalping-m1")Text("EMA 5/13 · DEMO only · closed 1m candles",
+                                        fontSize=11.sp,color=Muted)
+                                }},
+                                onClick={
+                                    strategyMenuExpanded=false
+                                    if(key!=bot.str("strategy"))onStrategy(bot,key)
+                                },
+                                leadingIcon={if(key==bot.str("strategy")) {
+                                    Icon(Icons.Default.Check,contentDescription=null,tint=Up)
+                                }}
+                            )
+                        }
+                    }
+                }
+                if(bot.str("status")!="stopped")
+                    Text("Pause the bot to change its strategy.",fontSize=11.sp,color=muted)
                 Button(onClick={onControl(bot)},modifier=Modifier.fillMaxWidth().height(50.dp),
                     colors=ButtonDefaults.buttonColors(containerColor=if(bot.str("status")=="running")Down else Blue),
                     shape=RoundedCornerShape(14.dp)){
@@ -1087,6 +1165,31 @@ private fun BotPage(bots:List<JSONObject>,accounts:List<JSONObject>,panel:Color,
                     Spacer(Modifier.width(7.dp))
                     Text(if(bot.str("status")=="running") "Stop bot" else "Request bot start",fontWeight=FontWeight.SemiBold)
                 }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text("MT5 DEMO executions",fontSize=18.sp,fontWeight=FontWeight.Bold,color=textColor)
+        Text("Only actual server-side broker receipts are shown. Previews and paper signals are not trades.",fontSize=11.sp,color=muted)
+        if(executions.isEmpty()) EliteCard(panel) {
+            Text("No broker-confirmed DEMO orders yet.",fontSize=13.sp,color=muted)
+            Text("Check MetaApi, Elite Engine heartbeat and closed M1 candles. No execution is guaranteed.",fontSize=11.sp,color=muted)
+        }
+        else executions.take(10).forEach { receipt ->
+            EliteCard(panel) {
+                val status=receipt.str("status")
+                val description=when(status){
+                    "confirmed"->"Broker confirmed"
+                    "unknown"->"UNKNOWN · reconcile in MT5"
+                    "reserved"->"Pending confirmation"
+                    else->"Cancelled"
+                }
+                Text(description,fontWeight=FontWeight.SemiBold,
+                    color=if(status=="confirmed")Color(0xFF34D399) else muted)
+                Text(receipt.str("symbol","—")+" · "+receipt.str("side","—").uppercase()+
+                    " · "+receipt.str("volume","—")+" lots",fontSize=12.sp,color=muted)
+                if(receipt.str("brokerOrderId").isNotBlank())
+                    Text("Broker order #"+receipt.str("brokerOrderId"),fontSize=11.sp,color=muted)
+                Text(receipt.str("createdAt",""),fontSize=10.sp,color=muted)
             }
         }
         OutlinedButton(onClick=onConnect,modifier=Modifier.fillMaxWidth().height(51.dp),shape=RoundedCornerShape(16.dp)) {

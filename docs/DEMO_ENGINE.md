@@ -1,11 +1,12 @@
 # Demo strategy execution
 
-The engine implements the three existing presets. These are explicit baseline algorithms, not recovered proprietary rules or a profitability claim. Real-money execution is rejected by both the strategy planner and provider order adapter.
+The engine provides three original baseline presets and an optional experimental M1 Fast Scalper. These are not recovered proprietary strategies, backtested win-rate promises, or profitability guarantees. Faster candles may create more signals but also add market noise, spread cost and slippage. Real-money execution is rejected by both the strategy planner and provider order adapter.
 
 | Preset | Timeframe | Entry |
 | --- | --- | --- |
 | Trend | 15 minutes | EMA 20 crosses EMA 50 on a closed candle |
 | Scalping | 5 minutes | EMA 9 crosses EMA 21 on a closed candle |
+| Fast Scalper (M1, experimental) | 1 minute | EMA 5 crosses EMA 13 on a closed candle |
 | Breakout | 15 minutes | Close above the previous 20 highs or below the previous 20 lows |
 
 Buy and sell entries are symmetric. No forming candle is used. Stale, duplicate, missing or invalid bars are rejected. The broker symbol is case-sensitive, including suffixes such as XAUUSDm.
@@ -63,3 +64,67 @@ Official provider docs:
 - https://metaapi.cloud/docs/client/restApi/api/trade/
 - https://metaapi.cloud/docs/client/restApi/api/calculateMargin/
 - https://metaapi.cloud/docs/client/models/metatraderSymbolSpecification/
+
+## M1 adoption and actual MT5 execution view
+
+- The new `scalping-m1` strategy is opt-in in the bot configuration.
+  It does not change the M5 scalping, M15 trend or M15 breakout
+  behavior or automatically activate existing bots.
+- Database prerequisite: the reviewed
+  `supabase/migrations/20261015000400_m1_demo_and_imported_account.sql`
+  adds only the M1 option to the strategy CHECK constraint. It **does not
+  replace** the installed privileged DEMO arm RPC. Production already
+  supports imported MetaApi bindings (`metaapi-existing:`), verified
+  by read-only preflight. Account ownership, MFA, worker heartbeat,
+  single-account lease, and unresolved-receipt restrictions remain unchanged.
+- On the Bots page, **MT5 DEMO trade execution** lists the owner's
+  actual service-side order receipts. Only successful confirmed
+  broker responses appear as **Broker confirmed**. Reserved or unknown
+  outcomes are never presented as successful trades.
+- If MetaApi responds HTTP 502/503/504 before an order reservation,
+  or broker candles are stale/gapped/insufficient, the armed worker
+  reports a wait state and never submits an order for that cycle.
+  Broker state, account identity, equity/margin risk failures and
+  ambiguous order outcomes still stop execution or require manual
+  reconciliation.
+- Signals need genuinely fresh one-minute **closed** candles; the
+  existing worker evaluates every ~15 seconds while healthy, not on
+  every tick. An M1 crossing does not guarantee a trade because the
+  broker must supply valid tick values, a verified DEMO login, no
+  existing positions, suitable margin and stops, and safe losses.
+- Supabase live state checked 2026-10-15: the DEMO worker heartbeat
+  became recent, **one M5 scalping bot was armed**, and it reported
+  `Monitoring 5m; waiting for a closed-candle signal.` No confirmed
+  or unresolved orders were recorded at that check. This is not proof
+  that M1 is active or that the provider will accept an order.
+  Previous production MetaApi account-information reads returned 504;
+  re-verify current broker connectivity before changing strategy.
+- Do NOT apply the new migration directly to production without
+  backup, review and an isolated Supabase staging validation. Do NOT
+  enable demo execution or arm any bot as part of merging this PR.
+- To activate later, verify the MetaApi provider is Connected and its
+  account-information endpoint responds, validate an available M1
+  symbol, provision a trusted persistent worker (or explicitly
+  foreground-limited phone engine), confirm the worker heartbeat, then
+  deliberately arm the DEMO bot. No real-money execution.
+
+### Safe changeover for the already armed M5 bot
+
+1. Confirm the Supabase migration has been reviewed, backed up, and applied;
+   unmerged PR code or a preview does not make M1 selectable in production.
+2. On the **Bots** page select the already running M5 DEMO bot, choose
+   **Pause bot**, and verify its order receipts contain no `unknown` or
+   `reserved` entry.
+3. Choose **Configure → Fast Scalper · M1 (experimental)** (or the native
+   Android `Select M1` action). Preserve existing risk settings and check
+   the exact broker gold symbol.
+4. Save, **Preview strategy** in read-only mode and check for fresh 1-minute
+   MetaApi candles. Then deliberately **Start bot** after verifying the
+   worker is online and the DEMO broker is connected.
+5. Confirm that the server run message now says `Monitoring 1m`;
+   this is evidence of evaluation, not a trade. A confirmed broker order
+   appears only if a valid crossover passes every risk/position/SL/TP
+   guard and MetaApi confirms execution.
+
+No forced or fabricated trade exists, and the M1 setup has not been
+backtested for any particular win-rate claim.

@@ -17,6 +17,18 @@ test('strategy presets detect both EMA cross directions and exclude forming cand
   assert.equal(evaluateStrategy(strategy,base,at).side,null);
  }
 });
+test('M1 EMA 5/13 scalper evaluates only fully closed 1-minute candles',()=>{
+  const flat=Array(40).fill(100);
+  const up=candles([...flat,102],1);
+  assert.equal(evaluateStrategy('scalping-m1',up,at).side,'buy');
+  assert.equal(evaluateStrategy('scalping-m1',candles([...flat,98],1),at).side,'sell');
+  const forming=candles(flat,1);
+  forming.push({time:new Date(at).toISOString(),open:100,high:400,low:100,close:400});
+  assert.equal(evaluateStrategy('scalping-m1',forming,at).side,null);
+  assert.throws(()=>evaluateStrategy('scalping-m1',up,at+61000),/stale/);
+  const missing=up.filter((_,i)=>i!==30);
+  assert.throws(()=>evaluateStrategy('scalping-m1',missing,at),/gaps/);
+});
 test('breakout uses previous highs/lows and requires a closing breakout',()=>{
  assert.equal(evaluateStrategy('breakout',candles([...Array(25).fill(100),102]),at).side,'buy');
  assert.equal(evaluateStrategy('breakout',candles([...Array(25).fill(100),98]),at).side,'sell');
