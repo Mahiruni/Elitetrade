@@ -76,3 +76,16 @@ test('S15 stays an opt-in configuration, not a forced live order',()=>{
  assert.match(engine,/unresolved/);
  assert.doesNotMatch(ui,/forceTrade|bypassRisk|unsafeOrder/);
 });
+
+test('Android offers S15 and uses backend-directed 15s cycle only for explicitly configured run',()=>{
+ const native=readFileSync(new URL('../android-native/app/src/main/java/com/elitetrade/android/NativeActivity.kt',import.meta.url),'utf8');
+ const api=readFileSync(new URL('../android-native/app/src/main/java/com/elitetrade/android/NativeApi.kt',import.meta.url),'utf8');
+ const service=readFileSync(new URL('../android-native/app/src/main/java/com/elitetrade/android/EliteEngineService.kt',import.meta.url),'utf8');
+ const pulse=readFileSync(new URL('../src/mobile-demo-engine.mjs',import.meta.url),'utf8');
+ assert.match(native,/15-Second Scalper · S15/);
+ assert.match(api,/scalping-s15/);
+ assert.match(service,/monitoringDelayMs=if\(reply\.optInt\("scanIntervalSeconds",45\)==15\)15_000L else 45_000L/);
+ assert.match(service,/withTimeoutOrNull\(monitoringDelayMs\)/);
+ assert.match(pulse,/runs\[0\]\?\.config\?\.strategy==='scalping-s15'\?15:45/);
+ assert.match(pulse,/return \{evaluated:runs\.length,armed:runs\.length>0,heartbeatAt:last,scanIntervalSeconds\}/);
+});
