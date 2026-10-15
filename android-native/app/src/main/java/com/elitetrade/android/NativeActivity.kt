@@ -36,6 +36,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
@@ -126,6 +127,7 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
     var pendingReview by remember { mutableStateOf<JSONObject?>(null) }
     var showConnect by remember { mutableStateOf(false) }
     var pendingControl by remember { mutableStateOf<JSONObject?>(null) }
+    var pendingBotPreview by remember { mutableStateOf<JSONObject?>(null) }
     var pendingStrategySelection by remember { mutableStateOf<Pair<JSONObject,String>?>(null) }
     var selectedConversation by remember { mutableStateOf("") }
     var thread by remember { mutableStateOf<JSONObject?>(null) }
@@ -431,7 +433,16 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                             "Markets" -> MarketsPage(bots,selected,panel,textColor,mutedColor,onTrade={screen="Trade"})
                             "Trade" -> TradePage(selected,panel,textColor,mutedColor)
                             "Bot" -> BotPage(bots,accounts,executionHistory,panel,textColor,mutedColor,onConnect={showConnect=true},
-                                onControl={pendingControl=it},onEngine={screen="Elite Engine"},onStrategy={bot,strategy->pendingStrategySelection=bot to strategy})
+                                onControl={pendingControl=it},onEngine={screen="Elite Engine"},
+                                onStrategy={bot,strategy->pendingStrategySelection=bot to strategy},
+                                onPreview={bot->
+                                    scope.launch {
+                                        busy=true;error=""
+                                        try { pendingBotPreview=api.previewBot(bot.str("id")) }
+                                        catch(e:Exception){error=e.message ?: "Risk preview unavailable. Check your MT5 demo connection."}
+                                        finally{busy=false}
+                                    }
+                                })
                             "ClaudeBot" -> ClaudeBotPage(api,bots,accounts,
                                 api.user?.optBoolean("active")==true || api.user?.str("role")=="admin")
                             "Claude Pro Bot" -> ClaudeProBotPage(api,onNavigate={screen=it})
@@ -594,6 +605,35 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                         dismissButton={TextButton(onClick={pendingStrategySelection=null}){Text("Cancel")}}
                     )
                 }
+                pendingBotPreview?.let { preview ->
+                    val signal=preview.optJSONObject("signal")
+                    val fit=preview.optJSONObject("riskFit")
+                    val proposal=fit?.optJSONObject("suggestion")
+                    val blocked=fit?.optString("status")=="blocked_minimum_lot"
+                    val explanatory=if(blocked)
+                        "Your current stop distance costs too much at the broker minimum lot. " +
+                        "Approximate loss: " + fit!!.optDouble("minLotRiskAtConfiguredStop") +
+                        " versus risk allowance: " + fit.optDouble("riskBudget") + ". " +
+                        (if(proposal!=null) "For MANUAL review only: stop " +
+                            proposal.optDouble("stopLossPercent") + "% and target " +
+                            proposal.optDouble("takeProfitPercent") + "%. " else
+                            "No safely affordable alternative could be validated. ") +
+                        "A tighter stop can be hit more often. Do not increase your risk allowance just to force an entry."
+                    else if(fit?.optString("status")=="affordable")
+                        "Estimated minimum lot sizing appears affordable, but the position/exposure, margin, session and worker checks still need verification."
+                    else "Broker risk affordability could not be verified from the current quote. No risk settings were changed."
+                    AlertDialog(
+                        onDismissRequest={pendingBotPreview=null},
+                        title={Text("Live broker signal & risk")},
+                        text={Column(verticalArrangement=Arrangement.spacedBy(9.dp)){
+                            Text("Signal: "+(signal?.str("side")?.ifBlank{"No entry"} ?: "No entry"))
+                            Text(explanatory,fontSize=13.sp)
+                            Text("Read-only preview. No broker order was sent, and strategy profitability is unverified.",
+                                fontSize=11.sp,color=Muted)
+                        }},
+                        confirmButton={TextButton(onClick={pendingBotPreview=null}){Text("Close")}}
+                    )
+                }
                 pendingControl?.let { bot ->
                     val running = bot.str("status")!="running"
                     AlertDialog(
@@ -607,6 +647,28 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                                 scope.launch {
                                     busy=true;error=""
                                     try {
+                                        if(running) {
+                                            // User explicitly confirmed demo automation. Never arm a bot
+                                            // from a background refresh or a read-only risk preview.
+                                            // Android foreground monitoring is a time-limited session,
+                                            // not a substitute for permanent hosted worker uptime.
+                                            val engine=api.mobileEngineStatus()
+                                            if(!engine.optBoolean("enabled"))
+                                                throw IllegalStateException("Elite Engine is unavailable on the server. Open Elite Engine and check setup.")
+                                            var ready=engine.optBoolean("ready")
+                                            if(!ready) {
+                                                EliteEngineService.start(context,api)
+                                                for(attempt in 1..10) {
+                                                    delay(1000L)
+                                                    if(api.mobileEngineStatus().optBoolean("ready")) {
+                                                        ready=true
+                                                        break
+                                                    }
+                                                }
+                                                if(!ready)throw IllegalStateException(
+                                                    "Android monitoring has not established a fresh heartbeat. Open Elite Engine to diagnose before starting the bot.")
+                                            }
+                                        }
                                         api.controlBot(bot.str("id"),running)
                                         message="Command acknowledged. Refreshing server status."
                                         refresh()
@@ -1102,7 +1164,8 @@ private fun TradePage(selected:JSONObject?,panel:Color,textColor:Color,muted:Col
 
 @Composable
 private fun BotPage(bots:List<JSONObject>,accounts:List<JSONObject>,executions:List<JSONObject>,panel:Color,textColor:Color,muted:Color,
-    onConnect:()->Unit,onControl:(JSONObject)->Unit,onEngine:()->Unit,onStrategy:(JSONObject,String)->Unit) {
+    onConnect:()->Unit,onControl:(JSONObject)->Unit,onEngine:()->Unit,
+    onStrategy:(JSONObject,String)->Unit,onPreview:(JSONObject)->Unit) {
     PageScroll {
         Spacer(Modifier.height(3.dp))
         Text("EliteBot",fontSize=27.sp,fontWeight=FontWeight.Bold,color=textColor)
@@ -1131,6 +1194,14 @@ private fun BotPage(bots:List<JSONObject>,accounts:List<JSONObject>,executions:L
                     Metric("MT5 account",accounts.find {it.str("id")==bot.str("account_id")}?.str("login","Unassigned") ?: "Unassigned",Modifier.weight(1f))
                 }
                 Text("Execution status is confirmed by the server, not inferred from your phone.",fontSize=11.sp,color=muted)
+                if(bot.str("engineMessage").contains("minimum broker lot",ignoreCase=true))
+                    Surface(color=Down.copy(alpha=.12f),shape=RoundedCornerShape(12.dp)) {
+                        Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                            Text("Risk check blocked trading",color=Down,fontSize=13.sp,fontWeight=FontWeight.SemiBold)
+                            Text("Your broker minimum position size exceeds the current per-trade risk budget. Tap Preview signal & risk for a read-only broker-based estimate.",
+                                fontSize=12.sp,color=textColor)
+                        }
+                    }
                 if(bot.str("engineMessage").isNotBlank())
                     Text(bot.str("engineMessage"),fontSize=12.sp,color=muted)
                 var strategyMenuExpanded by remember(bot.str("id")) { mutableStateOf(false) }
@@ -1175,6 +1246,13 @@ private fun BotPage(bots:List<JSONObject>,accounts:List<JSONObject>,executions:L
                 }
                 if(bot.str("status")!="stopped")
                     Text("Pause the bot to change its strategy.",fontSize=11.sp,color=muted)
+                OutlinedButton(onClick={onPreview(bot)},modifier=Modifier.fillMaxWidth(),
+                    enabled=bot.str("strategy")!="scalpin-ss-ex5",
+                    shape=RoundedCornerShape(14.dp)){
+                    Icon(Icons.Default.FactCheck,contentDescription=null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Preview signal & risk")
+                }
                 Button(onClick={onControl(bot)},modifier=Modifier.fillMaxWidth().height(50.dp),
                     colors=ButtonDefaults.buttonColors(containerColor=if(bot.str("status")=="running")Down else Blue),
                     shape=RoundedCornerShape(14.dp)){
