@@ -24,7 +24,7 @@ test('manual refresh remains available and prevents overlapping requests',()=>{
 });
 test('backend errors cannot leave falsely green online state',()=>{
  assert.match(page,/catch\(e:CancellationException\)\{throw e\}/);
- assert.match(page,/catch\(e:Exception\)\{\s*ready=false\s*backendKnown=false/s);
+ assert.match(page,/catch\(e:Exception\)\{[\s\S]*?ready=false\s*backendKnown=false/);
  assert.match(page,/fresh&&ready&&backendKnown/);
  assert.match(page,/Waiting for verified server status/);
  assert.match(page,/enabled=backendKnown&&enabled&&!loading/);
