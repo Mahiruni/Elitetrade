@@ -5,7 +5,7 @@ import {
 } from 'node:crypto';
 import {
   mkdirSync,lstatSync,readFileSync,writeFileSync,openSync,closeSync,
-  fsyncSync,renameSync,unlinkSync,chmodSync,existsSync
+  fsyncSync,renameSync,unlinkSync,existsSync
 } from 'node:fs';
 import {isAbsolute,join} from 'node:path';
 import {signBridgePacket} from './elitebridge-protocol.mjs';
@@ -37,6 +37,34 @@ function safeReadFile(path){
     throw err('identity permissions are too broad');
   return readFileSync(path,'utf8');
 }
+function writeStateAtomically(home,path,obj){
+  const temporary=join(home,'sequence-'+randomUUID()+'.tmp');
+  let fd;
+  try{
+    fd=openSync(temporary,'wx',0o600);
+    writeFileSync(fd,JSON.stringify(obj)+'\n');
+    fsyncSync(fd);
+  }finally{if(fd!==undefined)closeSync(fd);}
+  try{renameSync(temporary,path);}
+  catch(e){try{unlinkSync(temporary);}catch{}throw e;}
+  // Persist directory-entry rename on POSIX; Windows does not allow fsync on
+  // directories through Node. File itself was fsynced before the rename.
+  if(process.platform!=='win32'){
+    const dfd=openSync(home,'r');
+    try{fsyncSync(dfd);}finally{closeSync(dfd);}
+  }
+}
+function readIdentityMarker(home,fp){
+  const marker=join(home,'identity-state.json');
+  if(!existsSync(marker))throw err('identity state missing; reenroll with a new key');
+  let value;
+  try{value=JSON.parse(safeReadFile(marker));}
+  catch{throw err('identity marker corrupt; reenroll with a new key');}
+  if(value?.version!==1||value.fingerprint!==fp||
+     typeof value.sequenceStarted!=='boolean')
+    throw err('identity marker mismatch; reenroll with a new key');
+  return value;
+}
 function pemPublic(privateKey){
   const key=createPrivateKey(privateKey);
   if(key.asymmetricKeyType!=='ed25519')throw err('Ed25519 identity required');
@@ -49,7 +77,8 @@ export function terminalFingerprint(publicKeyPem){
 }
 export function initializeTerminalIdentity(directory){
   const home=checkedHome(directory),privateFile=join(home,'private.pem');
-  if(!existsSync(privateFile)){
+  const created=!existsSync(privateFile);
+  if(created){
     const {privateKey}=generateKeyPairSync('ed25519');
     const pem=privateKey.export({type:'pkcs8',format:'pem'}).toString();
     // Exclusive creation prevents accidentally replacing a registered key.
@@ -59,6 +88,15 @@ export function initializeTerminalIdentity(directory){
   const privatePem=safeReadFile(privateFile);
   const publicKeyPem=pemPublic(privatePem);
   const fp=terminalFingerprint(publicKeyPem);
+  const marker=join(home,'identity-state.json');
+  if(!existsSync(marker)){
+    // Only a new identity can receive a new marker. Existing identities
+    // without a marker must be reenrolled to prevent sequence reuse.
+    if(!created)throw err('identity marker missing; reenroll with a new key');
+    writeFileSync(marker,JSON.stringify({version:1,fingerprint:fp,sequenceStarted:false})+'\n',
+      {flag:'wx',mode:0o600});
+  }
+  readIdentityMarker(home,fp);
   return {publicKeyPem,fingerprint:fp};
 }
 function loadedIdentity(directory){
@@ -79,6 +117,11 @@ export function reserveTerminalSequences({directory,accountId,deviceId,count=2})
   try{
     let state={version:1,accountId:account,deviceId:device,
       fingerprint:identity.fingerprint,lastSequence:0};
+    const marker=readIdentityMarker(home,identity.fingerprint);
+    if(marker.sequenceStarted && !existsSync(ledger))
+      throw err('sequence ledger missing; reenroll with a new key');
+    if(!marker.sequenceStarted && existsSync(ledger))
+      throw err('sequence marker mismatch; reenroll with a new key');
     if(existsSync(ledger)){
       let old;
       try{old=JSON.parse(safeReadFile(ledger));}
@@ -93,15 +136,12 @@ export function reserveTerminalSequences({directory,accountId,deviceId,count=2})
       throw err('sequence exhausted; reenroll with a new key');
     const from=state.lastSequence+1;
     const next={...state,lastSequence:state.lastSequence+count};
-    const temporary=join(home,'sequence-'+randomUUID()+'.tmp');
-    let fd;
-    try {
-      fd=openSync(temporary,'wx',0o600);
-      writeFileSync(fd,JSON.stringify(next)+'\n');
-      fsyncSync(fd);
-    } finally {if(fd!==undefined)closeSync(fd);}
-    try{renameSync(temporary,ledger);}
-    catch(e){try{unlinkSync(temporary);}catch{}throw e;}
+    // Mark first use BEFORE saving the first sequence. A crash in between
+    // deliberately fails closed, never silently restarting from 1.
+    if(!marker.sequenceStarted)
+      writeStateAtomically(home,join(home,'identity-state.json'),
+        {...marker,sequenceStarted:true});
+    writeStateAtomically(home,ledger,next);
     // Never send any packet until the sequence reservation reaches durable storage.
     return {sequences:[from,from+1],privateKey:identity.privateKey,fingerprint:identity.fingerprint};
   } finally {
