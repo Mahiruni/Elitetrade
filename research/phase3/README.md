@@ -7,7 +7,7 @@
 - `configs/real_ticks_execution.ini`: documented MT5 Strategy Tester command-line template; `Model=4` requests **every tick based on real ticks**. Do not assume tick data are available just because this setting is present.
 - `configs/execution.set`: explicit test-order mode, `InpExecuteOrders=true`. The EA gates live accounts in source; test on a **dedicated demo terminal** anyway.
 - `configs/signal_only.set`: non-trading baseline; expects decisions but **no deals**.
-- `tools/evaluate_capture.py`: consumes the research EA's own `*-events.csv`, optional `*-decisions.csv`, and saved tester report plus a run manifest. It validates fields, source file hashes, order and timestamp consistency, episode completeness, and computes *net completed-episode returns* including recorded commission/swap. It **does not** conflate signal/request rows with fills.
+- `tools/evaluate_capture.py`: consumes the research EA's own `*-events.csv`, optional `*-decisions.csv`, and saved tester report plus a run manifest. It validates fields, captures file hashes, pins the published EX5 build fingerprint, checks order and timestamp consistency, and detects incomplete episodes, and computes *net completed-episode returns* including recorded commission/swap. It **does not** conflate signal/request rows with fills.
 - `examples/manifest.TEMPLATE.json`: run metadata placeholder; includes compiled EX5 fingerprint `16627b5419bd777662472479f4fed23f187ca6c3853e4352d0c01d0bc2168528`.
 - `tests/`: synthetic-only test data; no broker markets are simulated.
 
