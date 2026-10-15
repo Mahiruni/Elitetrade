@@ -9,6 +9,10 @@ on:
       - '.github/workflows/phase4-phone-cloud-backtest.yml'
   workflow_dispatch:
 
+concurrency:
+  group: phase4-research-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   actions: read
