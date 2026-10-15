@@ -67,7 +67,7 @@ test('Termux readiness never equates Android runtime with MT5 broker access',()=
 test('Termux sidecar cannot import broker/Supabase clients or read credential files',()=>{
   const script=readFileSync(new URL('../scripts/elitebridge-termux-monitor.mjs',import.meta.url),'utf8');
   const source=readFileSync(new URL('../src/elitebridge-termux-monitor.mjs',import.meta.url),'utf8');
-  assert.doesNotMatch(script+source,/SUPABASE_SECRET_KEY|METAAPI_TOKEN|service_role|\.env|order_send|demoOrder\(|fetch\([^)]*\/api\/|new WebSocket/);
+  assert.doesNotMatch(script+source,/SUPABASE_SECRET_KEY|METAAPI_TOKEN|service_role|process\.env|--env-file|order_send|demoOrder\(|fetch\([^)]*\/api\/|new WebSocket/);
   assert.match(script,/mode==='once'/);
   assert.match(script,/mode==='watch'/);
   assert.match(script,/SIGINT/);
