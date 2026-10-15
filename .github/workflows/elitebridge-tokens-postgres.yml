@@ -1,0 +1,40 @@
+name: EliteBridge token security PostgreSQL rehearsal
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20261015000600_elitebridge_owned_tokens.sql"
+      - "test/elitebridge-tokens-postgres.integration.mjs"
+      - ".github/workflows/elitebridge-tokens-postgres.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  elitebridge-token-sql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: elitebridge_ci
+          POSTGRES_PASSWORD: disposable_ci_only
+          POSTGRES_DB: elitebridge_token_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U elitebridge_ci -d elitebridge_token_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      ELITEBRIDGE_TOKEN_CI_PG: postgresql://elitebridge_ci:disposable_ci_only@127.0.0.1:5432/elitebridge_token_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24.12.0"
+          cache: npm
+      - run: npm ci
+      - run: npm install --no-save --package-lock=false --ignore-scripts pg@8.16.3
+      - name: Verify private token schema, MFA, owner isolation and instant revoke
+        run: node --test test/elitebridge-tokens-postgres.integration.mjs
