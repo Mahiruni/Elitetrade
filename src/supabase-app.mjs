@@ -1236,6 +1236,7 @@ export function createSupabaseApplication(options = {}) {
       files['/gold-smc.js'] = ['gold-smc.js','text/javascript'];
       files['/gold-smc.css'] = ['gold-smc.css','text/css'];
       files['/hosted-mt5.js'] = ['hosted-mt5.js','text/javascript'];
+      files['/elitebridge-enrollment.js'] = ['elitebridge-enrollment.js','text/javascript'];
       files['/elitebridge.js'] = ['elitebridge.js','text/javascript'];
       files['/elitebridge.css'] = ['elitebridge.css','text/css'];
       files['/hosted-mt5.css'] = ['hosted-mt5.css','text/css'];
