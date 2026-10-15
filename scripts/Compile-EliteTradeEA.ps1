@@ -121,7 +121,15 @@ if (Test-Path -LiteralPath $compilerLog) {
 } else {
     throw 'MetaEditor did not produce a compilation log. Build is unverified.'
 }
-if ($build.ExitCode -ne 0) { throw "MetaEditor exit code $($build.ExitCode)." }
+# MetaEditor on hosted runners may return a nonzero process exit status
+# even after reporting a successful code-generation result. Require BOTH
+# authoritative compiler-log success and a fresh, plausible EX5 binary.
+if ($logText -notmatch '(?mi)Result:\s*0\s+errors?,\s*0\s+warnings?') {
+    throw "MetaEditor did not report an error-free build (exit $($build.ExitCode)); check $logCopy"
+}
+if ($build.ExitCode -ne 0) {
+    Write-Warning "MetaEditor exit code $($build.ExitCode) despite 0 errors, 0 warnings; validating fresh binary."
+}
 if (-not (Test-Path -LiteralPath $binary -PathType Leaf)) {
     throw 'MetaEditor did not create an EX5 file. Build is unverified.'
 }
