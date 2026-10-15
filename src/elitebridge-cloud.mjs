@@ -2,6 +2,7 @@ import {createPublicKey, randomUUID, randomBytes} from 'node:crypto';
 import {terminalChallenge,verifyTerminalChallenge} from './elitebridge-device-proof.mjs';
 import {verifyBridgePacket} from './elitebridge-protocol.mjs';
 import {verifyLiveObservation} from './elitebridge-live-observation.mjs';
+import {diagnoseBridgeTerminals} from './elitebridge-diagnostics.mjs';
 
 // Phase 4 transport is READ-ONLY. A signature is device identity, not broker
 // attestation or trading authorization. Only a server-held Supabase secret may
@@ -25,6 +26,14 @@ export function validateTerminalPublicKey(pem){
 export function createEliteBridgeCloud({db}={}){
   const ready=()=>{if(!db)throw error(503,'EliteBridge cloud enrollment is not configured.');};
   return {
+    async diagnostics({ownerId,nowMs=Date.now()}){
+      ready();requireUuid(ownerId,'owner');
+      let rows;
+      try{rows=await db.rpc('elitetrade_bridge_health',{p_owner_id:ownerId});}
+      catch{throw error(503,'Secure terminal diagnostics temporarily unavailable.');}
+      try{return diagnoseBridgeTerminals(rows,{nowMs});}
+      catch{throw error(503,'Secure terminal diagnostics temporarily unavailable.');}
+    },
     async list({ownerId}){
       ready();requireUuid(ownerId,'owner');
       const rows=await db.query('elitetrade_bridge_terminals',
