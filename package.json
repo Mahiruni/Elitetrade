@@ -15,7 +15,9 @@
     "admin": "node --env-file-if-exists=.env scripts/admin.mjs",
     "backup": "node --env-file-if-exists=.env scripts/backup.mjs",
     "build": "node scripts/build-claude-pro.mjs",
-    "typecheck": "tsc -p tsconfig.json && tsc -p web/claude-pro/tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json && tsc -p web/claude-pro/tsconfig.json",
+    "bridge:sandbox": "node scripts/elitebridge-sandbox.mjs",
+    "bridge:mt5:local": "node scripts/elitebridge-mt5-probe.mjs"
   },
   "dependencies": {
     "lucide-react": "1.57.0",
