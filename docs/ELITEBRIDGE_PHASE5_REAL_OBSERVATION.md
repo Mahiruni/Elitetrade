@@ -25,6 +25,19 @@ The previous ELITEBRIDGE_CLOUD_ENABLED=true and SUPABASE_SECRET_KEY (or legacy s
 
 Neither flag authorizes or enables REAL order placement.
 
+## Test without a PC — Android Termux
+
+The offline simulator uses temporary Ed25519 keys and synthetic market prices:
+
+    cd ~/Elitetrade
+    git fetch origin
+    git switch feature/elitebridge-phase5-real-observation-20261015
+    npm run bridge:real:sandbox
+
+It proves REAL v4 signing, durable-replay interface behavior in an
+ephemeral *in-memory* test store, and REAL rejection by DEMO v3.
+It does not read live prices, connect to Supabase, or place broker orders.
+
 ## Windows terminal read-only probe
 
 Install MetaTrader 5 desktop and its official MetaTrader5 Python package on a future 64-bit Windows VPS. The terminal must already be logged into the operator-approved broker account.
