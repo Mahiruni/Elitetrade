@@ -60,7 +60,7 @@ test('isolated PostgreSQL 16 M1 migration preserves strict DEMO arm gates',async
  });
  await t.test('approved imported MetaApi link can arm M1 without sending orders',async()=>{
   await arm();
-  const run=(await pool.query('select enabled,config->>\\'strategy\\' as strategy from public.elitetrade_engine_runs')).rows[0];
+  const run=(await pool.query("select enabled,config->>'strategy' as strategy from public.elitetrade_engine_runs")).rows[0];
   assert.equal(run.enabled,true);
   assert.equal(run.strategy,'scalping-m1');
   assert.equal((await pool.query('select count(*)::int as n from public.elitetrade_engine_orders')).rows[0].n,0);
