@@ -19,7 +19,9 @@
     "bridge:real:sandbox": "node scripts/elitebridge-real-observation-sandbox.mjs",
     "bridge:terminal:init": "node scripts/elitebridge-terminal-uplink.mjs init",
     "bridge:terminal:publish": "node scripts/elitebridge-terminal-uplink.mjs publish",
-    "bridge:diagnostics:sandbox": "node scripts/elitebridge-diagnostics-sandbox.mjs"
+    "bridge:diagnostics:sandbox": "node scripts/elitebridge-diagnostics-sandbox.mjs",
+    "bridge:windows:check": "node scripts/elitebridge-windows-doctor.mjs",
+    "bridge:windows:simulate": "node scripts/elitebridge-windows-sandbox.mjs"
   },
   "dependencies": {
     "lucide-react": "1.57.0",
