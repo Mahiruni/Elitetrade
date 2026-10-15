@@ -118,6 +118,25 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
                     fontSize=12.sp,color=muted,lineHeight=18.sp)
             }
         }
+        ElevatedCard {
+            Column(Modifier.fillMaxWidth().padding(16.dp),
+                verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+                    Icon(Icons.Default.Computer,contentDescription=null,tint=gold)
+                    Text("Windows MT5 companion",fontSize=16.sp,fontWeight=FontWeight.Bold)
+                }
+                Text("LOCAL READ-ONLY LAB · NOT PAIRED",color=gold,
+                    fontSize=11.sp,fontWeight=FontWeight.Bold)
+                Text("Next milestone: connect an operator-controlled Windows 64-bit computer running an authenticated MT5 DEMO terminal. A local Python probe reads a real quote and proves it with temporary Ed25519 signatures.",
+                    fontSize=12.sp,color=muted,lineHeight=18.sp)
+                Text("MetaApi fallback stays active. An EliteBridge API token cannot connect the terminal by itself.",
+                    fontSize=12.sp,color=muted,lineHeight=18.sp)
+                Text("Readiness: Windows MT5 PC required · Device enrollment pending · Cloud delivery disabled · Broker orders disabled",
+                    fontSize=11.sp,color=gold,lineHeight=18.sp)
+                Text("On Windows run: powershell -NoProfile -File scripts/elitebridge-windows-demo-probe.ps1",
+                    fontSize=11.sp,color=muted,lineHeight=17.sp)
+            }
+        }
         if(isBridgeAdmin) ElevatedCard {
             Column(Modifier.fillMaxWidth().padding(16.dp),
                 verticalArrangement=Arrangement.spacedBy(9.dp)) {
