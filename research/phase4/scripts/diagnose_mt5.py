@@ -13,6 +13,10 @@ import re
 MAX_FILES = 40
 TAIL_BYTES = 256 * 1024
 PATTERNS = {
+    "AGENT_UNAVAILABLE": r"no agent is ready|agent (?:process )?(?:start error|got failed)|metatester(?:64)?(?:\.exe)? .{0,60}(?:missing|not found)|agent .{0,40}not ready",
+    "AGENT_SERVICE_ERROR": r"metatester.{0,60}(?:not enough permissions|access denied)|service .{0,60}(?:start failed|1053)|service did not respond",
+    "EA_LOAD_FAILURE": r"(?:expert|ea) .{0,60}(?:failed to load|cannot load)|cannot load expert",
+    "REPORT_WRITE_FAILURE": r"(?:failed to|could not|cannot) (?:save|write) report",
     "AUTH_REJECTED": r"authorization failed|invalid (?:login|password|account)|login failed|authorization error",
     "NETWORK_PROBLEM": r"no connection|connection failed|failed to connect|network unavailable|network is unavailable",
     "SYMBOL_UNAVAILABLE": r"unknown symbol|symbol .{0,80}(?:not found|does not exist|not exist)",
@@ -23,8 +27,10 @@ PATTERNS = {
     "TESTER_ACTIVITY_HINT": r"strategy tester|testing started|test started",
 }
 COMPILED = {k: re.compile(v, re.I) for k, v in PATTERNS.items()}
-PRIORITY = ("AUTH_REJECTED", "NETWORK_PROBLEM", "SYMBOL_UNAVAILABLE",
-            "HISTORY_UNAVAILABLE", "TESTER_START_FAILED", "TERMINAL_EXCEPTION")
+PRIORITY = ("AGENT_SERVICE_ERROR", "AGENT_UNAVAILABLE", "EA_LOAD_FAILURE",
+            "AUTH_REJECTED", "NETWORK_PROBLEM", "SYMBOL_UNAVAILABLE",
+            "HISTORY_UNAVAILABLE", "REPORT_WRITE_FAILURE", "TESTER_START_FAILED",
+            "TERMINAL_EXCEPTION")
 SCAN_RELATIVE = ("logs", "Tester/logs", "Tester", "MQL5/Logs")
 
 def categorize(roots: list[Path], since: float) -> dict:
@@ -65,6 +71,10 @@ def categorize(roots: list[Path], since: float) -> dict:
         "classification": category,
         "logs_inspected": read_count,
         "log_presence": bool(read_count),
+        "agent_unavailable_hint": hits["AGENT_UNAVAILABLE"],
+        "agent_service_error_hint": hits["AGENT_SERVICE_ERROR"],
+        "ea_load_failure_hint": hits["EA_LOAD_FAILURE"],
+        "report_write_failure_hint": hits["REPORT_WRITE_FAILURE"],
         "authentication_rejected_hint": hits["AUTH_REJECTED"],
         "network_problem_hint": hits["NETWORK_PROBLEM"],
         "symbol_unavailable_hint": hits["SYMBOL_UNAVAILABLE"],
