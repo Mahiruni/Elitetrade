@@ -8,6 +8,8 @@ on:
       - "scripts/elitebridge-mt5-probe.mjs"
       - "test/test_elitebridge_mt5_readonly.py"
       - "test/elitebridge-phase7-mt5-companion.test.mjs"
+      - "scripts/elitebridge-windows-demo-probe.ps1"
+      - "docs/ELITEBRIDGE_TERMINAL_COMPANION.md"
       - ".github/workflows/elitebridge-phase7-mt5-lab.yml"
   workflow_dispatch:
 
@@ -17,7 +19,11 @@ permissions:
 jobs:
   mt5-companion-lab:
     name: mt5-companion-lab
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
@@ -26,7 +32,7 @@ jobs:
           python-version: "3.12"
       - uses: actions/setup-node@v4
         with:
-          node-version: "24"
+          node-version: "24.12.0"
       - name: Verify DEMO-only Python MT5 adapter with injected responses (no real terminal)
         run: python -m unittest discover -s test -p 'test_elitebridge_mt5_readonly.py' -v
       - name: Verify Ed25519 packet bridge and no execution methods
