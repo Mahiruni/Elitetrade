@@ -689,7 +689,7 @@ export function createSupabaseApplication(options = {}) {
       // is NOT enrolled, broker-connected or enabled for trading.
       await needUser(req);
       res.setHeader('Cache-Control','no-store');
-      return json(res,eliteBridgeProtocolStatus());
+      return json(res,eliteBridgeProtocolStatus({terminalEnrollmentAvailable:!!bridgeDb}));
     }
 
     if (path === '/api/elitebridge/status' && method === 'GET') {
