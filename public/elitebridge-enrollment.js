@@ -163,7 +163,13 @@ export function createEliteBridgeEnrollmentConsole({api,esc,isAdmin=()=>false}) 
     });
     void reload();
     if(refreshTimer!==null)clearInterval(refreshTimer);
-    refreshTimer=setInterval(()=>{if(!document.hidden&&location.pathname==='/hosted-mt5'&&!loading)void reload();},30000);
+    refreshTimer=setInterval(()=>{
+      const draft=panel?.querySelector('[name="publicKey"]')?.value||
+        panel?.querySelector('[name="label"]')?.value||
+        panel?.querySelector('[name="signature"]')?.value;
+      if(!document.hidden && location.pathname==='/hosted-mt5' && !loading && !draft &&
+         !panel?.contains(document.activeElement))void reload();
+    },30000);
   }
   function dispose(){if(refreshTimer!==null)clearInterval(refreshTimer);refreshTimer=null;panel=null;loading=false;challenge=null;}
   return {render:(data=lastData)=>render(data),mount,dispose,load};
