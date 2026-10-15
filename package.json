@@ -16,7 +16,9 @@
     "backup": "node --env-file-if-exists=.env scripts/backup.mjs",
     "build": "node scripts/build-claude-pro.mjs",
     "typecheck": "tsc -p tsconfig.json && tsc -p web/claude-pro/tsconfig.json",
-    "bridge:real:sandbox": "node scripts/elitebridge-real-observation-sandbox.mjs"
+    "bridge:real:sandbox": "node scripts/elitebridge-real-observation-sandbox.mjs",
+    "bridge:terminal:init": "node scripts/elitebridge-terminal-uplink.mjs init",
+    "bridge:terminal:publish": "node scripts/elitebridge-terminal-uplink.mjs publish"
   },
   "dependencies": {
     "lucide-react": "1.57.0",
