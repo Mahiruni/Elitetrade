@@ -15,7 +15,13 @@
     "admin": "node --env-file-if-exists=.env scripts/admin.mjs",
     "backup": "node --env-file-if-exists=.env scripts/backup.mjs",
     "build": "node scripts/build-claude-pro.mjs",
-    "typecheck": "tsc -p tsconfig.json && tsc -p web/claude-pro/tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json && tsc -p web/claude-pro/tsconfig.json",
+    "bridge:real:sandbox": "node scripts/elitebridge-real-observation-sandbox.mjs",
+    "bridge:terminal:init": "node scripts/elitebridge-terminal-uplink.mjs init",
+    "bridge:terminal:publish": "node scripts/elitebridge-terminal-uplink.mjs publish",
+    "bridge:diagnostics:sandbox": "node scripts/elitebridge-diagnostics-sandbox.mjs",
+    "bridge:windows:check": "node scripts/elitebridge-windows-doctor.mjs",
+    "bridge:windows:simulate": "node scripts/elitebridge-windows-sandbox.mjs"
   },
   "dependencies": {
     "lucide-react": "1.57.0",
