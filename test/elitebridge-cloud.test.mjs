@@ -4,6 +4,7 @@ import {randomUUID,generateKeyPairSync} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import {createEliteBridgeCloud,validateTerminalPublicKey} from '../src/elitebridge-cloud.mjs';
 import {signBridgePacket,eliteBridgeProtocolStatus} from '../src/elitebridge-protocol.mjs';
+import {signTerminalChallenge} from '../src/elitebridge-device-proof.mjs';
 import {createSupabaseApplication} from '../src/supabase-app.mjs';
 
 const ids=()=>({ownerId:randomUUID(),accountId:randomUUID(),deviceId:randomUUID()});
@@ -22,12 +23,18 @@ function makeDb(){
       const id=search.match(/id=eq\.([^&]+)/)?.[1];
       const owner=search.match(/owner_id=eq\.([^&]+)/)?.[1];
       const x=terminals.get(id);
-      if(!x||x.owner_id!==owner||x.status==='revoked'||(change.status==='approved'&&x.status!=='pending'))return [];
+      if(!x||x.owner_id!==owner||x.status==='revoked'||(change.status==='approved'&&x.status!=='pending')||
+         (search.includes('status=eq.pending')&&x.status!=='pending')||
+         (search.includes('proof_verified_at=not.is.null')&&!x.proof_verified_at)||
+         (search.includes('proof_verified_at=is.null')&&x.proof_verified_at))return [];
+      const nonce=search.match(/proof_nonce=eq\.([^&]+)/)?.[1];
+      if(nonce&&x.proof_nonce!==nonce)return [];
       Object.assign(x,change);return [x];
     },
     async one(_,search){
       const id=search.match(/id=eq\.([^&]+)/)?.[1];
       const x=terminals.get(id);
+      if(search.includes('status=eq.pending'))return x?.status==='pending'?x:null;
       return x?.status==='approved'?x:null;
     },
     async rpc(_,p){
@@ -51,6 +58,10 @@ test('Ed25519 only; enrollment pending until explicitly approved; packets are de
       sequence,payload});
   assert.equal(enrolled.status,'pending');
   await assert.rejects(()=>bridge.receive(packet(1)),e=>e.status===403);
+  await assert.rejects(()=>bridge.setApproval({ownerId,deviceId:enrolled.terminalId,approve:true}),e=>e.status===409);
+  const challenge=(await bridge.issueChallenge({ownerId,deviceId:enrolled.terminalId})).challenge;
+  const signature=signTerminalChallenge({privateKey,challenge});
+  assert.equal((await bridge.prove({ownerId,deviceId:enrolled.terminalId,signature})).proofVerified,true);
   assert.equal((await bridge.setApproval({ownerId,deviceId:enrolled.terminalId,approve:true})).status,'approved');
   const first=packet(1);
   const ack=await bridge.receive(first);
@@ -72,6 +83,9 @@ test('cross-account packet, unsupported kind, forged signature and missing cloud
   await assert.rejects(()=>createEliteBridgeCloud().list({ownerId}),e=>e.status===503);
   const enrolled=await bridge.enroll({ownerId,accountId,label:'DEMO VPS',
     publicKey:keys.publicKey.export({type:'spki',format:'pem'}).toString()});
+  const challenge=(await bridge.issueChallenge({ownerId,deviceId:enrolled.terminalId})).challenge;
+  await bridge.prove({ownerId,deviceId:enrolled.terminalId,
+    signature:signTerminalChallenge({privateKey:keys.privateKey,challenge})});
   await bridge.setApproval({ownerId,deviceId:enrolled.terminalId,approve:true});
   const payload={accountType:'demo',symbol:'XAUUSDm',bid:4000,ask:4000.2,observedAt:Date.now()};
   const quoted=signBridgePacket({privateKey:keys.privateKey,kind:'terminal.quote',accountId,
@@ -114,7 +128,7 @@ test('cloud routes cannot enroll anonymous/non-admins; show no broker authorizat
   const protocol=await fetch(origin+'/api/elitebridge/protocol',{headers:{Authorization:'Bearer sample'}});
   assert.equal(protocol.status,200);
   const p=await protocol.json();
-  assert.equal(p.phase,4);
+  assert.equal(p.phase,7);
   assert.equal(p.independentMT5Connected,false);
   assert.equal(p.ordersEnabled,false);
 });

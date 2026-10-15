@@ -209,7 +209,7 @@ export function createSupabaseApplication(options = {}) {
   const mapDbError = error => {
     if (error instanceof HttpError || error?.support) return error;
     const message = String(error?.message || '').toLowerCase();
-    if (error?.status === 401 || error?.status === 403) return new HttpError(error.status, error.message);
+    if ([401,403,409].includes(error?.status)) return new HttpError(error.status, error.message);
     if (/duplicate|already|unique|reviewed|awaiting|not open|cannot remove|must stop|in progress|reconciliation/.test(message)) return new HttpError(409, error.message);
     if (/not found/.test(message)) return new HttpError(404, error.message);
     if (/invalid|choose|activate|unavailable|required|sign in/.test(message)) return new HttpError(400, error.message);
@@ -630,6 +630,18 @@ export function createSupabaseApplication(options = {}) {
       res.setHeader('Cache-Control','no-store');
       return json(res,enrolled,201);
     }
+    const terminalPairing=path.match(/^\/api\/elitebridge\/terminals\/([0-9a-fA-F-]{36})\/(challenge|prove)$/);
+    if(terminalPairing && method==='POST'){
+      const ctx=await needAdmin(req);requireBridgeCloud();
+      rateLimit('elitebridge-pairing:'+ctx.user.id,10,3600000);
+      const result=terminalPairing[2]==='challenge'?
+        await bridgeCloud.issueChallenge({ownerId:ctx.user.id,deviceId:terminalPairing[1]}):
+        await bridgeCloud.prove({ownerId:ctx.user.id,deviceId:terminalPairing[1],
+          signature:body.signature});
+      await audit(ctx,'elitebridge.terminal.'+terminalPairing[2],terminalPairing[1]);
+      res.setHeader('Cache-Control','no-store');
+      return json(res,result);
+    }
     const terminalDecision=path.match(/^\/api\/elitebridge\/terminals\/([0-9a-fA-F-]{36})\/(approve|revoke)$/);
     if(terminalDecision && method==='POST'){
       const ctx=await needAdmin(req);requireBridgeCloud();
@@ -653,7 +665,7 @@ export function createSupabaseApplication(options = {}) {
       // is NOT enrolled, broker-connected or enabled for trading.
       await needUser(req);
       res.setHeader('Cache-Control','no-store');
-      return json(res,eliteBridgeProtocolStatus({cloudIngestEnabled:bridgeEnabled && !!bridgeDb,realObservationEnabled}));
+      return json(res,eliteBridgeProtocolStatus({cloudIngestEnabled:bridgeEnabled && !!bridgeDb,realObservationEnabled,pairingProofRequired:true}));
     }
 
     if (path === '/api/elitebridge/status' && method === 'GET') {
