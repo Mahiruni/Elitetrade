@@ -117,7 +117,7 @@ class EliteEngineService:Service() {
                     EliteEngineSession.lastHeartbeatMillis=System.currentTimeMillis()
                     EliteEngineSession.successfulCycles++
                     update(if(reply.optBoolean("armed"))"DEMO bot monitoring · backend verified" else "Connected · no bots armed")
-                    withTimeoutOrNull(45_000L){networkWakeup.receive()}
+                    withTimeoutOrNull(monitoringDelayMs){networkWakeup.receive()}
                 }catch(e:CancellationException){throw e}
                 catch(e:Exception){
                     val cause=(e.message ?: "").lowercase()
