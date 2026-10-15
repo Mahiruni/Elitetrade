@@ -1,3 +1,4 @@
+import {build15sTickCandles} from './mt5-fifteen-second-candles.mjs';
 import { createHash } from 'node:crypto';
 const provisioning = 'https://mt-provisioning-api-v1.agiliumtrade.agiliumtrade.ai';
 const idPattern = /^[a-zA-Z0-9_-]{1,128}$/;
@@ -273,21 +274,22 @@ export function createMetaApiGateway(env, fetchImpl = fetch) {
     // No positions, orders, or forced terminal refresh. Exposure and order
     // sizing are NOT inferred from missing execution data.
     async previewMarket(id,symbol,timeframe) {
-      if (!/^[A-Za-z0-9._-]{3,30}$/.test(symbol) || !['1m','5m','15m'].includes(timeframe)) throw error('Invalid strategy market request.',400);
+      if (!/^[A-Za-z0-9._-]{3,30}$/.test(symbol) || !['15s','1m','5m','15m'].includes(timeframe)) throw error('Invalid strategy market request.',400);
       const account=await metadata(id),info=await figures(id,account);
       const {remoteId}=parse(id),base=`https://mt-client-api-v1.${account.region}.agiliumtrade.ai`,path=`/users/current/accounts/${remoteId}`;
       const [quote,spec,candles]=await Promise.all([
         call(base,`${path}/symbols/${encodeURIComponent(symbol)}/current-price`),
         call(base,`${path}/symbols/${encodeURIComponent(symbol)}/specification`),
-        call(`https://mt-market-data-client-api-v1.${account.region}.agiliumtrade.ai`,
-          `${path}/historical-market-data/symbols/${encodeURIComponent(symbol)}/timeframes/${timeframe}/candles?limit=120`)
+        (timeframe==='15s' ? call(`https://mt-market-data-client-api-v1.${account.region}.agiliumtrade.ai`,
+            `${path}/historical-market-data/symbols/${encodeURIComponent(symbol)}/ticks?limit=1000`).then(ticks=>build15sTickCandles(ticks,Date.now())) : call(`https://mt-market-data-client-api-v1.${account.region}.agiliumtrade.ai`,
+          `${path}/historical-market-data/symbols/${encodeURIComponent(symbol)}/timeframes/${timeframe}/candles?limit=120`))
       ]);
       if(!Array.isArray(candles))throw error('MetaApi returned invalid historical candles.');
       return {info,quote,spec,candles,exposureVerified:false};
     },
     // Execution risk checks must retain their fresh account/positions/order reads.
     async market(id,symbol,timeframe) {
-      if (!/^[A-Za-z0-9._-]{3,30}$/.test(symbol) || !['1m','5m','15m'].includes(timeframe)) throw error('Invalid strategy market request.',400);
+      if (!/^[A-Za-z0-9._-]{3,30}$/.test(symbol) || !['15s','1m','5m','15m'].includes(timeframe)) throw error('Invalid strategy market request.',400);
       const account=await metadata(id),info=await figures(id,account,{refreshTerminalState:true});
       const {remoteId}=parse(id),base=`https://mt-client-api-v1.${account.region}.agiliumtrade.ai`,path=`/users/current/accounts/${remoteId}`;
       const [quote,spec,positions,orders,candles]=await Promise.all([
@@ -295,7 +297,8 @@ export function createMetaApiGateway(env, fetchImpl = fetch) {
         call(base,`${path}/symbols/${encodeURIComponent(symbol)}/specification`),
         call(base,`${path}/positions?refreshTerminalState=true`),
         call(base,`${path}/orders?refreshTerminalState=true`),
-        call(`https://mt-market-data-client-api-v1.${account.region}.agiliumtrade.ai`,`${path}/historical-market-data/symbols/${encodeURIComponent(symbol)}/timeframes/${timeframe}/candles?limit=120`)
+        (timeframe==='15s' ? call(`https://mt-market-data-client-api-v1.${account.region}.agiliumtrade.ai`,
+            `${path}/historical-market-data/symbols/${encodeURIComponent(symbol)}/ticks?limit=1000`).then(ticks=>build15sTickCandles(ticks,Date.now())) : call(`https://mt-market-data-client-api-v1.${account.region}.agiliumtrade.ai`,`${path}/historical-market-data/symbols/${encodeURIComponent(symbol)}/timeframes/${timeframe}/candles?limit=120`))
       ]);
       if(!Array.isArray(positions)||!Array.isArray(orders))throw error('Invalid broker positions or orders.');
       return {info,quote,spec,positions,orders,candles};
