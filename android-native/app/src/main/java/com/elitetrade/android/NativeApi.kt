@@ -269,8 +269,10 @@ class EliteApi(context: Context) {
     suspend fun accounts(): JSONArray = withContext(Dispatchers.IO) { server("/api/accounts").optJSONArray("accounts") ?: JSONArray() }
     suspend fun botsOverview(): JSONObject = withContext(Dispatchers.IO) { server("/api/bots") }
     suspend fun bots(): JSONArray = botsOverview().optJSONArray("bots") ?: JSONArray()
-    /** Opt-in M1 strategy only; preserve every existing account and risk parameter. */
-    suspend fun selectM1Scalper(bot:JSONObject):JSONObject = withContext(Dispatchers.IO) {
+    /** Select an explicit strategy; never start the bot or alter its risk settings. */
+    suspend fun selectStrategy(bot:JSONObject,strategy:String):JSONObject = withContext(Dispatchers.IO) {
+        if(strategy !in setOf("trend","scalping","scalping-m1","breakout"))
+            throw ApiProblem("Unsupported trading strategy.")
         if(bot.optString("status")!="stopped")throw ApiProblem("Stop the bot before changing its strategy.")
         val id=safeId(bot.optString("id"))
         val account=if(bot.isNull("account_id"))"" else bot.optString("account_id")
@@ -278,7 +280,7 @@ class EliteApi(context: Context) {
             .put("name",bot.optString("name"))
             .put("symbol",bot.optString("symbol"))
             .put("accountId",account)
-            .put("strategy","scalping-m1")
+            .put("strategy",strategy)
             .put("riskPercent",bot.optDouble("risk_percent"))
             .put("stopLoss",bot.optDouble("stop_loss"))
             .put("takeProfit",bot.optDouble("take_profit"))
