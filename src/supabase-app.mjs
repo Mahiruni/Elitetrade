@@ -209,7 +209,7 @@ export function createSupabaseApplication(options = {}) {
   const mapDbError = error => {
     if (error instanceof HttpError || error?.support) return error;
     const message = String(error?.message || '').toLowerCase();
-    if (error?.status === 401 || error?.status === 403) return new HttpError(error.status, error.message);
+    if ([401,403,409].includes(error?.status)) return new HttpError(error.status, error.message);
     if (/duplicate|already|unique|reviewed|awaiting|not open|cannot remove|must stop|in progress|reconciliation/.test(message)) return new HttpError(409, error.message);
     if (/not found/.test(message)) return new HttpError(404, error.message);
     if (/invalid|choose|activate|unavailable|required|sign in/.test(message)) return new HttpError(400, error.message);
