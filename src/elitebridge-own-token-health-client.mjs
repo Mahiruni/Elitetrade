@@ -8,7 +8,7 @@ export function eliteBridgeSafeStatusEndpoint(origin){
   if(typeof origin!=='string'||origin.length>2048)block('INVALID_SERVER_URL');
   let parsed;
   try{parsed=new URL(origin)}catch{block('INVALID_SERVER_URL')}
-  if(parsed.protocol!=='https:'||!parsed.hostname||parsed.username||parsed.password||
+  if(parsed.protocol!=='https:'||parsed.hostname!=='elitetradee.vercel.app'||parsed.username||parsed.password||
      parsed.search||parsed.hash||parsed.pathname!=='/'||parsed.port && parsed.port!=='443')
     block('HTTPS_BASE_URL_REQUIRED');
   return new URL(ELITEBRIDGE_OWN_STATUS_PATH,parsed).toString();
