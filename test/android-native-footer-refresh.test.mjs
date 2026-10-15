@@ -21,6 +21,6 @@ test('native signed-in pages expose one circular FAB above navigation for real b
   assert.match(native,/api\.accounts\(\)/);
   assert.match(native,/api\.botsOverview\(\)/);
   assert.match(native,/billingMethods=api\.paymentMethods\(\)/);
-  assert.match(native,/if\(!keyboardOpen && screen!="Claude Pro Bot"\)/);
+  assert.match(native,/if\s*\(!keyboardOpen && screen!="Claude Pro Bot"\)/);
   assert.doesNotMatch(native,/IconButton\(onClick=onRefresh/);
 });
