@@ -101,6 +101,8 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
     var updateProgress by remember { mutableIntStateOf(0) }
     var updateError by remember { mutableStateOf("") }
     var booting by remember { mutableStateOf(true) }
+    var confirmSignOut by remember { mutableStateOf(false) }
+    var signingOut by remember { mutableStateOf(false) }
     var signedIn by remember { mutableStateOf(false) }
     var screen by remember { mutableStateOf("Home") }
     var error by remember { mutableStateOf("") }
@@ -198,6 +200,30 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
             } catch(e:Exception) {
                 billingError=e.message ?: "Unable to refresh payments. Try again."
             } finally {billingBusy=false}
+        }
+    }
+
+    fun performSecureSignOut() {
+        if (signingOut) return
+        signingOut = true
+        scope.launch {
+            try {
+                // Terminate the device-owned foreground worker, not broker positions.
+                EliteEngineService.stop(context)
+                api.signOut()
+                accounts.clear(); bots.clear(); executionHistory.clear()
+                billingMethods=null; billingInvoices=null; billingPayments=JSONArray()
+                adminData=null; supportData=null; payments=JSONArray()
+                selectedConversation=""; thread=null; activeAccount=""
+                pendingControl=null; pendingBotPreview=null; pendingReview=null
+                engineRefreshHandler=null
+                signedIn=false; screen="Home"; error=""; message=""
+            } catch(e:Exception) {
+                error=e.message ?: "Sign out failed. Try again."
+            } finally {
+                signingOut=false
+                confirmSignOut=false
+            }
         }
     }
 
@@ -384,13 +410,42 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                 val mainTabs=listOf("Home","Markets","Trade","Bot","Account")
                 val selected=firstAccount(accounts,activeAccount)
                 val keyboardOpen=WindowInsets.ime.getBottom(LocalDensity.current) > 0
+                val drawerState=rememberDrawerState(initialValue=DrawerValue.Closed)
+                BackHandler(enabled=drawerState.isOpen) {
+                    scope.launch { drawerState.close() }
+                }
+                ModalNavigationDrawer(
+                    drawerState=drawerState,
+                    gesturesEnabled=!keyboardOpen,
+                    drawerContent={
+                        EliteTradeNavigationDrawer(
+                            user=api.user,
+                            selected=screen,
+                            light=lightTheme,
+                            onClose={scope.launch { drawerState.close() }},
+                            onNavigate={destination->
+                                scope.launch {
+                                    drawerState.close()
+                                    screen=destination
+                                    error=""; message=""; selectedConversation=""
+                                }
+                            },
+                            onSignOut={
+                                scope.launch {
+                                    drawerState.close()
+                                    confirmSignOut=true
+                                }
+                            }
+                        )
+                    }
+                ) {
                 Column(Modifier.fillMaxSize()) {
                     NativeHeader(
                         title=screen,selected=selected,
                         onBack=if(screen !in mainTabs) {{screen="Account";selectedConversation=""}} else null,
+                        onOpenMenu={scope.launch { drawerState.open() }},
+                        menuOpen=drawerState.isOpen,
                         onNotifications={screen="Activity"},
-                        onMenuNavigate={destination->screen=destination;error="";message=""},
-                        isAdmin=api.user?.str("role")=="admin",
                         light=lightTheme,textColor=textColor
                     )
                     updateInfo?.let { available ->
@@ -452,9 +507,7 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                             "EliteBridge" -> EliteBridgePage(api,onNavigate={screen=it})
                             "Account" -> AccountPage(api.user,panel,textColor,mutedColor,lightTheme,
                                 onNavigate={screen=it},onTheme=toggleTheme,onCheckUpdates={checkForUpdates()},
-                                onSignOut={
-                                    scope.launch {EliteEngineService.stop(context);api.signOut();accounts.clear();bots.clear();executionHistory.clear();signedIn=false;screen="Home"}
-                                })
+                                onSignOut={confirmSignOut=true})
                             "MT5" -> AccountsPage(accounts,panel,textColor,mutedColor,onConnect={showConnect=true})
                             "Support" -> SupportPage(supportData,selectedConversation,thread,panel,textColor,mutedColor,
                                 onOpen={selectedConversation=it},onBack={selectedConversation=""},
@@ -505,9 +558,7 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                                 pendingReview=JSONObject().put("id",payment.str("id")).put("status",if(approved)"approved" else "rejected")
                             })
                             else -> AccountPage(api.user,panel,textColor,mutedColor,lightTheme,onNavigate={screen=it},
-                                onTheme=toggleTheme,onCheckUpdates={checkForUpdates()},onSignOut={
-                                    scope.launch {EliteEngineService.stop(context);api.signOut();signedIn=false;screen="Home"}
-                                })
+                                onTheme=toggleTheme,onCheckUpdates={checkForUpdates()},onSignOut={confirmSignOut=true})
                         }
                         if(busy && screen != "Support") LinearProgressIndicator(
                             modifier=Modifier.fillMaxWidth().align(Alignment.TopCenter).height(2.dp),color=Gold)
@@ -539,6 +590,22 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                     if (!keyboardOpen && screen!="Claude Pro Bot") {
                         FloatingTabs(mainTabs,screen,lightTheme) { screen=it;error="";message="" }
                     }
+                }
+                } // ModalNavigationDrawer: one shared navigation model on every native screen.
+
+                if (confirmSignOut) {
+                    AlertDialog(
+                        onDismissRequest={if(!signingOut) confirmSignOut=false},
+                        title={Text("Sign out of EliteTrade?")},
+                        text={Text("Your account and trading history will remain available when you sign in again. Signing out stops this phone's Elite Engine, but does not close any MT5 positions.")},
+                        confirmButton={
+                            TextButton(onClick={performSecureSignOut()},enabled=!signingOut) {
+                                if(signingOut) CircularProgressIndicator(Modifier.size(18.dp),strokeWidth=2.dp)
+                                else Text("Sign Out",color=Down,fontWeight=FontWeight.SemiBold)
+                            }
+                        },
+                        dismissButton={TextButton(onClick={confirmSignOut=false},enabled=!signingOut){Text("Cancel")}}
+                    )
                 }
 
                 pendingReview?.let { candidate ->
@@ -884,52 +951,56 @@ private fun AuthPage(busy:Boolean,error:String,message:String,light:Boolean,
 }
 
 @Composable
-private fun NativeHeader(title:String,selected:JSONObject?,onBack:(()->Unit)?,
-    onNotifications:()->Unit,onMenuNavigate:(String)->Unit,isAdmin:Boolean,
-    light:Boolean,textColor:Color) {
-    var menuOpen by remember {mutableStateOf(false)}
-    val p=if(light)Color(0xFFFEFFFF) else Surface
-    Surface(color=p,shadowElevation=2.dp,tonalElevation=0.dp) {
-        Row(Modifier.fillMaxWidth().height(66.dp).padding(horizontal=16.dp),
-            verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+private fun NativeHeader(
+    title:String,
+    selected:JSONObject?,
+    onBack:(()->Unit)?,
+    onOpenMenu:()->Unit,
+    menuOpen:Boolean,
+    onNotifications:()->Unit,
+    light:Boolean,
+    textColor:Color
+) {
+    val header=if(light)Color(0xFFFEFFFF) else Surface
+    Surface(color=header,shadowElevation=2.dp,tonalElevation=0.dp) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min=66.dp).padding(horizontal=12.dp),
+            verticalAlignment=Alignment.CenterVertically,
+            horizontalArrangement=Arrangement.spacedBy(3.dp)
+        ) {
             if(onBack!=null) {
-                IconButton(onClick=onBack,modifier=Modifier.size(42.dp)){
-                    Icon(Icons.Default.ArrowBack,contentDescription="Back",tint=textColor)
-                }
-            } else {
-                Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(Raised),contentAlignment=Alignment.Center){
-                    Text("EB",color=Gold,fontWeight=FontWeight.Black,fontSize=15.sp)
+                IconButton(onClick=onBack,modifier=Modifier.size(46.dp)) {
+                    Icon(Icons.Default.ArrowBack,contentDescription="Go back",tint=textColor)
                 }
             }
-            Column(Modifier.weight(1f)) {
-                Text(if(title=="Home")"EliteTrade" else title,fontWeight=FontWeight.Bold,fontSize=18.sp,
+            IconButton(onClick=onOpenMenu,modifier=Modifier.size(48.dp)) {
+                Icon(
+                    if(menuOpen)Icons.Default.Close else Icons.Default.Menu,
+                    contentDescription=if(menuOpen)"Close navigation menu" else "Open navigation menu",
+                    tint=textColor,modifier=Modifier.size(24.dp)
+                )
+            }
+            if(onBack==null) {
+                Box(Modifier.size(34.dp).clip(RoundedCornerShape(11.dp)).background(
+                    if(light)Color(0xFF111318) else Color(0xFF171717)),
+                    contentAlignment=Alignment.Center) {
+                    Text("EB",color=Gold,fontWeight=FontWeight.Black,fontSize=14.sp)
+                }
+            }
+            Column(Modifier.weight(1f),verticalArrangement=Arrangement.Center) {
+                Text(if(title=="Home")"EliteTrade" else title,fontWeight=FontWeight.Bold,fontSize=17.sp,
                     color=textColor,maxLines=1,overflow=TextOverflow.Ellipsis)
-                if(title=="Home" || title=="Markets" || title=="Trade") {
-                    Text(if(selected==null)"No MT5 account connected"
-                        else selected.str("broker") + " · " + labelStatus(selected.str("status","unknown")),
-                        fontSize=11.sp,color=Muted,maxLines=1,overflow=TextOverflow.Ellipsis)
+                if(title in listOf("Home","Markets","Trade")) {
+                    Text(
+                        if(selected==null)"No MT5 account connected"
+                        else selected.str("broker")+" · "+labelStatus(selected.str("status","unknown")),
+                        fontSize=10.sp,color=Muted,maxLines=1,overflow=TextOverflow.Ellipsis
+                    )
                 }
             }
-            Box {
-                IconButton(onClick={menuOpen=true},modifier=Modifier.size(40.dp)) {
-                    Icon(Icons.Default.Menu,contentDescription="Open navigation menu",tint=textColor)
-                }
-                DropdownMenu(expanded=menuOpen,onDismissRequest={menuOpen=false}) {
-                    val items=listOf("Home","Markets","Trade","Bot","Elite Engine","EliteBridge","ClaudeBot","Claude Pro Bot","Gold SMC Scalper","Account","MT5",
-                        "Activity","Billing","Settings","Support")+(if(isAdmin)listOf("Admin") else emptyList())
-                    items.forEach { destination->
-                        DropdownMenuItem(text={Text(destination,
-                            color=if(destination=="ClaudeBot"||destination=="Elite Engine"||destination=="EliteBridge")Gold else MaterialTheme.colorScheme.onSurface,
-                            fontWeight=if(destination==title)FontWeight.Bold else FontWeight.Medium)},
-                            leadingIcon={Icon(if(destination=="EliteBridge")Icons.Default.Cable else if(destination=="Elite Engine")Icons.Default.Memory else if(destination=="ClaudeBot")Icons.Default.AutoGraph
-                                else if(destination=="Bot")Icons.Default.SmartToy else Icons.Default.ChevronRight,
-                                contentDescription=null)},
-                            onClick={menuOpen=false;onMenuNavigate(destination)})
-                    }
-                }
-            }
-            IconButton(onClick=onNotifications,modifier=Modifier.size(40.dp)) {
-                Icon(Icons.Default.NotificationsNone,contentDescription="Notifications",tint=textColor)
+            IconButton(onClick=onNotifications,modifier=Modifier.size(48.dp)) {
+                Icon(Icons.Default.NotificationsNone,contentDescription="Notifications",tint=textColor,
+                    modifier=Modifier.size(24.dp))
             }
         }
     }
