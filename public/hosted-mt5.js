@@ -95,6 +95,20 @@ export function createHostedMt5Workspace({api,esc}) {
           </section>
         </aside>
       </div>
+      <section class="host-panel host-enrollment" id="host-enrollment">
+        <div class="host-panel-head"><div><span class="host-eyebrow">04 / SIGNED DEVICE PAIRING</span><h2>Register your Windows terminal</h2></div>${pill('Demo telemetry only')}</div>
+        <p class="host-pair-description">When you have a Windows MT5 DEMO terminal, run the EliteBridge companion there to generate an Ed25519 public key. Paste <strong>only its public key</strong> below. Never paste your terminal private key or MT5 password.</p>
+        <form id="bridge-enroll-form" class="host-pair-form">
+          <label for="bridge-account">Linked EliteTrade account</label><select id="bridge-account" required><option value="">Loading your saved MT5 accounts…</option></select>
+          <label for="bridge-label">Device name</label><input id="bridge-label" required minlength="3" maxlength="64" placeholder="My Windows MT5 Demo"/>
+          <label for="bridge-public">Terminal public key (PEM)</label><textarea id="bridge-public" rows="4" required placeholder="-----BEGIN PUBLIC KEY-----"></textarea>
+          <button class="host-primary host-pair-submit" type="submit">Register public identity ${ARROW}</button>
+        </form>
+        <div id="bridge-pair-response" class="host-pair-response" role="status" aria-live="polite"></div>
+        <div class="host-pair-listhead"><h3>My terminal identities</h3><button type="button" data-bridge-update>Check pairing status</button></div>
+        <div id="bridge-pair-list" role="status">Checking registered identities…</div>
+        <p class="host-pair-description">Register → sign challenge on Windows → approve in this app → transmit signed quotes. Successful pairing verifies a device identity, <strong>not an Exness broker connection</strong>. No orders are enabled.</p>
+      </section>
       <div class="host-bottom-note"><span class="host-note-icon">${MONITOR}</span><div><strong>Web console deployed separately from the trading host</strong><p>This page is hosted by EliteTrade; the dedicated Windows machine must still be provisioned and verified. The latest cloud Strategy Tester attempt failed before producing reliable broker-history results.</p></div>${LINK(GUIDE,'Open technical plan','host-note-link')}</div>
     </div>`;
   }
@@ -102,9 +116,76 @@ export function createHostedMt5Workspace({api,esc}) {
     const status = await api('/hosted-mt5/status');
     return pageMarkup(status);
   }
+  function mountBridge() {
+    const section=document.querySelector('#host-enrollment');
+    if(!section)return;
+    const list=section.querySelector('#bridge-pair-list');
+    const response=section.querySelector('#bridge-pair-response');
+    const form=section.querySelector('#bridge-enroll-form');
+    const account=section.querySelector('#bridge-account');
+    const say=message=>{if(response)response.textContent=message;};
+    async function refresh() {
+      try {
+        const data=await api('/elitebridge/terminals');
+        if(!list?.isConnected)return;
+        const terms=Array.isArray(data.terminals)?data.terminals:[];
+        list.innerHTML=terms.length?terms.map(term=>{
+          const id=String(term.id||''),status=String(term.status||'pending');
+          if(!/^[0-9a-f-]{36}$/i.test(id))return '';
+          const pending=status==='pending',approved=status==='approved',revoked=status==='revoked';
+          return `<div class="host-pair-item"><div><strong>${esc(term.label||'Windows terminal')}</strong>
+             <small>${esc(id)} · ${esc(status)} · Proof ${term.identityProofVerified?'verified':'pending'} · ${term.signedTransportFresh?'Signed transport fresh':'No recent signed packets'}</small>
+             <small>Broker verification: unavailable · Trade execution: disabled</small></div>
+             <div class="host-pair-actions">${pending&&term.identityProofVerified?`<button type="button" data-bridge-approve="${esc(id)}">Approve identity</button>`:''}
+             ${!revoked?`<button type="button" data-bridge-revoke="${esc(id)}">Revoke</button>`:''}</div></div>`;
+        }).join(''):'<p class="host-pair-description">No Windows terminal identities registered. Nothing is currently connected through EliteBridge.</p>';
+      }catch{if(list?.isConnected)list.textContent='Secure EliteBridge storage is unavailable. Connection remains unverified.';}
+    }
+    async function accounts(){
+      try{
+        const result=await api('/accounts?fast=1');
+        if(!account?.isConnected)return;
+        const rows=Array.isArray(result.accounts)?result.accounts:[];
+        account.innerHTML='<option value="">Choose your saved MT5 account</option>'+rows.filter(a=>/^[0-9a-f-]{36}$/i.test(a.id||''))
+          .map(a=>`<option value="${esc(a.id)}">${esc(a.broker||'MT5')} · ${esc(a.login||'Saved account')}</option>`).join('');
+      }catch{if(account?.isConnected)account.innerHTML='<option value="">MT5 account list unavailable</option>';}
+    }
+    section.querySelector('[data-bridge-update]')?.addEventListener('click',()=>void refresh());
+    form?.addEventListener('submit',async event=>{
+      event.preventDefault();
+      const button=form.querySelector('button[type="submit"]');button.disabled=true;
+      say('Registering your device identity…');
+      try {
+        const result=await api('/elitebridge/terminals','POST',{
+          accountId:account.value,label:section.querySelector('#bridge-label').value.trim(),
+          publicKey:section.querySelector('#bridge-public').value.trim()
+        });
+        const id=result.terminal?.id,nonce=result.enrollment?.nonce;
+        say(`Registered terminal ${id}. On Windows, run: node scripts/elitebridge-terminal-companion.mjs prove ${id} ${nonce}. Then select Approve identity here after checking proof. No orders enabled.`);
+        await refresh();
+      }catch(error){say(error?.message||'Unable to register identity.');}
+      finally{button.disabled=false;}
+    });
+    list?.addEventListener('click',async event=>{
+      const approve=event.target.closest('[data-bridge-approve]');
+      const revoke=event.target.closest('[data-bridge-revoke]');
+      const target=approve||revoke;
+      if(!target)return;
+      const id=target.getAttribute(approve?'data-bridge-approve':'data-bridge-revoke');
+      if(!/^[0-9a-f-]{36}$/i.test(id||''))return;
+      if(!approve && !window.confirm('Revoke this terminal identity? It will no longer be able to submit signed telemetry.'))return;
+      target.disabled=true;
+      try {await api('/elitebridge/terminals/'+id+(approve?'/approve':'/revoke'),'POST',{});
+        say(approve?'Identity approved for signed DEMO telemetry. Actual broker connectivity is still unverified.':'Terminal identity revoked.');
+        await refresh();
+      }catch(error){say(error?.message||'Unable to change terminal state.');target.disabled=false;}
+    });
+    void Promise.allSettled([accounts(),refresh()]);
+  }
   function mount() {
     const root = document.querySelector('.host-ui');
     if(!root)return;
+    mountBridge();
     root.querySelector('[data-host-copy]')?.addEventListener('click',async e=>{
       const button=e.currentTarget;
       try { await navigator.clipboard.writeText(SHA); button.querySelector('span').textContent='Copied'; }
