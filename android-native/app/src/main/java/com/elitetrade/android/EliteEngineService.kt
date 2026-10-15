@@ -110,6 +110,7 @@ class EliteEngineService:Service() {
                 }
                 try {
                     val reply=api.mobileEnginePulse()
+                    monitoringDelayMs=if(reply.optInt("scanIntervalSeconds",45)==15)15_000L else 45_000L
                     if(!reply.optBoolean("ok")||reply.optString("mode")!="broker-demo-only")
                         throw ApiProblem("DEMO backend did not acknowledge monitoring.")
                     consecutiveErrors=0
