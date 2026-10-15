@@ -98,11 +98,15 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
             Column(Modifier.fillMaxWidth().padding(16.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){
                 Text("EliteBridge · Protocol v3",fontSize=16.sp,fontWeight=FontWeight.Bold,color=gold)
                 Text("Signed DEMO telemetry · Ed25519 · sandbox only",fontSize=12.sp)
-                Text(if(protocol?.optString("state")=="sandbox-only")
+                Text(if(protocol?.optString("state")=="terminal-pairing-available")
+                    "● Signed terminal enrollment available · Independent MT5 NOT CONNECTED"
+                    else if(protocol?.optString("state")=="sandbox-only")
                     "● Protocol specification available · Independent MT5 NOT CONNECTED"
                     else "○ Protocol backend pending · Independent MT5 NOT CONNECTED",
                     color=gold,fontSize=12.sp)
-                Text("Pairing: disabled · Direct broker orders: disabled",fontSize=11.sp,color=muted)
+                Text(if(protocol?.optBoolean("pairingEnabled")==true)
+                    "Pairing: enabled for Windows DEMO identity · Direct broker orders: disabled"
+                    else "Pairing: disabled · Direct broker orders: disabled",fontSize=11.sp,color=muted)
                 if(protocolWarning.isNotBlank())Text(protocolWarning,fontSize=11.sp,color=muted)
                 Text("The Termux protocol simulator proves signature and replay handling. It does not access Exness or replace MetaApi.",
                     fontSize=12.sp,color=muted,lineHeight=18.sp)
@@ -284,7 +288,7 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
             Spacer(Modifier.width(8.dp))
             Text("Open Elite Engine")
         }
-        Text("Phase 3 is protocol-sandbox only, and broker diagnostics remain read-only. Live DEMO verification and XAUUSDm quotes use your existing MetaApi connection when requested. EliteBridge Direct MT5 remains unimplemented and needs a compatible terminal or broker API. No provider switch or broker order is performed here.",
+        Text("EliteBridge signed terminal enrollment is available after provisioning a Windows MT5 companion. This does not replace the existing MetaApi broker adapter or enable broker orders. Actual Exness quotes require a signed-in MT5 DEMO terminal and a fresh authenticated quote export.",
             fontSize=12.sp,color=muted,lineHeight=19.sp)
     }
 }
