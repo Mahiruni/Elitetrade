@@ -31,12 +31,17 @@ export function createEliteBridgeCloud({db}={}){
         'owner_id=eq.'+encodeURIComponent(ownerId)+'&select=id,account_id,label,account_mode,status,created_at,approved_at,revoked_at,last_sequence,last_seen_at,proof_verified_at&order=created_at.desc&limit=30');
       const at=Date.now();
       const terminals=(rows||[]).map(t=>{
-        const seen=t.last_seen_at?Date.parse(t.last_seen_at):NaN;
+        const {id,account_id,label,account_mode,status,created_at,approved_at,
+          revoked_at,last_sequence,last_seen_at,proof_verified_at}=t;
+        const seen=last_seen_at?Date.parse(last_seen_at):NaN;
         const ageSeconds=Number.isFinite(seen)?Math.max(0,Math.floor((at-seen)/1000)):null;
-        const telemetryState=t.status!=='approved'?'not-approved':
+        const telemetryState=status!=='approved'?'not-approved':
           ageSeconds===null?'never-received':ageSeconds<=90?'recent':'stale';
-        return {...t,telemetryState,ageSeconds,
-          brokerVerified:false,ordersEnabled:false};
+        // Project a strict allowlist regardless of what the DB adapter returns.
+        // Never include public/private PEMs, challenge nonces or other internals.
+        return {id,account_id,label,account_mode,status,created_at,approved_at,
+          revoked_at,last_sequence,last_seen_at,proof_verified_at,
+          telemetryState,ageSeconds,brokerVerified:false,ordersEnabled:false};
       });
       return {terminals,brokerVerified:false,ordersEnabled:false};
     },
