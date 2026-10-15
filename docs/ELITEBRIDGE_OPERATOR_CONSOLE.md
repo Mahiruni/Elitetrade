@@ -38,7 +38,7 @@ trading remain disabled until further engineering and approved host commissionin
 6. In the web console, issue a **one-time 10-minute challenge**. On Windows:
    `npm run bridge:terminal:prove -- '<challenge>'`.
    Paste only the returned **signature** into the console's proof field.
-7. Verify the fingerprint and actual terminal owner over a trusted separate
+7. Compare the 64-character SHA-256 **public-key fingerprint shown by the web console** with the fingerprint printed by `npm run bridge:terminal:init` on the actual Windows computer. Verify the fingerprint and actual terminal owner over a trusted separate
    channel, then click Approve. The backend and SQL constraints require the
    successful signed proof before approval.
 8. Once Windows MT5 locally confirms the intended broker and a real fresh quote,
