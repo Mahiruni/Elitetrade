@@ -22,6 +22,7 @@ $runState = 'NOT_STARTED'
 $reportCreated = $false
 $eventFound = $false
 $decisionFound = $false
+$terminalExitCode = $null
 
 function Publish-Status([string]$state) {
     $status = [ordered]@{
@@ -37,6 +38,7 @@ function Publish-Status([string]$state) {
         live_trading_performed = $false
         expected_ex5_sha256 = $expectedHash
         tester_report_created = $reportCreated
+        terminal_exit_code = $terminalExitCode
         deal_capture_found = $eventFound
         decision_capture_found = $decisionFound
         created_utc = (Get-Date).ToUniversalTime().ToString('o')
@@ -121,9 +123,18 @@ try {
         throw 'MT5 Strategy Tester failed to finish within the time limit.'
     }
 
-    $reportFile = @(Get-ChildItem -LiteralPath $reportsDir -Recurse -File -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -match '^phase4-test(\.|\[)' -and $_.Extension -in @('.htm','.html') -and $_.LastWriteTime -ge $t0.AddSeconds(-5) } |
-        Sort-Object -Property LastWriteTime -Descending | Select-Object -First 1)
+    $terminalExitCode = $process.ExitCode
+    $runState = 'TERMINAL_RETURNED_REPORT_SEARCH'
+    # MT5 may write command-line reports under the terminal data root instead of its installation subfolder.
+    # Collect metadata only; no plaintext account details or journals go to CI artifacts.
+    $reportCandidates = @()
+    $reportSearchRoots = @($reportsDir, $root, (Join-Path $env:APPDATA 'MetaQuotes\Terminal'))
+    foreach ($searchRoot in $reportSearchRoots) {
+        if (-not (Test-Path -LiteralPath $searchRoot -PathType Container)) { continue }
+        $reportCandidates += @(Get-ChildItem -LiteralPath $searchRoot -Recurse -File -Filter 'phase4-test*' -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -match '^phase4-test(\.|\[)' -and $_.Extension -in @('.htm','.html') -and $_.LastWriteTime -ge $t0.AddSeconds(-5) })
+    }
+    $reportFile = @($reportCandidates | Sort-Object -Property LastWriteTime -Descending | Select-Object -First 1)
     if ($reportFile.Count -ne 1 -or $reportFile[0].Length -lt 1024) {
         throw 'No fresh completed Strategy Tester report; broker history or tester execution remains unverified.'
     }
