@@ -36,7 +36,8 @@ test('owner/admin terminal screen shows actual server state, escapes hostile lab
  assert.match(html,/Issue pairing challenge/);
  assert.match(html,/Not yet proven/);
  assert.match(html,/Broker independently verified: NO/);
- assert.doesNotMatch(html,/<img|onerror|123456789/);
+ assert.doesNotMatch(html,/<img|123456789/);
+ assert.match(html,/&lt;img src=x onerror=alert\(1\)&gt;/);
  assert.match(html,/&lt;img/);
  assert.doesNotMatch(html,/Enter.*private key|Enter.*MT5 password|type="password"/i);
 });
