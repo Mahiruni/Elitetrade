@@ -143,3 +143,13 @@ test('Windows-only publisher cannot place REAL trades or publish from Android',(
   }
   assert.doesNotMatch(module,/MetaApi|MT5_GATEWAY_TOKEN|SUPABASE_SECRET_KEY/);
 });
+
+test('deleting the sequence ledger never restarts an enrolled key from 1',t=>{
+  const dir=temp(t);
+  initializeTerminalIdentity(dir);
+  const first=reserveTerminalSequences({directory:dir,accountId,deviceId});
+  assert.deepEqual(first.sequences,[1,2]);
+  rmSync(join(dir,'sequence.json'));
+  assert.throws(()=>reserveTerminalSequences({directory:dir,accountId,deviceId}),
+    /sequence ledger missing; reenroll/);
+});
