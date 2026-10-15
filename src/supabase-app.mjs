@@ -15,6 +15,7 @@ import { createSupabaseData } from './supabase-data.mjs';
 import { engineReady } from './demo-engine.mjs';
 import {eliteBridgeStatus} from './elitebridge.mjs';
 import {eliteBridgeProtocolStatus} from './elitebridge-protocol.mjs';
+import {createEliteBridgeCloud} from './elitebridge-cloud.mjs';
 import {createReadOnlyBrokerRouter} from './elitebridge-router.mjs';
 import { mobileEnginePulse } from './mobile-demo-engine.mjs';
 import { brokerRiskAffordability } from './broker-risk-affordability.mjs';
@@ -90,6 +91,17 @@ export function createSupabaseApplication(options = {}) {
   const engineDb=options.engineDb || (mobileEngineEnabled && mobileDbKey ?
     createSupabaseData({url:supabaseUrl,key:mobileDbKey}) : null);
 
+
+  // Secure, server-only, opt-in Phase 4 transport. The secret key must never
+  // be bundled into Android or a browser. No automated provider switching.
+  const bridgeEnabled=env.ELITEBRIDGE_CLOUD_ENABLED==='true';
+  const bridgeDb=options.bridgeDb || (bridgeEnabled && mobileDbKey ?
+    createSupabaseData({url:supabaseUrl,key:mobileDbKey}) : null);
+  const bridgeCloud=createEliteBridgeCloud({db:bridgeDb});
+  // Opt-in means observable REAL account data only. The order gateway is
+  // untouched and has no REAL execution method or provider fallback.
+  const realObservationEnabled=bridgeEnabled && !!bridgeDb &&
+    env.ELITEBRIDGE_REAL_OBSERVATION_ENABLED==='true';
 
   const gateway = options.gateway === undefined ? createGateway(env) : options.gateway;
   // Phase 2 is a separate read-only broker adapter; the live DEMO worker still
@@ -200,7 +212,7 @@ export function createSupabaseApplication(options = {}) {
   const mapDbError = error => {
     if (error instanceof HttpError || error?.support) return error;
     const message = String(error?.message || '').toLowerCase();
-    if (error?.status === 401 || error?.status === 403) return new HttpError(error.status, error.message);
+    if ([401,403,409].includes(error?.status)) return new HttpError(error.status, error.message);
     if (/duplicate|already|unique|reviewed|awaiting|not open|cannot remove|must stop|in progress|reconciliation/.test(message)) return new HttpError(409, error.message);
     if (/not found/.test(message)) return new HttpError(404, error.message);
     if (/invalid|choose|activate|unavailable|required|sign in/.test(message)) return new HttpError(400, error.message);
@@ -596,12 +608,79 @@ export function createSupabaseApplication(options = {}) {
       return json(res,result);
     }
 
+    // Phase 4 transport only. All registration/approval/revocation requests
+    // require a signed-in, device-verified administrator who owns the binding.
+    // Telemetry requires a previously approved Ed25519 terminal signature.
+    const requireBridgeCloud=()=>{
+      if(!bridgeEnabled || !bridgeDb)
+        fail(503,'EliteBridge cloud transport is not configured.');
+    };
+    if(path==='/api/elitebridge/diagnostics' && method==='GET'){
+      const ctx=await needAdmin(req);requireBridgeCloud();
+      // A server-held service-role key is the ONLY actor that may query the
+      // private diagnostics RPC. Device input cannot choose another owner.
+      res.setHeader('Cache-Control','no-store');
+      return json(res,await bridgeCloud.diagnostics({ownerId:ctx.user.id}));
+    }
+    if(path==='/api/elitebridge/terminals' && method==='GET'){
+      const ctx=await needAdmin(req);requireBridgeCloud();
+      res.setHeader('Cache-Control','no-store');
+      return json(res,await bridgeCloud.list({ownerId:ctx.user.id}));
+    }
+    if(path==='/api/elitebridge/terminals' && method==='POST'){
+      const ctx=await needAdmin(req);requireBridgeCloud();
+      rateLimit('elitebridge-enroll:'+ctx.user.id,5,3600000);
+      const accountId=string(body.accountId,'MT5 account ID',36,36);
+      const account=await db.one('elitetrade_accounts',
+        'id=eq.'+q(accountId)+'&user_id=eq.'+q(ctx.user.id)+'&select=id',ctx.token);
+      if(!account)fail(404,'Owned MT5 account not found.');
+      const accountMode=body.accountMode===undefined?'demo':body.accountMode;
+      if(accountMode==='real'&&!realObservationEnabled)
+        fail(503,'REAL account observation is not configured.');
+      const enrolled=await bridgeCloud.enroll({
+        ownerId:ctx.user.id,accountId:account.id,label:body.label,
+        publicKey:body.publicKey,accountMode,realAcknowledgement:body.realAcknowledgement
+      });
+      await audit(ctx,'elitebridge.terminal.enroll',enrolled.terminalId);
+      res.setHeader('Cache-Control','no-store');
+      return json(res,enrolled,201);
+    }
+    const terminalPairing=path.match(/^\/api\/elitebridge\/terminals\/([0-9a-fA-F-]{36})\/(challenge|prove)$/);
+    if(terminalPairing && method==='POST'){
+      const ctx=await needAdmin(req);requireBridgeCloud();
+      rateLimit('elitebridge-pairing:'+ctx.user.id,10,3600000);
+      const result=terminalPairing[2]==='challenge'?
+        await bridgeCloud.issueChallenge({ownerId:ctx.user.id,deviceId:terminalPairing[1]}):
+        await bridgeCloud.prove({ownerId:ctx.user.id,deviceId:terminalPairing[1],
+          signature:body.signature});
+      await audit(ctx,'elitebridge.terminal.'+terminalPairing[2],terminalPairing[1]);
+      res.setHeader('Cache-Control','no-store');
+      return json(res,result);
+    }
+    const terminalDecision=path.match(/^\/api\/elitebridge\/terminals\/([0-9a-fA-F-]{36})\/(approve|revoke)$/);
+    if(terminalDecision && method==='POST'){
+      const ctx=await needAdmin(req);requireBridgeCloud();
+      rateLimit('elitebridge-approval:'+ctx.user.id,10,60000);
+      const answer=await bridgeCloud.setApproval({
+        ownerId:ctx.user.id,deviceId:terminalDecision[1],
+        approve:terminalDecision[2]==='approve'
+      });
+      await audit(ctx,'elitebridge.terminal.'+terminalDecision[2],answer.terminalId);
+      res.setHeader('Cache-Control','no-store');
+      return json(res,answer);
+    }
+    if(path==='/api/elitebridge/telemetry' && method==='POST'){
+      requireBridgeCloud();
+      res.setHeader('Cache-Control','no-store');
+      return json(res,await bridgeCloud.receive(body.packet,{realObservationEnabled}));
+    }
+
     if (path === '/api/elitebridge/protocol' && method === 'GET') {
       // Read-only, owner/device-verified capability disclosure. The protocol
       // is NOT enrolled, broker-connected or enabled for trading.
       await needUser(req);
       res.setHeader('Cache-Control','no-store');
-      return json(res,eliteBridgeProtocolStatus());
+      return json(res,eliteBridgeProtocolStatus({cloudIngestEnabled:bridgeEnabled && !!bridgeDb,realObservationEnabled,pairingProofRequired:true}));
     }
 
     if (path === '/api/elitebridge/status' && method === 'GET') {
