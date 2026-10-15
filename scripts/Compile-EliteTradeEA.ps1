@@ -59,9 +59,17 @@ if ([string]::IsNullOrWhiteSpace($MetaEditorPath)) {
     $installSummary += @(Get-ChildItem -LiteralPath $root -Force -ErrorAction SilentlyContinue | Select-Object -First 30 -ExpandProperty Name)
     $installSummary | Set-Content -LiteralPath (Join-Path $evidence 'installer-diagnostics.txt') -Encoding UTF8
     if ($setup.ExitCode -ne 0) {
-        throw "MetaTrader installation failed: exit code $($setup.ExitCode). Check installer-diagnostics artifact."
+        Write-Warning "Installer returned $($setup.ExitCode); proceeding only if signed MetaEditor and terminal exist."
     }
-    Wait-ForFile $MetaEditorPath 150
+    Wait-ForFile $MetaEditorPath 30
+    if (-not (Test-Path -LiteralPath (Join-Path $root 'terminal64.exe') -PathType Leaf)) {
+        throw 'Signed installer did not provide a complete terminal installation.'
+    }
+    $editorSignature = Get-AuthenticodeSignature -LiteralPath $MetaEditorPath
+    if ($editorSignature.Status -ne 'Valid' -or -not $editorSignature.SignerCertificate -or
+        $editorSignature.SignerCertificate.Subject -notmatch 'MetaQuotes') {
+        throw "MetaEditor Authenticode validation failed: $($editorSignature.Status)"
+    }
     $Mql5Root = Join-Path $root 'MQL5'
     $terminalPath = Join-Path $root 'terminal64.exe'
     # The portable terminal can initialize the standard MQL5 library in this folder.
