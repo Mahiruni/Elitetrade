@@ -15,7 +15,7 @@ test('authenticated Supabase preview returns read-only broker minimum-lot advice
 test('web bot surfaces a stopped-risk gate and never auto-applies suggested settings',()=>{
   const ui=read('public/app.js');
   assert.match(ui,/Risk check stopped this bot/);
-  assert.match(ui,/risk\.status==='blocked_minimum_lot'/);
+  assert.match(ui,/risk\?\.status==='blocked_minimum_lot'/);
   assert.match(ui,/For manual review only/);
   assert.doesNotMatch(ui,/applySuggestedRisk|autoSaveStop/);
 });
