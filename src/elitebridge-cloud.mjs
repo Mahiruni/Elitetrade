@@ -1,4 +1,5 @@
-import {createPublicKey, randomUUID} from 'node:crypto';
+import {createPublicKey, randomUUID, randomBytes} from 'node:crypto';
+import {terminalChallenge,verifyTerminalChallenge} from './elitebridge-device-proof.mjs';
 import {verifyBridgePacket} from './elitebridge-protocol.mjs';
 import {verifyLiveObservation} from './elitebridge-live-observation.mjs';
 
@@ -27,8 +28,17 @@ export function createEliteBridgeCloud({db}={}){
     async list({ownerId}){
       ready();requireUuid(ownerId,'owner');
       const rows=await db.query('elitetrade_bridge_terminals',
-        'owner_id=eq.'+encodeURIComponent(ownerId)+'&select=id,account_id,label,account_mode,status,created_at,approved_at,revoked_at,last_sequence,last_seen_at&order=created_at.desc&limit=30');
-      return {terminals:rows||[],brokerVerified:false,ordersEnabled:false};
+        'owner_id=eq.'+encodeURIComponent(ownerId)+'&select=id,account_id,label,account_mode,status,created_at,approved_at,revoked_at,last_sequence,last_seen_at,proof_verified_at&order=created_at.desc&limit=30');
+      const at=Date.now();
+      const terminals=(rows||[]).map(t=>{
+        const seen=t.last_seen_at?Date.parse(t.last_seen_at):NaN;
+        const ageSeconds=Number.isFinite(seen)?Math.max(0,Math.floor((at-seen)/1000)):null;
+        const telemetryState=t.status!=='approved'?'not-approved':
+          ageSeconds===null?'never-received':ageSeconds<=90?'recent':'stale';
+        return {...t,telemetryState,ageSeconds,
+          brokerVerified:false,ordersEnabled:false};
+      });
+      return {terminals,brokerVerified:false,ordersEnabled:false};
     },
     async enroll({ownerId,accountId,label,publicKey,
       accountMode='demo',realAcknowledgement}){
@@ -51,15 +61,65 @@ export function createEliteBridgeCloud({db}={}){
       return {terminalId:rows[0].id,status:'pending',accountMode,
         message:'Pending manual administrator approval. No broker connection or orders enabled.'};
     },
+    async issueChallenge({ownerId,deviceId}){
+      ready();requireUuid(ownerId,'owner');requireUuid(deviceId,'terminal');
+      const row=await db.one('elitetrade_bridge_terminals',
+        'id=eq.'+encodeURIComponent(deviceId)+'&owner_id=eq.'+
+        encodeURIComponent(ownerId)+'&status=eq.pending&select=id,account_id,account_mode,proof_verified_at');
+      if(!row||row.proof_verified_at)
+        throw error(409,'Terminal must be pending and unverified.');
+      const nonce=randomBytes(32).toString('hex');
+      const expiresAtMs=Date.now()+10*60000;
+      const rows=await db.update('elitetrade_bridge_terminals',
+        'id=eq.'+encodeURIComponent(deviceId)+'&owner_id=eq.'+
+          encodeURIComponent(ownerId)+'&status=eq.pending&proof_verified_at=is.null',
+        {proof_nonce:nonce,proof_expires_at:new Date(expiresAtMs).toISOString()});
+      if(!rows?.length)throw error(409,'Terminal challenge could not be created.');
+      return {terminalId:deviceId,challenge:terminalChallenge({
+        deviceId,accountId:row.account_id,accountMode:row.account_mode,nonce,expiresAtMs
+      }),expiresAt:new Date(expiresAtMs).toISOString(),ordersEnabled:false,
+        message:'Sign this one-time challenge ONLY on the intended terminal using its local private key.'};
+    },
+    async prove({ownerId,deviceId,signature}){
+      ready();requireUuid(ownerId,'owner');requireUuid(deviceId,'terminal');
+      const row=await db.one('elitetrade_bridge_terminals',
+        'id=eq.'+encodeURIComponent(deviceId)+'&owner_id=eq.'+
+        encodeURIComponent(ownerId)+'&status=eq.pending&select=id,account_id,account_mode,public_key,proof_nonce,proof_expires_at,proof_verified_at');
+      if(!row||row.proof_verified_at||!row.proof_nonce||!row.proof_expires_at)
+        throw error(409,'Request a new terminal challenge.');
+      const expiresAtMs=Date.parse(row.proof_expires_at);
+      if(!Number.isSafeInteger(expiresAtMs)||expiresAtMs<=Date.now())
+        throw error(409,'Pairing challenge expired; issue a new one.');
+      let verified=false;
+      try {
+        verified=verifyTerminalChallenge({
+          publicKey:row.public_key,
+          challenge:terminalChallenge({deviceId,accountId:row.account_id,
+            accountMode:row.account_mode,nonce:row.proof_nonce,expiresAtMs}),
+          signature
+        });
+      } catch {}
+      if(!verified)throw error(403,'Terminal possession proof failed.');
+      const rows=await db.update('elitetrade_bridge_terminals',
+        'id=eq.'+encodeURIComponent(deviceId)+'&owner_id=eq.'+
+        encodeURIComponent(ownerId)+'&status=eq.pending&proof_verified_at=is.null'+
+        '&proof_nonce=eq.'+encodeURIComponent(row.proof_nonce)+
+        '&proof_expires_at=gt.'+encodeURIComponent(new Date().toISOString()),
+        {proof_verified_at:new Date().toISOString(),proof_nonce:null,proof_expires_at:null});
+      if(!rows?.length)throw error(409,'Pairing challenge was consumed or expired.');
+      return {terminalId:deviceId,proofVerified:true,status:'pending',
+        message:'Device key possession verified. Administrator approval is still required.',
+        ordersEnabled:false};
+    },
     async setApproval({ownerId,deviceId,approve}){
       ready();requireUuid(ownerId,'owner');requireUuid(deviceId,'terminal');
       const state=approve?'approved':'revoked';
       const rows=await db.update('elitetrade_bridge_terminals',
         'id=eq.'+encodeURIComponent(deviceId)+'&owner_id=eq.'+encodeURIComponent(ownerId)+
-        (approve?'&status=eq.pending':'&status=in.(pending,approved)'),
+        (approve?'&status=eq.pending&proof_verified_at=not.is.null':'&status=in.(pending,approved)'),
         approve?{status:state,approved_at:new Date().toISOString()}:
           {status:state,revoked_at:new Date().toISOString()});
-      if(!rows?.length)throw error(409,'Terminal not found or state transition not allowed.');
+      if(!rows?.length)throw error(409,'Device must prove key ownership before approval, or the state transition is invalid.');
       return {terminalId:deviceId,status:state,ordersEnabled:false};
     },
     async receive(packet,{realObservationEnabled=false}={}){
