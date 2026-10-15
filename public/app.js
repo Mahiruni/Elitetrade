@@ -36,6 +36,7 @@ const navigationData = createNavigationData();
 const navigationEndpoints = new Set(['/accounts','/bots']);
 const submitLocks = new Set();
 const state = { user: null, csrf: null, config: {}, data: {}, chat: null, adminTab: 'payments', version: 0, stream: null, auth: readStoredAuth(), pendingMfa: null, requiresDeviceVerification:false,deviceEmail:'',deviceDestination:'/mt5',deviceEmailSession:'' };
+let refreshInProgress = false;
 function saveAuth(session) {
   if (!session?.access_token) return;
   const expiresAt = Number(session.expires_at || (Date.now() / 1000 + Number(session.expires_in || 3600)));
@@ -227,7 +228,7 @@ function shell(content) {
   const navLink = ([href,i,title]) => `<a href="${href}" class="${current?.[0]===href?'active':''}" ${current?.[0]===href?'aria-current="page"':''}>${mainLinks.some(([link])=>link===href)?navigationIcon(i,current?.[0]===href):icon(i)}<span>${href==='/bots'?'Trading bots':title}</span></a>`;
   const initials = String(state.user.name || state.user.email || 'E').trim().split(/\s+/).slice(0,2).map(part => part[0]).join('').toUpperCase();
   const online = navigator.onLine;
-  root.innerHTML = `<div class="layout" data-page="${esc(path.split('/')[1] || 'home')}"><div class="menu-scrim" data-action="menu"></div><aside class="sidebar" id="workspace-navigation"><div class="sidebar-brand">${brand}<span class="mobile-only">${themeButton()}</span>${btn(icon('close'),'menu','','class="icon ghost mobile-only" aria-label="Close navigation"')}</div><a href="/account" class="drawer-intro"><span class="avatar">${esc(initials)}</span><span><strong>${esc(state.user.name)}</strong><small>Trading workspace</small></span>${icon('arrow')}</a><nav aria-label="Main navigation"><div class="nav-group">${mainLinks.map(navLink).join('')}</div><div class="nav-group"><div class="nav-label">Workspace</div>${secondary.map(navLink).join('')}</div></nav><div class="sidebar-bottom"><div class="sidebar-member"><span class="avatar">${esc(initials)}</span><span><strong>${esc(state.user.name)}</strong><small>${state.user.role==='admin'?'Administrator':'Member'}</small></span></div>${btn(`${icon('logout')} Sign out`,'logout','','class="ghost logout"')}</div></aside><div class="workspace"><header class="topbar"><div class="desktop-crumb"><span>Workspace</span><span class="crumb-divider">/</span><strong>${current?.[2] || 'Home'}</strong></div>${brand}<span class="mobile-page-title">${current?.[2] || 'Account'}</span><div class="topbar-actions">${btn(icon('refresh'),'refresh','','class="icon ghost topbar-refresh" aria-label="Refresh workspace"')}${themeButton()}<a href="/notifications" class="icon-link" aria-label="View account alerts">${icon('bell')}</a><a href="/account" class="profile-link" aria-label="Account"><span class="avatar">${esc(initials)}</span></a>${btn(menuToggleIcon,'menu','','class="icon ghost mobile-only menu-toggle" aria-label="Open navigation" aria-controls="workspace-navigation" aria-expanded="false"')}</div></header><div id="snapshot-banner" class="snapshot-banner" role="status" hidden></div><div id="offline-banner" class="offline-banner" role="status" ${online?'hidden':''}>Offline · Data may be stale. Trading actions are unavailable.</div><main id="main" class="content" tabindex="-1">${content}</main><footer class="workspace-footer"><span>EliteBot · Trading workspace</span><span>Trading involves risk.</span></footer></div><nav class="bottom-nav" aria-label="Mobile navigation">${mainLinks.map(([href,i,title])=>`<a href="${href}" aria-label="${title}" title="${title}" class="${activeMain===href?'active':''}" ${activeMain===href?'aria-current="page"':''}>${navigationIcon(i,activeMain===href)}<span class="nav-caption">${title}</span></a>`).join('')}</nav></div>`;
+  root.innerHTML = `<div class="layout" data-page="${esc(path.split('/')[1] || 'home')}"><div class="menu-scrim" data-action="menu"></div><aside class="sidebar" id="workspace-navigation"><div class="sidebar-brand">${brand}<span class="mobile-only">${themeButton()}</span>${btn(icon('close'),'menu','','class="icon ghost mobile-only" aria-label="Close navigation"')}</div><a href="/account" class="drawer-intro"><span class="avatar">${esc(initials)}</span><span><strong>${esc(state.user.name)}</strong><small>Trading workspace</small></span>${icon('arrow')}</a><nav aria-label="Main navigation"><div class="nav-group">${mainLinks.map(navLink).join('')}</div><div class="nav-group"><div class="nav-label">Workspace</div>${secondary.map(navLink).join('')}</div></nav><div class="sidebar-bottom"><div class="sidebar-member"><span class="avatar">${esc(initials)}</span><span><strong>${esc(state.user.name)}</strong><small>${state.user.role==='admin'?'Administrator':'Member'}</small></span></div>${btn(`${icon('logout')} Sign out`,'logout','','class="ghost logout"')}</div></aside><div class="workspace"><header class="topbar"><div class="desktop-crumb"><span>Workspace</span><span class="crumb-divider">/</span><strong>${current?.[2] || 'Home'}</strong></div>${brand}<span class="mobile-page-title">${current?.[2] || 'Account'}</span><div class="topbar-actions">${btn(icon('refresh'),'refresh','','class="icon ghost topbar-refresh" aria-label="Refresh workspace"')}${themeButton()}<a href="/notifications" class="icon-link" aria-label="View account alerts">${icon('bell')}</a><a href="/account" class="profile-link" aria-label="Account"><span class="avatar">${esc(initials)}</span></a>${btn(menuToggleIcon,'menu','','class="icon ghost mobile-only menu-toggle" aria-label="Open navigation" aria-controls="workspace-navigation" aria-expanded="false"')}</div></header><div id="snapshot-banner" class="snapshot-banner" role="status" hidden></div><div id="offline-banner" class="offline-banner" role="status" ${online?'hidden':''}>Offline · Data may be stale. Trading actions are unavailable.</div><main id="main" class="content" tabindex="-1">${content}</main><footer class="workspace-footer"><span>EliteBot · Trading workspace</span><span>Trading involves risk.</span></footer></div>${btn(icon('refresh'),'refresh','','class="workspace-refresh-button" aria-label="Refresh backend data" title="Refresh backend data"')}<nav class="bottom-nav" aria-label="Mobile navigation">${mainLinks.map(([href,i,title])=>`<a href="${href}" aria-label="${title}" title="${title}" class="${activeMain===href?'active':''}" ${activeMain===href?'aria-current="page"':''}>${navigationIcon(i,activeMain===href)}<span class="nav-caption">${title}</span></a>`).join('')}</nav></div>`;
   root.querySelector('.layout').dataset.signature=signature;root.querySelector('.layout').dataset.route=path;
   setWorkspaceMenu(false,false);syncSnapshotStatus();syncOffline();
 }
@@ -731,7 +732,29 @@ const actions = {
   close: () => modal.close(),
   password: (id,button) => { const input = document.getElementById(id); input.type = input.type === 'password' ? 'text' : 'password'; button.setAttribute('aria-label',input.type === 'password' ? 'Show password' : 'Hide password'); button.setAttribute('aria-pressed',String(input.type === 'text')); },
   copy: async value => { await navigator.clipboard.writeText(value); toast('Copied to clipboard.'); },
-  refresh: async () => { await identity(); await render(); }, logout,
+  refresh: async () => {
+    if (refreshInProgress) return;
+    if (!navigator.onLine) throw new Error('You are offline. Reconnect to refresh account data.');
+    refreshInProgress = true;
+    document.body.classList.add('workspace-refreshing');
+    document.querySelectorAll('[data-action="refresh"]').forEach(button => {
+      button.disabled = true;
+      button.setAttribute('aria-busy','true');
+      button.setAttribute('aria-label','Refreshing backend data');
+    });
+    try {
+      await identity();
+      await render({quiet:true});
+    } finally {
+      refreshInProgress = false;
+      document.body.classList.remove('workspace-refreshing');
+      document.querySelectorAll('[data-action="refresh"]').forEach(button => {
+        button.disabled = false;
+        button.removeAttribute('aria-busy');
+        button.setAttribute('aria-label', button.classList.contains('workspace-refresh-button') ? 'Refresh backend data' : 'Refresh workspace');
+      });
+    }
+  }, logout,
   'account-connection-check':showLiveMt5Connection,
   'bot-connection-check':async id => {
     const bot=state.data.bots.find(b=>b.id===id);

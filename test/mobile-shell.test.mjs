@@ -29,3 +29,22 @@ test('trading snapshots cannot authorize live trading', () => {
   assert.match(cache,/Memory-only snapshots/);
   assert.match(cache,/snapshots = new Map/);
 });
+
+test('home overview avoids duplicating the dedicated subscription screen', () => {
+  const workspace=read('public/workspace.js');
+  const app=read('public/app.js');
+  assert.doesNotMatch(workspace,/aria-label="Subscription active"/);
+  assert.doesNotMatch(workspace,/class="card billing-cta"/);
+  assert.match(app,/Your subscription is active/);
+  assert.match(app,/id="payment-methods"/);
+});
+test('every signed-in route has an accessible circular real-data refresh above the mobile footer', () => {
+  const app=read('public/app.js');
+  const css=read('public/dashboard.css');
+  assert.match(app,/class="workspace-refresh-button"/);
+  assert.match(app,/aria-label=\\"Refresh backend data\\"/);
+  assert.match(app,/if \(refreshInProgress\) return;/);
+  assert.match(app,/await identity\(\);\s*await render\(\{quiet:true\}\);/);
+  assert.match(css,/bottom: calc\(80px \+ env\(safe-area-inset-bottom/);
+  assert.match(css,/prefers-reduced-motion:reduce/);
+});

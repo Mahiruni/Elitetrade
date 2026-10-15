@@ -626,3 +626,43 @@ body.light .layout {
   .bottom-nav { background:Canvas;color:CanvasText;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none }
   .bottom-nav a,.bottom-nav a.active { color:CanvasText }
 }
+
+/* Floating refresh is shared by every authenticated workspace route. */
+.layout .workspace-refresh-button {
+  position: fixed;
+  z-index: 26;
+  right: 24px;
+  bottom: 24px;
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  min-height: 54px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--nav-accent) 72%, transparent);
+  background: var(--nav-accent);
+  color: var(--nav-bg);
+  box-shadow: 0 9px 26px #0000002e, inset 0 1px 0 #ffffff26;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+.layout .workspace-refresh-button svg { width: 24px; height: 24px; }
+.layout .workspace-refresh-button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 12px 30px #00000038; }
+.layout .workspace-refresh-button:active:not(:disabled) { transform: scale(.94); }
+.layout .workspace-refresh-button:focus-visible { outline: 3px solid var(--nav-accent); outline-offset: 4px; }
+.workspace-refreshing .layout .workspace-refresh-button svg { animation: elite-workspace-refresh 800ms linear infinite; }
+@keyframes elite-workspace-refresh { to { transform: rotate(360deg); } }
+@media (max-width:760px) {
+  .layout .workspace-refresh-button {
+    right: max(18px,env(safe-area-inset-right,0px));
+    bottom: calc(80px + env(safe-area-inset-bottom,0px));
+  }
+}
+@media (prefers-reduced-motion:reduce) {
+  .workspace-refreshing .layout .workspace-refresh-button svg { animation: none; }
+}
+@media (forced-colors:active) {
+  .layout .workspace-refresh-button { background: ButtonFace; color: ButtonText; border-color: ButtonText; }
+}
