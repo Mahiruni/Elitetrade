@@ -297,6 +297,21 @@ class EliteApi(context: Context) {
         server("/api/elitebridge/protocol")
     }
     /** Owner-scoped read-only broker-DEMO connection and quote probe. */
+    suspend fun bridgeTerminals(): JSONObject = withContext(Dispatchers.IO) {
+        server("/api/elitebridge/terminals")
+    }
+    suspend fun bridgeEnroll(accountId:String,label:String,publicKey:String):JSONObject =
+        withContext(Dispatchers.IO) {
+            server("/api/elitebridge/terminals","POST",
+                JSONObject().put("accountId",safeId(accountId)).put("label",label)
+                    .put("publicKey",publicKey))
+        }
+    suspend fun bridgeApprove(terminalId:String):JSONObject = withContext(Dispatchers.IO) {
+        server("/api/elitebridge/terminals/"+safeId(terminalId)+"/approve","POST",JSONObject())
+    }
+    suspend fun bridgeRevoke(terminalId:String):JSONObject = withContext(Dispatchers.IO) {
+        server("/api/elitebridge/terminals/"+safeId(terminalId)+"/revoke","POST",JSONObject())
+    }
     suspend fun eliteBridgeProbe(accountId:String,symbol:String="XAUUSDm"): JSONObject = withContext(Dispatchers.IO) {
         if(!accountId.matches(Regex("[0-9a-fA-F-]{36}")))throw ApiProblem("Invalid MT5 account selection.")
         if(!symbol.matches(Regex("[A-Za-z0-9._-]{3,30}")))throw ApiProblem("Invalid broker symbol.")
