@@ -22,7 +22,7 @@ test('verified app API endpoint, native screen, and no auto-start',()=>{
  assert.match(activity,/"Elite Engine" -> EliteEnginePage/);
  assert.match(activity,/onEngine=\{screen="Elite Engine"\}/);
  assert.match(api,/server\("\/api\/engine\/mobile\/tick"/);
- assert.match(ui,/enabled=enabled&&!loading/);
+ assert.match(ui,/enabled=backendKnown&&enabled&&!loading/);
  assert.match(ui,/Start native DEMO engine/);
  assert.match(ui,/Stop the old Termux worker/);
 });
