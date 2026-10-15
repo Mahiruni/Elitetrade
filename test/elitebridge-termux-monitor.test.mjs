@@ -69,7 +69,7 @@ test('Termux sidecar cannot import broker/Supabase clients or read credential fi
   const source=readFileSync(new URL('../src/elitebridge-termux-monitor.mjs',import.meta.url),'utf8');
   assert.doesNotMatch(script+source,/SUPABASE_SECRET_KEY|METAAPI_TOKEN|service_role|process\.env|--env-file|order_send|demoOrder\(|fetch\([^)]*\/api\/|new WebSocket/);
   assert.match(script,/mode==='once'/);
-  assert.match(script,/mode==='watch'/);
+  assert.match(script,/\['once','watch'\]\.includes\(mode\)/);
   assert.match(script,/SIGINT/);
   assert.match(source,/brokerVerified:false/);
 });
