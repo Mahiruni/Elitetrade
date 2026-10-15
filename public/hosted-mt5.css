@@ -145,6 +145,7 @@ body.light .host-ui .host-primary{color:#15110d}
 .bridge-alert-success{border-color:#a9aa8966;background:color-mix(in srgb,var(--hc-gold) 9%,transparent)}
 .bridge-challenge{margin-top:18px;padding:18px;border:1px solid var(--hc-gold);border-radius:15px}
 .bridge-challenge .bridge-button{margin-top:10px}
+.bridge-fingerprint{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:10px;word-break:break-all;color:var(--hc-gold)}
 @media(max-width:880px){.bridge-pairing-grid{grid-template-columns:1fr}.bridge-status-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:420px){.bridge-console{padding:17px}.bridge-enroll,.bridge-devices{padding:14px}.bridge-status-grid>div{padding:13px}.bridge-status-grid strong{font-size:15px}.bridge-device-head{display:block}.bridge-device-head span{display:block;margin-top:6px}}
 @media(prefers-reduced-motion:reduce){.bridge-console *{transition:none!important}}
