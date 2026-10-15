@@ -36,6 +36,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
@@ -646,6 +647,28 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                                 scope.launch {
                                     busy=true;error=""
                                     try {
+                                        if(running) {
+                                            // User explicitly confirmed demo automation. Never arm a bot
+                                            // from a background refresh or a read-only risk preview.
+                                            // Android foreground monitoring is a time-limited session,
+                                            // not a substitute for permanent hosted worker uptime.
+                                            val engine=api.mobileEngineStatus()
+                                            if(!engine.optBoolean("enabled"))
+                                                throw IllegalStateException("Elite Engine is unavailable on the server. Open Elite Engine and check setup.")
+                                            var ready=engine.optBoolean("ready")
+                                            if(!ready) {
+                                                EliteEngineService.start(context,api)
+                                                for(attempt in 1..10) {
+                                                    delay(1000L)
+                                                    if(api.mobileEngineStatus().optBoolean("ready")) {
+                                                        ready=true
+                                                        break
+                                                    }
+                                                }
+                                                if(!ready)throw IllegalStateException(
+                                                    "Android monitoring has not established a fresh heartbeat. Open Elite Engine to diagnose before starting the bot.")
+                                            }
+                                        }
                                         api.controlBot(bot.str("id"),running)
                                         message="Command acknowledged. Refreshing server status."
                                         refresh()
