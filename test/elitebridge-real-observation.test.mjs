@@ -6,6 +6,7 @@ import {spawnSync} from 'node:child_process';
 import {signLiveObservation,verifyLiveObservation} from '../src/elitebridge-live-observation.mjs';
 import {createSandboxReplayStore,signBridgePacket,verifyBridgePacket,eliteBridgeProtocolStatus} from '../src/elitebridge-protocol.mjs';
 import {createEliteBridgeCloud} from '../src/elitebridge-cloud.mjs';
+import {signTerminalChallenge} from '../src/elitebridge-device-proof.mjs';
 import {createSupabaseApplication} from '../src/supabase-app.mjs';
 
 function fakeBridgeDb(){
@@ -26,6 +27,7 @@ function fakeBridgeDb(){
     async one(table,query){
       if(table!=='elitetrade_bridge_terminals')throw Error('unexpected table');
       const id=query.match(/id=eq\.([^&]+)/)?.[1],row=registrations.get(id);
+      if(query.includes('status=eq.pending'))return row?.status==='pending'?row:null;
       return row?.status==='approved'?row:null;
     },
     async update(table,query,updates){
@@ -34,7 +36,12 @@ function fakeBridgeDb(){
       const owner=query.match(/owner_id=eq\.([^&]+)/)?.[1];
       const row=registrations.get(id);
       if(!row||row.owner_id!==owner||row.status==='revoked'||
-         (updates.status==='approved'&&row.status!=='pending'))return [];
+         (updates.status==='approved'&&row.status!=='pending')||
+         (query.includes('status=eq.pending')&&row.status!=='pending')||
+         (query.includes('proof_verified_at=not.is.null')&&!row.proof_verified_at)||
+         (query.includes('proof_verified_at=is.null')&&row.proof_verified_at))return [];
+      const nonce=query.match(/proof_nonce=eq\.([^&]+)/)?.[1];
+      if(nonce&&row.proof_nonce!==nonce)return [];
       Object.assign(row,updates);return [row];
     },
     async rpc(name,p){
@@ -92,6 +99,9 @@ test('REAL terminals must acknowledge read-only mode and cannot ingest DEMO pack
   await assert.rejects(()=>bridge.enroll(req),e=>e.status===400);
   const enrolled=await bridge.enroll({...req,realAcknowledgement:'REAL_OBSERVATION_ONLY'});
   assert.equal(enrolled.status,'pending');assert.equal(enrolled.accountMode,'real');
+  const challenge=(await bridge.issueChallenge({ownerId,deviceId:enrolled.terminalId})).challenge;
+  await bridge.prove({ownerId,deviceId:enrolled.terminalId,
+    signature:signTerminalChallenge({privateKey:keys.privateKey,challenge})});
   await bridge.setApproval({ownerId,deviceId:enrolled.terminalId,approve:true});
   const now=Date.now();
   const real=signLiveObservation({privateKey:keys.privateKey,kind:'terminal.heartbeat',
