@@ -14,7 +14,7 @@ const ownerId=randomUUID(),accountId=randomUUID();
 function fakeDb(){
   const terminals=new Map();
   function match(query,row){
-    const id=query.match(/id=eq\.([^&]+)/)?.[1];
+    const id=query.match(/(?:^|&)id=eq\.([^&]+)/)?.[1];
     const owner=query.match(/owner_id=eq\.([^&]+)/)?.[1];
     const account=query.match(/account_id=eq\.([^&]+)/)?.[1];
     const nonce=query.match(/proof_nonce=eq\.([^&]+)/)?.[1];
