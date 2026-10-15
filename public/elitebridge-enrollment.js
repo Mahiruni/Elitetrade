@@ -79,6 +79,7 @@ export function createEliteBridgeEnrollmentConsole({api,esc,isAdmin=()=>false}) 
               <div class="bridge-device-head"><strong>${safe(t.label)}</strong><span>${safe(t.status)}</span></div>
               <p>${safe(t.account_mode||'demo').toUpperCase()} observation · ${safe(safeState(status))}</p>
               <p>Key ownership: ${proven?'Verified':'Not yet proven'} · Last receipt: ${date(t.last_seen_at)}</p>
+              <p>Stored public-key fingerprint: <code class="bridge-fingerprint">${/^[a-f0-9]{64}$/.test(t.fingerprint||'')?safe(t.fingerprint):'Unavailable · do not approve without verification'}</code></p>
               <p>Signed heartbeat: ${health?.heartbeatAgeSeconds??'—'}s · quote: ${health?.quoteAgeSeconds??'—'}s</p>
               <p class="bridge-warning">Broker independently verified: NO · Orders: disabled</p>
               ${t.status==='pending'? `<div class="bridge-actions">
@@ -157,7 +158,14 @@ export function createEliteBridgeEnrollmentConsole({api,esc,isAdmin=()=>false}) 
           .catch(()=>{error='Select and copy the challenge manually.';rerender();});return;
       }
       if(!strictId(id)||!['challenge','approve','revoke'].includes(action))return;
-      if(action==='approve' && !window.confirm('Approve this key for READ-ONLY telemetry only after independently checking its owner?'))return;
+      if(action==='approve'){
+        const t=lastData?.terminals?.terminals?.find(x=>x.id===id);
+        if(!/^[a-f0-9]{64}$/.test(t?.fingerprint||'')){
+          error='Public-key fingerprint unavailable; approval blocked until the stored key can be verified.';
+          rerender();return;
+        }
+        if(!window.confirm('Compare this SHA-256 fingerprint with the one shown by your Windows terminal: '+t.fingerprint+'\n\nApprove read-only telemetry ONLY if they match?'))return;
+      }
       if(action==='revoke' && !window.confirm('Permanently revoke this terminal key? New enrollment will be required.'))return;
       void mutation(action,id,{});
     });
