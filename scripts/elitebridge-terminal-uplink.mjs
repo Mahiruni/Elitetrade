@@ -6,7 +6,7 @@ import {fileURLToPath} from 'node:url';
 import {spawnSync} from 'node:child_process';
 import {
   initializeTerminalIdentity,reserveTerminalSequences,validateTerminalObservation,
-  createTerminalPackets,sendTerminalPackets
+  createTerminalPackets,sendTerminalPackets,signLocalPairingProof
 } from '../src/elitebridge-terminal-uplink.mjs';
 
 function abort(message){
@@ -27,8 +27,18 @@ async function main(){
     console.log('then set ELITEBRIDGE_ACCOUNT_ID and ELITEBRIDGE_TERMINAL_ID.');
     return;
   }
+  if(op==='prove'){
+    const challenge=process.argv[3];
+    if(!challenge)throw Error('Pairing challenge argument required');
+    const proof=signLocalPairingProof({directory,challenge});
+    console.log('PAIRING KEY FINGERPRINT SHA256: '+proof.fingerprint);
+    console.log('PAIRING PROOF SIGNATURE: '+proof.signature);
+    console.log('Submit only the signature to the administrator prove endpoint.');
+    console.log('BROKER VERIFIED: NO | ORDERS ENABLED: NO');
+    return;
+  }
   if(op!=='publish'){
-    console.log('Commands: init | publish (Windows MT5 only, explicit admin enrollment)');
+    console.log('Commands: init | prove <challenge> | publish (Windows MT5 only)');
     return;
   }
   if(process.platform!=='win32' || process.arch!=='x64')
