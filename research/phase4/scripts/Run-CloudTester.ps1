@@ -23,6 +23,9 @@ $reportCreated = $false
 $eventFound = $false
 $decisionFound = $false
 $terminalExitCode = $null
+$metatesterBinaryPresent = $false
+$agentServiceCount = 0
+$agentServiceRunningCount = 0
 $diagnosticStartUtc = (Get-Date).ToUniversalTime().ToString('o')
 
 function Publish-Status([string]$state) {
@@ -40,6 +43,9 @@ function Publish-Status([string]$state) {
         expected_ex5_sha256 = $expectedHash
         tester_report_created = $reportCreated
         terminal_exit_code = $terminalExitCode
+        metatester_binary_present = $metatesterBinaryPresent
+        agent_service_count = $agentServiceCount
+        agent_service_running_count = $agentServiceRunningCount
         deal_capture_found = $eventFound
         decision_capture_found = $decisionFound
         created_utc = (Get-Date).ToUniversalTime().ToString('o')
@@ -94,6 +100,11 @@ try {
         throw 'MetaTrader terminal signature did not validate.'
     }
     Write-Host 'Official signed MetaTrader terminal validated.'
+    # Read-only Windows service/binary discovery. No privileged service changes.
+    $metatesterBinaryPresent = @(Get-ChildItem -LiteralPath $root -Recurse -File -Filter 'metatester64.exe' -ErrorAction SilentlyContinue).Count -gt 0
+    $agents = @(Get-Service -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^MetaTester' })
+    $agentServiceCount = $agents.Count
+    $agentServiceRunningCount = @($agents | Where-Object { $_.Status -eq 'Running' }).Count
 
     $expertDir = Join-Path $root 'MQL5\Experts\EliteTradeResearch'
     $presetDir = Join-Path $root 'MQL5\Profiles\Tester'
