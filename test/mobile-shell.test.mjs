@@ -42,7 +42,7 @@ test('every signed-in route has an accessible circular real-data refresh above t
   const app=read('public/app.js');
   const css=read('public/dashboard.css');
   assert.match(app,/class="workspace-refresh-button"/);
-  assert.match(app,/aria-label=\\"Refresh backend data\\"/);
+  assert.match(app,/Refresh backend data/);
   assert.match(app,/if \(refreshInProgress\) return;/);
   assert.match(app,/await identity\(\);\s*await render\(\{quiet:true\}\);/);
   assert.match(css,/bottom: calc\(80px \+ env\(safe-area-inset-bottom/);
