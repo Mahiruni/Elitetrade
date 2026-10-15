@@ -13,6 +13,7 @@ import { createSupabaseData } from './supabase-data.mjs';
 import { engineReady } from './demo-engine.mjs';
 import {eliteBridgeStatus} from './elitebridge.mjs';
 import {eliteBridgeProtocolStatus} from './elitebridge-protocol.mjs';
+import {createEliteBridgeCloud} from './elitebridge-cloud.mjs';
 import {createReadOnlyBrokerRouter} from './elitebridge-router.mjs';
 import { mobileEnginePulse } from './mobile-demo-engine.mjs';
 import { loadSelectedDemoAccount } from './demo-account-access.mjs';
@@ -87,6 +88,13 @@ export function createSupabaseApplication(options = {}) {
   const engineDb=options.engineDb || (mobileEngineEnabled && mobileDbKey ?
     createSupabaseData({url:supabaseUrl,key:mobileDbKey}) : null);
 
+
+  // Secure, server-only, opt-in Phase 4 transport. The secret key must never
+  // be bundled into Android or a browser. No automated provider switching.
+  const bridgeEnabled=env.ELITEBRIDGE_CLOUD_ENABLED==='true';
+  const bridgeDb=options.bridgeDb || (bridgeEnabled && mobileDbKey ?
+    createSupabaseData({url:supabaseUrl,key:mobileDbKey}) : null);
+  const bridgeCloud=createEliteBridgeCloud({db:bridgeDb});
 
   const gateway = options.gateway === undefined ? createGateway(env) : options.gateway;
   // Phase 2 is a separate read-only broker adapter; the live DEMO worker still
@@ -588,12 +596,56 @@ export function createSupabaseApplication(options = {}) {
       return json(res,result);
     }
 
+    // Phase 4 transport only. All registration/approval/revocation requests
+    // require a signed-in, device-verified administrator who owns the binding.
+    // Telemetry requires a previously approved Ed25519 terminal signature.
+    const requireBridgeCloud=()=>{
+      if(!bridgeEnabled || !bridgeDb)
+        fail(503,'EliteBridge cloud transport is not configured.');
+    };
+    if(path==='/api/elitebridge/terminals' && method==='GET'){
+      const ctx=await needAdmin(req);requireBridgeCloud();
+      res.setHeader('Cache-Control','no-store');
+      return json(res,await bridgeCloud.list({ownerId:ctx.user.id}));
+    }
+    if(path==='/api/elitebridge/terminals' && method==='POST'){
+      const ctx=await needAdmin(req);requireBridgeCloud();
+      rateLimit('elitebridge-enroll:'+ctx.user.id,5,3600000);
+      const accountId=string(body.accountId,'MT5 account ID',36,36);
+      const account=await db.one('elitetrade_accounts',
+        'id=eq.'+q(accountId)+'&user_id=eq.'+q(ctx.user.id)+'&select=id',ctx.token);
+      if(!account)fail(404,'Owned MT5 account not found.');
+      const enrolled=await bridgeCloud.enroll({
+        ownerId:ctx.user.id,accountId:account.id,label:body.label,publicKey:body.publicKey
+      });
+      await audit(ctx,'elitebridge.terminal.enroll',enrolled.terminalId);
+      res.setHeader('Cache-Control','no-store');
+      return json(res,enrolled,201);
+    }
+    const terminalDecision=path.match(/^\/api\/elitebridge\/terminals\/([0-9a-fA-F-]{36})\/(approve|revoke)$/);
+    if(terminalDecision && method==='POST'){
+      const ctx=await needAdmin(req);requireBridgeCloud();
+      rateLimit('elitebridge-approval:'+ctx.user.id,10,60000);
+      const answer=await bridgeCloud.setApproval({
+        ownerId:ctx.user.id,deviceId:terminalDecision[1],
+        approve:terminalDecision[2]==='approve'
+      });
+      await audit(ctx,'elitebridge.terminal.'+terminalDecision[2],answer.terminalId);
+      res.setHeader('Cache-Control','no-store');
+      return json(res,answer);
+    }
+    if(path==='/api/elitebridge/telemetry' && method==='POST'){
+      requireBridgeCloud();
+      res.setHeader('Cache-Control','no-store');
+      return json(res,await bridgeCloud.receive(body.packet));
+    }
+
     if (path === '/api/elitebridge/protocol' && method === 'GET') {
       // Read-only, owner/device-verified capability disclosure. The protocol
       // is NOT enrolled, broker-connected or enabled for trading.
       await needUser(req);
       res.setHeader('Cache-Control','no-store');
-      return json(res,eliteBridgeProtocolStatus());
+      return json(res,eliteBridgeProtocolStatus({cloudIngestEnabled:bridgeEnabled && !!bridgeDb}));
     }
 
     if (path === '/api/elitebridge/status' && method === 'GET') {
