@@ -39,7 +39,8 @@ test('owner/admin terminal screen shows actual server state, escapes hostile lab
  assert.doesNotMatch(html,/<img|123456789/);
  assert.match(html,/&lt;img src=x onerror=alert\(1\)&gt;/);
  assert.match(html,/&lt;img/);
- assert.doesNotMatch(html,/Enter.*private key|Enter.*MT5 password|type="password"/i);
+ assert.doesNotMatch(html,/type="password"|name="password"|name="privateKey"/i);
+ assert.match(html,/Never enter an MT5 password, private signing key/);
 });
 test('proof-verified terminal is approvable; no private key or direct trading actions',()=>{
  const terminal={id:'8c492b0f-0de4-4a4e-9ad0-1dca73b2b718',label:'Trusted Windows',
