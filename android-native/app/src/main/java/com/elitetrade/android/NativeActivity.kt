@@ -533,6 +533,7 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                 pendingStrategySelection?.let { (bot,strategy) ->
                     val label=when(strategy){
                         "scalping-m1"->"1-Min Scalper · M1"
+                        "scalping-s15"->"15-Second Scalper · S15"
                         "scalping"->"Scalping · M5"
                         "trend"->"Trend · M15"
                         else->"Breakout · M15"
@@ -1119,6 +1120,7 @@ private fun BotPage(bots:List<JSONObject>,accounts:List<JSONObject>,executions:L
                 var strategyMenuExpanded by remember(bot.str("id")) { mutableStateOf(false) }
                 val presets=listOf(
                     "scalping-m1" to "1-Min Scalper · M1",
+                    "scalping-s15" to "15-Second Scalper · S15",
                     "scalping" to "Scalping · M5",
                     "trend" to "Trend · M15",
                     "breakout" to "Breakout · M15"

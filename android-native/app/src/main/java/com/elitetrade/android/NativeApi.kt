@@ -271,7 +271,7 @@ class EliteApi(context: Context) {
     suspend fun bots(): JSONArray = botsOverview().optJSONArray("bots") ?: JSONArray()
     /** Select an explicit strategy; never start the bot or alter its risk settings. */
     suspend fun selectStrategy(bot:JSONObject,strategy:String):JSONObject = withContext(Dispatchers.IO) {
-        if(strategy !in setOf("trend","scalping","scalping-m1","breakout"))
+        if(strategy !in setOf("trend","scalping","scalping-m1","scalping-s15","breakout"))
             throw ApiProblem("Unsupported trading strategy.")
         if(bot.optString("status")!="stopped")throw ApiProblem("Stop the bot before changing its strategy.")
         val id=safeId(bot.optString("id"))

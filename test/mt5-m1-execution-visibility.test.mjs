@@ -6,7 +6,7 @@ import {createSupabaseApplication} from '../src/supabase-app.mjs';
 import {STRATEGIES} from '../src/trading-strategies.mjs';
 
 test('M1 is an explicit DEMO-only optional preset; previous strategies retain timeframe',()=>{
- assert.deepEqual(Object.keys(STRATEGIES),['trend','scalping','scalping-m1','breakout']);
+ assert.deepEqual(Object.keys(STRATEGIES),['trend','scalping','scalping-m1','scalping-s15','breakout']);
  assert.equal(STRATEGIES['scalping-m1'].timeframe,'1m');
  assert.equal(STRATEGIES['scalping-m1'].minutes,1);
  assert.equal(STRATEGIES['scalping-m1'].fast,5);
@@ -111,7 +111,7 @@ test('native Android strategy list includes M1 next to M5 and M15 presets',()=>{
  assert.match(ui,/onStrategy\(bot,key\)/);
  assert.match(ui,/enabled=bot\.str\("status"\)=="stopped"/);
  assert.match(api,/suspend fun selectStrategy\(bot:JSONObject,strategy:String\)/);
- assert.match(api,/if\(strategy !in setOf\("trend","scalping","scalping-m1","breakout"\)\)/);
+ assert.match(api,/if\(strategy !in setOf\("trend","scalping","scalping-m1","scalping-s15","breakout"\)\)/);
  assert.match(api,/if\(bot\.optString\("status"\)!="stopped"\)/);
  assert.doesNotMatch(api.slice(api.indexOf('suspend fun selectStrategy'),api.indexOf('suspend fun eliteBridgeStatus')),/controlBot\(|demoOrder\(|executeOrder\(/);
 });

@@ -19,5 +19,8 @@ export async function mobileEnginePulse({db,gateway,userId,processor=processDemo
   for(const run of runs)await processor({db,gateway,run});
   const last=clock();
   if(runs.length) await db.upsert('elitetrade_engine_heartbeat','on_conflict=id',{id:true,updated_at:last});
-  return {evaluated:runs.length,armed:runs.length>0,heartbeatAt:last};
+  // Faster polling is strictly opt-in, scoped to an explicitly armed S15 run.
+  // Existing M1 and other DEMO bots retain their 45-second monitoring interval.
+  const scanIntervalSeconds=runs[0]?.config?.strategy==='scalping-s15'?15:45;
+  return {evaluated:runs.length,armed:runs.length>0,heartbeatAt:last,scanIntervalSeconds};
 }

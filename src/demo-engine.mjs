@@ -41,7 +41,8 @@ export async function processDemoRun({db,gateway,run,at=Date.now()}) {
     const baseline=riskCheckpoint(state,market.info,bot,at);
     await db.upsert('elitetrade_engine_risk','on_conflict=account_id',{account_id:run.account_id,...baseline});
     if(market.positions.length||market.orders.length){await message('Monitoring demo; existing broker positions or orders block new entries.');return;}
-    const signal=evaluateStrategy(bot.strategy,market.candles,at);
+    const signalAt=preset.timeframe==='15s'?Date.now():at;
+    const signal=evaluateStrategy(bot.strategy,market.candles,signalAt);
     if(!signal.side){await message(`Monitoring ${preset.timeframe}; waiting for a closed-candle signal.`);return;}
     const prior=await db.one('elitetrade_engine_orders',`bot_id=eq.${q(run.bot_id)}&candle_time=eq.${signal.candleTime}&select=id`);
     if(prior){await message('Signal already processed; waiting for a new candle.');return;}

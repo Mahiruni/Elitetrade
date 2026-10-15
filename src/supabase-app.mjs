@@ -623,11 +623,11 @@ export function createSupabaseApplication(options = {}) {
       // A single signed-in, device-verified admin may pulse only their own
       // runs. The server holds provider and database secrets. This call cannot
       // arm a bot, nor can the client choose another user's run or trade plan.
-      rateLimit('mobile-demo-engine:'+ctx.user.id,4,60000);
+      rateLimit('mobile-demo-engine:'+ctx.user.id,6,60000);
       const tick=await mobileEnginePulse({db:engineDb,gateway,userId:ctx.user.id});
       return json(res,{ok:true,mode:'broker-demo-only',
         evaluated:tick.evaluated,armed:tick.armed,
-        heartbeatAt:tick.heartbeatAt,executionEnabled:false,
+        heartbeatAt:tick.heartbeatAt,scanIntervalSeconds:tick.scanIntervalSeconds,executionEnabled:false,
         message:tick.armed ?
           'Demo monitoring evaluated. Broker demo orders are possible only for independently armed bots with passing risk checks.' :
           'Engine heartbeat published. No demo bots are armed and no order was requested.'});
@@ -685,7 +685,7 @@ export function createSupabaseApplication(options = {}) {
         accountId = account.id;
       }
       const name = string(body.name, 'Bot name', 2, 64);
-      const strategy = choice(body.strategy, ['trend','scalping','scalping-m1','breakout'], 'strategy');
+      const strategy = choice(body.strategy, ['trend','scalping','scalping-m1','scalping-s15','breakout'], 'strategy');
       const symbol = string(body.symbol, 'Symbol', 3, 30);
       if (!/^[A-Za-z0-9._-]+$/.test(symbol)) fail(400, 'Enter a valid broker symbol.');
       const patch = {

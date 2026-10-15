@@ -2,6 +2,8 @@ export const STRATEGIES = Object.freeze({
   trend:{timeframe:'15m',minutes:15,fast:20,slow:50,description:'EMA 20/50 crossover on closed 15-minute candles'},
   scalping:{timeframe:'5m',minutes:5,fast:9,slow:21,description:'EMA 9/21 crossover on closed 5-minute candles'},
   'scalping-m1':{timeframe:'1m',minutes:1,fast:5,slow:13,description:'M1 EMA 5/13 crossover on a closed 1-minute candle; experimental DEMO-only, no win-rate guarantee'},
+  'scalping-s15':{timeframe:'15s',minutes:.25,fast:3,slow:6,
+    description:'Experimental DEMO-only 15-second momentum using observed MT5 ticks; no win-rate guarantee'},
   breakout:{timeframe:'15m',minutes:15,lookback:20,description:'Close beyond the previous 20 closed 15-minute candles'}
 });
 const reject = message => { throw new Error(message); };
@@ -32,8 +34,18 @@ export function evaluateStrategy(strategy,raw,at=Date.now()) {
     if(last.close>high)side='buy';else if(last.close<low)side='sell';
   } else {
     const prices=closed.map(c=>c.close),fast=ema(prices,preset.fast),slow=ema(prices,preset.slow),i=prices.length-1;
-    if(fast[i-1]<=slow[i-1]&&fast[i]>slow[i])side='buy';
-    if(fast[i-1]>=slow[i-1]&&fast[i]<slow[i])side='sell';
+    if(strategy==='scalping-s15'){
+      // Continuation setup offers more opportunities than crossover-only M1.
+      // Require a fresh CLOSED bullish/bearish 15s bar aligned with EMA
+      // trend. Missing real tick intervals are rejected above.
+      if(fast[i]>slow[i]&&last.close>previous.close&&last.close>last.open)
+        side='buy';
+      else if(fast[i]<slow[i]&&last.close<previous.close&&last.close<last.open)
+        side='sell';
+    }else{
+      if(fast[i-1]<=slow[i-1]&&fast[i]>slow[i])side='buy';
+      if(fast[i-1]>=slow[i-1]&&fast[i]<slow[i])side='sell';
+    }
   }
   return {side,candleTime:last.time,timeframe:preset.timeframe,description:preset.description};
 }

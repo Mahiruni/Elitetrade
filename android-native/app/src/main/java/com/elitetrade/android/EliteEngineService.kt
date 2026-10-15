@@ -101,6 +101,7 @@ class EliteEngineService:Service() {
         EliteEngineSession.successfulCycles=0
         job=scope.launch {
             var consecutiveErrors=0
+            var monitoringDelayMs=45_000L
             while(isActive){
                 if(!EliteEngineSession.internetAvailable){
                     update("Internet offline · DEMO monitoring paused; auto-resumes while active")
@@ -109,13 +110,14 @@ class EliteEngineService:Service() {
                 }
                 try {
                     val reply=api.mobileEnginePulse()
+                    monitoringDelayMs=if(reply.optInt("scanIntervalSeconds",45)==15)15_000L else 45_000L
                     if(!reply.optBoolean("ok")||reply.optString("mode")!="broker-demo-only")
                         throw ApiProblem("DEMO backend did not acknowledge monitoring.")
                     consecutiveErrors=0
                     EliteEngineSession.lastHeartbeatMillis=System.currentTimeMillis()
                     EliteEngineSession.successfulCycles++
                     update(if(reply.optBoolean("armed"))"DEMO bot monitoring · backend verified" else "Connected · no bots armed")
-                    withTimeoutOrNull(45_000L){networkWakeup.receive()}
+                    withTimeoutOrNull(monitoringDelayMs){networkWakeup.receive()}
                 }catch(e:CancellationException){throw e}
                 catch(e:Exception){
                     val cause=(e.message ?: "").lowercase()

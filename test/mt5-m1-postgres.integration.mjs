@@ -55,6 +55,16 @@ test('isolated PostgreSQL 16 M1 migration preserves strict DEMO arm gates',async
   await pool.query('update public.elitetrade_bots set strategy=$1 where id=$2',['scalping-m1',bot]);
   await assert.rejects(pool.query('update public.elitetrade_bots set strategy=$1 where id=$2',['auto-execute',bot]),e=>e.code==='23514');
  });
+ // Rehearse S15 separately after M1; never rewrite protected control().
+ const s15=readFileSync(new URL('../supabase/migrations/20261015000500_s15_tick_scalper_option.sql',import.meta.url),'utf8');
+ await pool.query(s15);
+ assert.equal(await readDef(),beforeDef,'S15 must preserve the original protected control function');
+ await t.test('S15 can be selected only explicitly, and old presets remain valid',async()=>{
+   await pool.query('update public.elitetrade_bots set strategy=$1 where id=$2',['scalping-s15',bot]);
+   assert.equal((await pool.query('select strategy from public.elitetrade_bots')).rows[0].strategy,'scalping-s15');
+   await pool.query('update public.elitetrade_bots set strategy=$1 where id=$2',['scalping-m1',bot]);
+   await assert.rejects(pool.query('update public.elitetrade_bots set strategy=$1 where id=$2',['unverified-tick',bot]),e=>e.code==='23514');
+ });
  const arm=async ({user=owner,aal='aal2',running=true}={})=>{
   const c=await pool.connect();
   try{
