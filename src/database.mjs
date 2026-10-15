@@ -73,7 +73,7 @@ export function openDatabase(path) {
     ) STRICT;
     CREATE TABLE IF NOT EXISTS bots (
       id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), account_id TEXT REFERENCES accounts(id),
-      name TEXT NOT NULL, strategy TEXT NOT NULL CHECK(strategy IN ('trend','scalping','breakout')),
+      name TEXT NOT NULL, strategy TEXT NOT NULL CHECK(strategy IN ('trend','scalping','breakout','scalpin-ss-ex5')),
       symbol TEXT NOT NULL, risk_percent REAL NOT NULL, stop_loss REAL NOT NULL, take_profit REAL NOT NULL,
       max_drawdown REAL NOT NULL, daily_loss REAL NOT NULL, lot_size REAL NOT NULL,
       status TEXT NOT NULL DEFAULT 'stopped' CHECK(status IN ('stopped','running','unknown')),
