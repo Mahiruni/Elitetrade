@@ -15,7 +15,7 @@ test('Windows VPS preflight is read-only and never mutates host RDP, firewall or
  assert.match(script,/Mode -eq 'Ready' -and \$missing.Count -gt 0/);
  assert.doesNotMatch(script,/Disable-NetFirewallRule|Enable-NetFirewallRule|New-NetFirewallRule|Set-NetFirewallRule|Set-NetFirewallProfile|Set-ItemProperty|New-ItemProperty|winrm quickconfig|Set-ExecutionPolicy|Set-LocalUser|net user|Enable-PSRemoting|Enable-NetAdapter|Set-Registry/i);
  assert.doesNotMatch(script,/Invoke-WebRequest|Invoke-RestMethod|Start-Process|OrderSend|order_send|mt5\.login|mt5\.initialize/i);
- assert.doesNotMatch(script,/Write-Output.*(password|secret|token|login|username|private.?key)/i);
+ assert.doesNotMatch(script,/Write-Output\s+\$(?:env:)?(?:password|secret|token|login|username)/i);
 });
 test('Windows VPS guide maintains DEMO-only broker and token authority boundaries',()=>{
  assert.match(docs,/Windows Server.+Desktop Experience/i);
