@@ -29,6 +29,14 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
     var report by remember {mutableStateOf<JSONObject?>(null)}
     var protocol by remember {mutableStateOf<JSONObject?>(null)}
     var protocolWarning by remember {mutableStateOf("")}
+    var pairing by remember {mutableStateOf<JSONObject?>(null)}
+    var pairingWarning by remember {mutableStateOf("")}
+    var pairingMessage by remember {mutableStateOf("")}
+    var pairingBusy by remember {mutableStateOf(false)}
+    var selectedAccount by remember {mutableStateOf("")}
+    var deviceLabel by remember {mutableStateOf("Windows MT5 DEMO")}
+    var publicKeyPem by remember {mutableStateOf("")}
+
     var error by remember {mutableStateOf("")}
     var probes by remember {mutableStateOf(mapOf<String,JSONObject>())}
     var probeErrors by remember {mutableStateOf(mapOf<String,String>())}
@@ -55,6 +63,8 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
             }catch(e:Exception){
                 protocolWarning="Protocol status awaiting updated backend deployment."
             }
+            try{pairing=api.bridgeTerminals();pairingWarning=""}
+            catch(e:Exception){pairingWarning="Pairing storage is not available: "+(e.message?:"Check backend setup.")}
             finally{busy=false}
         }
     }
@@ -96,6 +106,99 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
                 if(protocolWarning.isNotBlank())Text(protocolWarning,fontSize=11.sp,color=muted)
                 Text("The Termux protocol simulator proves signature and replay handling. It does not access Exness or replace MetaApi.",
                     fontSize=12.sp,color=muted,lineHeight=18.sp)
+            }
+        }
+        ElevatedCard {
+            Column(Modifier.fillMaxWidth().padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                Text("Phase 4 · Windows terminal pairing",fontSize=16.sp,fontWeight=FontWeight.Bold,color=gold)
+                Text("Pair your own remote Windows MT5 companion for signed DEMO quotes. This does not verify an Exness login or enable broker orders.",
+                    fontSize=12.sp,color=muted,lineHeight=18.sp)
+                Text("Choose a saved MT5 account",fontSize=12.sp,fontWeight=FontWeight.SemiBold)
+                if(accounts==null || accounts.length()==0)
+                    Text("First register an MT5 account under MT5 accounts.",fontSize=12.sp,color=muted)
+                else for(i in 0 until accounts.length()){
+                    val a=accounts.optJSONObject(i)?:continue
+                    val id=a.optString("accountId")
+                    if(id.isNotBlank() && id!="null")
+                        FilterChip(selected=selectedAccount==id,
+                            onClick={selectedAccount=id},
+                            label={Text(a.optString("broker")+" · "+a.optString("account"))})
+                }
+                OutlinedTextField(value=deviceLabel,onValueChange={deviceLabel=it.take(64)},
+                    label={Text("Windows terminal name")},singleLine=true,
+                    modifier=Modifier.fillMaxWidth())
+                OutlinedTextField(value=publicKeyPem,onValueChange={publicKeyPem=it.take(300)},
+                    label={Text("Ed25519 PUBLIC key (PEM)")},
+                    minLines=3,maxLines=5,modifier=Modifier.fillMaxWidth())
+                Text("Generate the key on Windows using: node scripts/elitebridge-terminal-companion.mjs init. Never paste terminal-private.pem, an RDP password, or MT5 credentials.",
+                    fontSize=11.sp,color=muted,lineHeight=17.sp)
+                Button(onClick={
+                    scope.launch {
+                        pairingBusy=true;pairingMessage=""
+                        try {
+                            val result=api.bridgeEnroll(selectedAccount,deviceLabel,publicKeyPem.trim())
+                            val id=result.optJSONObject("terminal")?.optString("id").orEmpty()
+                            val nonce=result.optJSONObject("enrollment")?.optString("nonce").orEmpty()
+                            pairingMessage="Enrollment created. On Windows sign the challenge (expires in 10 minutes):\nnode scripts/elitebridge-terminal-companion.mjs prove "+id+" "+nonce+"\nThen approve the identity here. DEMO telemetry only."
+                            pairing=api.bridgeTerminals()
+                        }catch(e:Exception){pairingMessage=e.message?:"Unable to register terminal."}
+                        finally{pairingBusy=false}
+                    }
+                },enabled=!pairingBusy&&selectedAccount.isNotBlank()&&
+                    deviceLabel.trim().length>=3&&publicKeyPem.contains("BEGIN PUBLIC KEY"),
+                    modifier=Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.Security,contentDescription=null)
+                    Spacer(Modifier.width(7.dp))
+                    Text("Register Windows identity")
+                }
+                if(pairingMessage.isNotBlank())Text(pairingMessage,fontSize=11.sp,color=gold,
+                    lineHeight=18.sp)
+                if(pairingWarning.isNotBlank())Text(pairingWarning,fontSize=11.sp,color=gold)
+                Text("Registered terminal identities",fontSize=13.sp,fontWeight=FontWeight.Bold)
+                val terminals=pairing?.optJSONArray("terminals")
+                if(terminals==null || terminals.length()==0)
+                    Text("No registered Windows terminal. Independent broker access is not connected.",
+                        fontSize=11.sp,color=muted)
+                else for(i in 0 until terminals.length()){
+                    val item=terminals.optJSONObject(i)?:continue
+                    val id=item.optString("id")
+                    val status=item.optString("status")
+                    Text(item.optString("label")+" · "+status,fontSize=12.sp,fontWeight=FontWeight.SemiBold)
+                    Text(if(item.optBoolean("signedTransportFresh"))
+                            "Signed telemetry recently received · Broker NOT verified"
+                        else "No fresh signed terminal telemetry · Broker NOT verified",
+                        fontSize=11.sp,color=muted)
+                    if(status=="pending" && item.optBoolean("identityProofVerified"))
+                        OutlinedButton(onClick={
+                            scope.launch {
+                                pairingBusy=true
+                                try {api.bridgeApprove(id);pairing=api.bridgeTerminals();pairingMessage="Device identity approved; MT5 broker connection remains unverified."}
+                                catch(e:Exception){pairingMessage=e.message?:"Cannot approve device."}
+                                finally{pairingBusy=false}
+                            }
+                        },enabled=!pairingBusy,modifier=Modifier.fillMaxWidth()){
+                            Text("Approve verified identity")
+                        }
+                    if(status!="revoked")
+                        TextButton(onClick={
+                            scope.launch {
+                                pairingBusy=true
+                                try {api.bridgeRevoke(id);pairing=api.bridgeTerminals();pairingMessage="Terminal identity revoked."}
+                                catch(e:Exception){pairingMessage=e.message?:"Cannot revoke device."}
+                                finally{pairingBusy=false}
+                            }
+                        },enabled=!pairingBusy) {Text("Revoke identity")}
+                }
+                OutlinedButton(onClick={
+                    scope.launch {
+                        try{pairing=api.bridgeTerminals();pairingWarning=""}
+                        catch(e:Exception){pairingWarning=e.message?:"Connection unavailable."}
+                    }
+                },enabled=!pairingBusy,modifier=Modifier.fillMaxWidth()){
+                    Icon(Icons.Default.Refresh,contentDescription=null)
+                    Spacer(Modifier.width(7.dp))
+                    Text("Refresh pairing status")
+                }
             }
         }
         Text("Available connections",fontSize=16.sp,fontWeight=FontWeight.Bold)
