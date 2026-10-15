@@ -1,5 +1,6 @@
 import { createAndroidReleaseService } from './android-release.mjs';
 import { hostedMt5Status } from './hosted-mt5-status.mjs';
+import { ORIGINAL_EX5, ORIGINAL_EX5_ID, isOriginalEx5 } from './original-ex5.mjs';
 import {createSupportHandler,supportRoute} from './support.mjs';
 import {marketDetails} from './market-view.mjs';
 import { accountDetails } from './account-view.mjs';
@@ -691,7 +692,7 @@ export function createSupabaseApplication(options = {}) {
         accountId = account.id;
       }
       const name = string(body.name, 'Bot name', 2, 64);
-      const strategy = choice(body.strategy, ['trend','scalping','scalping-m1','scalping-s15','breakout'], 'strategy');
+      const strategy = choice(body.strategy, ['trend','scalping','scalping-m1','scalping-s15','breakout',ORIGINAL_EX5_ID], 'strategy');
       const symbol = string(body.symbol, 'Symbol', 3, 30);
       if (!/^[A-Za-z0-9._-]+$/.test(symbol)) fail(400, 'Enter a valid broker symbol.');
       const patch = {
@@ -716,6 +717,13 @@ export function createSupabaseApplication(options = {}) {
       const ctx=await activeUser(req);
       const bot=await db.one('elitetrade_bots',`id=eq.${q(botPreview[1])}&user_id=eq.${q(ctx.user.id)}&select=*`,ctx.token);
       if(!bot)fail(404,'Record not found.');
+      if(isOriginalEx5(bot.strategy))return json(res,{
+        externalEa:ORIGINAL_EX5,
+        signal:{side:null,description:ORIGINAL_EX5.description},
+        accountType:null,order:null,
+        riskMessage:'Original EX5 can only be executed and tested inside a trusted Windows MT5 terminal. No web-based order was sent.',
+        message:'Original file registered only. Windows MT5 host not provisioned.'
+      });
       if(!gateway?.market)fail(503,'Configure MetaApi before previewing broker data.');
       const account=await db.one('elitetrade_accounts',`id=eq.${q(bot.account_id)}&user_id=eq.${q(ctx.user.id)}&select=gateway_id,status`,ctx.token);
       if(!account?.gateway_id||account.status!=='connected')fail(409,'Confirm the MT5 connection first.');
@@ -759,6 +767,8 @@ export function createSupabaseApplication(options = {}) {
       if (typeof body.running !== 'boolean') fail(400, 'Choose start or stop.');
       const bot = await db.one('elitetrade_bots', `id=eq.${q(botControl[1])}&user_id=eq.${q(ctx.user.id)}&select=*`, ctx.token);
       if (!bot) fail(404, 'Record not found.');
+      if (body.running && isOriginalEx5(bot.strategy))
+        fail(409, 'Original EX5 runs only inside a Windows MT5 terminal; no verified host is connected. This website cannot start the EX5.');
       if (!gateway) fail(503, 'Live trading requires a configured MT5 gateway.');
       if (gateway.mode === 'account-data') {
         if(body.running) {
