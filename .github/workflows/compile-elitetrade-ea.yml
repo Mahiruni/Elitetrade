@@ -16,7 +16,7 @@ permissions:
 jobs:
   compile-mql5:
     name: Compile MQ5 to EX5
-    runs-on: windows-latest
+    runs-on: windows-2022
     timeout-minutes: 30
     steps:
       - name: Check out source
@@ -34,7 +34,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: elitetrade-compiler-evidence
-          path: build-evidence/metaeditor-compilation.log
+          path: |
+            build-evidence/metaeditor-compilation.log
+            build-evidence/installer-diagnostics.txt
           if-no-files-found: warn
           retention-days: 14
 
