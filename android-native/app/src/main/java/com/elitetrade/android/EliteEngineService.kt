@@ -101,6 +101,7 @@ class EliteEngineService:Service() {
         EliteEngineSession.successfulCycles=0
         job=scope.launch {
             var consecutiveErrors=0
+            var monitoringDelayMs=45_000L
             while(isActive){
                 if(!EliteEngineSession.internetAvailable){
                     update("Internet offline · DEMO monitoring paused; auto-resumes while active")
