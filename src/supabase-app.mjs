@@ -601,7 +601,7 @@ export function createSupabaseApplication(options = {}) {
       const ctx=await needUser(req);
       if(!bridgeDb)fail(503,'EliteBridge secure storage is not configured.');
       rateLimit('bridge-enroll:'+ctx.user.id,3,60000);
-      const body=await safeBody(req);
+      if(!body || typeof body!=='object' || Array.isArray(body))fail(400,'A JSON object is required.');
       const account=await db.one('elitetrade_accounts',
         `id=eq.${q(body.accountId)}&user_id=eq.${q(ctx.user.id)}&select=id`,ctx.token);
       if(!account)fail(404,'Selected MT5 account is not available.');
@@ -619,7 +619,7 @@ export function createSupabaseApplication(options = {}) {
     if(terminalProof && method==='POST') {
       if(!bridgeDb)fail(503,'EliteBridge secure storage is not configured.');
       rateLimit('bridge-proof:'+terminalProof[1],8,60000);
-      const body=await safeBody(req);
+      if(!body || typeof body!=='object' || Array.isArray(body))fail(400,'A JSON object is required.');
       const row=await bridgeDb.one('elitetrade_bridge_terminals',
         `id=eq.${q(terminalProof[1])}&select=id,account_id,public_key,status,proof_nonce,proof_expires_at,proof_verified_at`);
       if(!row)fail(404,'Terminal enrollment not found.');
@@ -655,7 +655,7 @@ export function createSupabaseApplication(options = {}) {
     }
     if(path==='/api/elitebridge/telemetry' && method==='POST') {
       if(!bridgeDb)fail(503,'EliteBridge secure storage is not configured.');
-      const body=await safeBody(req);
+      if(!body || typeof body!=='object' || Array.isArray(body))fail(400,'A JSON object is required.');
       const packet=body.packet,deviceId=packet?.deviceId;
       if(typeof deviceId!=='string'||!/^[0-9a-fA-F-]{36}$/.test(deviceId))
         fail(400,'Invalid terminal packet.');
