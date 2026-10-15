@@ -32,7 +32,7 @@ test('backend errors cannot leave falsely green online state',()=>{
 test('polling GET never pulses engine, arms bot, or changes background service limits',()=>{
  const refresh=page.slice(page.indexOf('suspend fun refreshBackend()'),page.indexOf('    // The phone service reports'));
  assert.match(refresh,/api\.mobileEngineStatus\(\)/);
- assert.doesNotMatch(refresh,/mobileEnginePulse|selectStrategy|startForeground|start\\(|post\\(|order_send/);
+ assert.doesNotMatch(refresh,/mobileEnginePulse|selectStrategy|startForeground|start\(|post\(|order_send/);
  assert.match(service,/withTimeoutOrNull\(45_000L\)/);
  assert.match(service,/override fun onTimeout/);
 });
