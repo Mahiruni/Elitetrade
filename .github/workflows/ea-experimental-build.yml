@@ -1,0 +1,44 @@
+name: Compile experimental MT5 EA
+on:
+  push:
+    branches: ['codex/experimental-ea-build-20261015']
+    paths:
+      - 'mt5/experimental/**'
+      - '.github/workflows/ea-experimental-build.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test the exact portable strategy and sizing functions
+        run: python3 mt5/experimental/test_core.py
+  compile:
+    needs: core
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile using official MetaEditor
+        shell: pwsh
+        run: ./mt5/experimental/Compile-EA.ps1 -OutputDirectory "$env:RUNNER_TEMP/ea-artifact" -InstallDirectory "$env:RUNNER_TEMP/EliteTrade-MT5"
+      - name: Include the documented rules and test preset
+        shell: pwsh
+        run: |
+          Copy-Item mt5/experimental/README.md "$env:RUNNER_TEMP/ea-artifact/README.md"
+          Copy-Item mt5/experimental/EliteTrade_SweepBreakout_Experimental_v1.set "$env:RUNNER_TEMP/ea-artifact/EliteTrade_SweepBreakout_Experimental_v1.set"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: elitetrade-sweepbreakout-experimental-v1
+          path: |
+            ${{ runner.temp }}/ea-artifact/*.ex5
+            ${{ runner.temp }}/ea-artifact/*.mq5
+            ${{ runner.temp }}/ea-artifact/*.set
+            ${{ runner.temp }}/ea-artifact/*.json
+            ${{ runner.temp }}/ea-artifact/*.log
+            ${{ runner.temp }}/ea-artifact/README.md
+          if-no-files-found: warn
+          retention-days: 14
