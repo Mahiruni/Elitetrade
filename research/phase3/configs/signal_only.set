@@ -1,0 +1,6 @@
+; Gate check: this baseline must make zero order submissions.
+InpExecuteOrders=false
+InpRunTag=phase3_q1_signals
+InpMagic=2026101501
+InpWriteAudit=true
+InpWriteEvents=true
