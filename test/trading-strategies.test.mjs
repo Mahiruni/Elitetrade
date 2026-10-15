@@ -26,7 +26,7 @@ test('M1 EMA 5/13 scalper evaluates only fully closed 1-minute candles',()=>{
   forming.push({time:new Date(at).toISOString(),open:100,high:400,low:100,close:400});
   assert.equal(evaluateStrategy('scalping-m1',forming,at).side,null);
   assert.throws(()=>evaluateStrategy('scalping-m1',up,at+61000),/stale/);
-  const missing=up.filter((_,i)=>i!==39);
+  const missing=up.filter((_,i)=>i!==30);
   assert.throws(()=>evaluateStrategy('scalping-m1',missing,at),/gaps/);
 });
 test('breakout uses previous highs/lows and requires a closing breakout',()=>{
