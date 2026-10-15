@@ -1,0 +1,12 @@
+{
+  "label": "CLOUD_COMPILATION_ONLY_NOT_MT5_TESTED",
+  "source_sha256": "a8a336440a0d91c2862aa252b496033814b37d3c13071ead8807aa8ac07e2733",
+  "binary_sha256": "16627b5419bd777662472479f4fed23f187ca6c3853e4352d0c01d0bc2168528",
+  "source_name": "EliteTrade_SweepResearch_v1.mq5",
+  "compiled_name": "EliteTrade_SweepResearch_v1.ex5",
+  "created_utc": "2026-10-15T12:29:41.6531248Z",
+  "github_sha": "1f03cef853153dc294bf50f779768ea50471fd12",
+  "broker_connected": false,
+  "strategy_tested": false,
+  "original_equivalence_proven": false
+}
