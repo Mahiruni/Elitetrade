@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "supabase/migrations/20261015000400_m1_demo_and_imported_account.sql"
+      - "supabase/migrations/20261015000500_s15_tick_scalper_option.sql"
       - "test/mt5-m1-postgres.integration.mjs"
       - ".github/workflows/mt5-m1-postgres.yml"
   workflow_dispatch:
