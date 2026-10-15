@@ -15,6 +15,7 @@ import { createSupabaseData } from './supabase-data.mjs';
 import { engineReady } from './demo-engine.mjs';
 import {eliteBridgeStatus} from './elitebridge.mjs';
 import {eliteBridgeProtocolStatus} from './elitebridge-protocol.mjs';
+import {createTerminalEnrollment,verifyEnrollmentProof,publicTerminalSummary,ingestSignedTerminalPacket} from './elitebridge-enrollment.mjs';
 import {createReadOnlyBrokerRouter} from './elitebridge-router.mjs';
 import { mobileEnginePulse } from './mobile-demo-engine.mjs';
 import { brokerRiskAffordability } from './broker-risk-affordability.mjs';
@@ -95,6 +96,8 @@ export function createSupabaseApplication(options = {}) {
   // Phase 2 is a separate read-only broker adapter; the live DEMO worker still
   // uses its original trusted order/lease/risk gateway unchanged.
   const bridgeRouter = createReadOnlyBrokerRouter({metaapi:gateway});
+  // Dedicated server-only bridge storage. No service credential ever goes to Android.
+  const bridgeDb=options.bridgeDb || (mobileDbKey ? createSupabaseData({url:supabaseUrl,key:mobileDbKey}) : null);
   const telegram = options.telegram === undefined ? createTelegram(env) : options.telegram;
   const rate = new Map();
   let tradingMutation = false;
@@ -580,6 +583,91 @@ export function createSupabaseApplication(options = {}) {
       await db.remove('elitetrade_accounts', `id=eq.${q(account.id)}&user_id=eq.${q(ctx.user.id)}`, ctx.token);
       await audit(ctx, 'account.delete', account.id);
       return json(res, { ok:true });
+    }
+
+    // Phase 4: owner-approved, independently signed DEMO telemetry.
+    // Proof of the device key is required before owner approval. A signed
+    // heartbeat is never taken as independent MT5 broker verification.
+    if(path==='/api/elitebridge/terminals' && method==='GET') {
+      const ctx=await needUser(req);
+      if(!bridgeDb)fail(503,'EliteBridge secure storage is not configured.');
+      const rows=await bridgeDb.query('elitetrade_bridge_terminals',
+        `owner_id=eq.${q(ctx.user.id)}&select=id,label,account_id,account_mode,status,proof_verified_at,proof_expires_at,last_seen_at&order=created_at.desc&limit=30`);
+      res.setHeader('Cache-Control','private, no-store');
+      return json(res,{terminals:rows.map(row=>publicTerminalSummary(row)),
+        brokerVerified:false,ordersEnabled:false,transport:'signed DEMO telemetry only'});
+    }
+    if(path==='/api/elitebridge/terminals' && method==='POST') {
+      const ctx=await needUser(req);
+      if(!bridgeDb)fail(503,'EliteBridge secure storage is not configured.');
+      rateLimit('bridge-enroll:'+ctx.user.id,3,60000);
+      const body=await safeBody(req);
+      const account=await db.one('elitetrade_accounts',
+        `id=eq.${q(body.accountId)}&user_id=eq.${q(ctx.user.id)}&select=id`,ctx.token);
+      if(!account)fail(404,'Selected MT5 account is not available.');
+      const row=createTerminalEnrollment({ownerId:ctx.user.id,accountId:account.id,
+        label:body.label,publicKey:body.publicKey});
+      const [inserted]=await bridgeDb.insert('elitetrade_bridge_terminals',row);
+      res.setHeader('Cache-Control','no-store');
+      return json(res,{
+        terminal:publicTerminalSummary(inserted),
+        enrollment:{nonce:row.proof_nonce,expiresAt:row.proof_expires_at},
+        next:'Sign the enrollment challenge on your own Windows host and submit proof. Owner approval is required afterward. No trading is enabled.'
+      },201);
+    }
+    const terminalProof=path.match(/^\/api\/elitebridge\/terminals\/([0-9a-fA-F-]{36})\/proof$/);
+    if(terminalProof && method==='POST') {
+      if(!bridgeDb)fail(503,'EliteBridge secure storage is not configured.');
+      rateLimit('bridge-proof:'+terminalProof[1],8,60000);
+      const body=await safeBody(req);
+      const row=await bridgeDb.one('elitetrade_bridge_terminals',
+        `id=eq.${q(terminalProof[1])}&select=id,account_id,public_key,status,proof_nonce,proof_expires_at,proof_verified_at`);
+      if(!row)fail(404,'Terminal enrollment not found.');
+      try{verifyEnrollmentProof({terminal:row,signature:body.signature});}
+      catch{fail(403,'Terminal identity proof was rejected or expired.');}
+      const verified=await bridgeDb.update('elitetrade_bridge_terminals',
+        `id=eq.${q(row.id)}&status=eq.pending&proof_verified_at=is.null&proof_nonce=eq.${q(row.proof_nonce)}`,
+        {proof_verified_at:new Date().toISOString(),proof_nonce:null,proof_expires_at:null});
+      if(verified.length!==1)fail(409,'Terminal enrollment was already used.');
+      return json(res,{verified:true,approved:false,ordersEnabled:false});
+    }
+    const terminalApprove=path.match(/^\/api\/elitebridge\/terminals\/([0-9a-fA-F-]{36})\/approve$/);
+    if(terminalApprove && method==='POST') {
+      const ctx=await needUser(req);
+      if(!bridgeDb)fail(503,'EliteBridge secure storage is not configured.');
+      rateLimit('bridge-approve:'+ctx.user.id,6,60000);
+      const updated=await bridgeDb.update('elitetrade_bridge_terminals',
+        `id=eq.${q(terminalApprove[1])}&owner_id=eq.${q(ctx.user.id)}&status=eq.pending&proof_verified_at=not.is.null&account_mode=eq.demo`,
+        {status:'approved',approved_at:new Date().toISOString()});
+      if(updated.length!==1)fail(409,'Proof, ownership or pending status is not verified.');
+      return json(res,{approved:true,brokerVerified:false,ordersEnabled:false,
+        note:'Transport enrollment is approved. MT5 broker login and prices remain unverified until genuine Windows-terminal telemetry arrives.'});
+    }
+    const terminalRevoke=path.match(/^\/api\/elitebridge\/terminals\/([0-9a-fA-F-]{36})\/revoke$/);
+    if(terminalRevoke && method==='POST') {
+      const ctx=await needUser(req);
+      if(!bridgeDb)fail(503,'EliteBridge secure storage is not configured.');
+      const updated=await bridgeDb.update('elitetrade_bridge_terminals',
+        `id=eq.${q(terminalRevoke[1])}&owner_id=eq.${q(ctx.user.id)}&status=neq.revoked`,
+        {status:'revoked',revoked_at:new Date().toISOString()});
+      if(updated.length!==1)fail(404,'Terminal not found or already revoked.');
+      return json(res,{revoked:true,ordersEnabled:false});
+    }
+    if(path==='/api/elitebridge/telemetry' && method==='POST') {
+      if(!bridgeDb)fail(503,'EliteBridge secure storage is not configured.');
+      const body=await safeBody(req);
+      const packet=body.packet,deviceId=packet?.deviceId;
+      if(typeof deviceId!=='string'||!/^[0-9a-fA-F-]{36}$/.test(deviceId))
+        fail(400,'Invalid terminal packet.');
+      rateLimit('bridge-telemetry:'+deviceId,20,60000);
+      const terminal=await bridgeDb.one('elitetrade_bridge_terminals',
+        `id=eq.${q(deviceId)}&select=id,account_id,public_key,status,proof_verified_at,account_mode,revoked_at`);
+      if(!terminal)fail(403,'Unrecognized terminal.');
+      let result;
+      try{result=await ingestSignedTerminalPacket({packet,terminal,db:bridgeDb});}
+      catch{fail(403,'Terminal signature or replay validation failed.');}
+      res.setHeader('Cache-Control','no-store');
+      return json(res,result);
     }
 
     const bridgeProbe=path.match(/^\/api\/elitebridge\/accounts\/([0-9a-fA-F-]{36})\/probe$/);
