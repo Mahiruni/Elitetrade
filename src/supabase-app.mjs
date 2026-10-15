@@ -1165,7 +1165,7 @@ export function createSupabaseApplication(options = {}) {
   }
 
   const publicPath = resolve(options.publicPath || new URL('../public/', import.meta.url).pathname);
-  const pages = new Set(['/', '/download', '/ebook', '/login', '/signup', '/forgot-email', '/forgot-password', '/verify-device', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/hosted-mt5', '/dashboard', '/claudebot', '/claude-pro-bot', '/gold-smc', '/trade', '/markets', '/activity', '/positions', '/history', '/notifications', '/account', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
+  const pages = new Set(['/', '/download', '/ebook', '/login', '/signup', '/forgot-email', '/forgot-password', '/verify-device', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/hosted-mt5', '/elitebridge', '/dashboard', '/claudebot', '/claude-pro-bot', '/gold-smc', '/trade', '/markets', '/activity', '/positions', '/history', '/notifications', '/account', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
   const server = createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -1236,6 +1236,8 @@ export function createSupabaseApplication(options = {}) {
       files['/gold-smc.js'] = ['gold-smc.js','text/javascript'];
       files['/gold-smc.css'] = ['gold-smc.css','text/css'];
       files['/hosted-mt5.js'] = ['hosted-mt5.js','text/javascript'];
+      files['/elitebridge.js'] = ['elitebridge.js','text/javascript'];
+      files['/elitebridge.css'] = ['elitebridge.css','text/css'];
       files['/hosted-mt5.css'] = ['hosted-mt5.css','text/css'];
       files['/claude-pro-bot.js'] = ['claude-pro-bot.js','text/javascript'];
       files['/claude-pro-bot.css'] = ['claude-pro-bot.css','text/css'];
