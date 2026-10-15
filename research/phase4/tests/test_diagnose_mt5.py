@@ -37,6 +37,14 @@ class SanitizedJournalTests(unittest.TestCase):
     def test_start_failure(self):
         self.assertEqual(self.scan(b"local tester agent failed to start")["classification"], "TESTER_START_FAILED")
 
+    def test_missing_agent_identified(self):
+        result = self.scan(b"Tester no agent is ready, optimization not started")
+        self.assertEqual(result["classification"], "AGENT_UNAVAILABLE")
+
+    def test_metatester_service_error_identified(self):
+        result = self.scan(b"Service MetaTester-1 start failed [1053]")
+        self.assertEqual(result["classification"], "AGENT_SERVICE_ERROR")
+
     def test_positive_connection_not_verified(self):
         result = self.scan(b"connected to ServerName")
         self.assertTrue(result["broker_connection_hint_unverified"])
