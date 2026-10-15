@@ -16,18 +16,18 @@ test('M1 is an explicit DEMO-only optional preset; previous strategies retain ti
  assert.equal(STRATEGIES.breakout.timeframe,'15m');
 });
 
-test('M1 migration preserves approved MetaApi imported DEMO identities and existing privileged arm guards',()=>{
+test('M1 migration updates only strategy options, preserving existing secure control function',()=>{
  const migration=readFileSync(new URL('../supabase/migrations/20261015000400_m1_demo_and_imported_account.sql',import.meta.url),'utf8');
+ const existing=readFileSync(new URL('../db/demo-engine.sql',import.meta.url),'utf8');
  assert.match(migration,/check\(strategy in \('trend','scalping','scalping-m1','breakout'\)\)/);
- assert.match(migration,/a\.gateway_id not like 'metaapi:%'/);
- assert.match(migration,/a\.gateway_id not like 'metaapi-existing:%'/);
- assert.match(migration,/auth\.uid\(\)/);
- assert.match(migration,/auth\.mfa_factors/);
- assert.match(migration,/elitetrade_engine_heartbeat/);
- assert.match(migration,/elitetrade_engine_orders/);
- assert.match(migration,/elitetrade_engine_leases/);
- assert.match(migration,/auth\.jwt\(\)/);
- assert.doesNotMatch(migration,/drop table|disable row level security|grant all on public/);
+ assert.match(migration,/pg_get_functiondef/);
+ assert.match(migration,/metaapi-existing:/);
+ assert.doesNotMatch(migration,/create or replace function|drop function|update public\.elitetrade_bots|delete from|disable row level security/);
+ assert.match(existing,/a\.gateway_id not like 'metaapi-existing:%'/);
+ assert.match(existing,/auth\.mfa_factors/);
+ assert.match(existing,/elitetrade_engine_heartbeat/);
+ assert.match(existing,/elitetrade_engine_orders/);
+ assert.match(existing,/elitetrade_engine_leases/);
 });
 
 test('owner-scoped confirmed broker receipts display on DEMO app; never fabricate simulated executions',async t=>{
