@@ -1,0 +1,78 @@
+name: Phase 4 phone-cloud MT5 research (tester only)
+
+on:
+  push:
+    branches:
+      - research/cloud-compile-ea-20261015
+    paths:
+      - 'research/phase4/**'
+      - '.github/workflows/phase4-phone-cloud-backtest.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: phase4-research-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  validation:
+    name: Test Phase 4 configuration and AES-256-GCM evidence vault
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test-only crypto library
+        run: python -m pip install 'cryptography>=43,<48'
+      - name: Run offline tests (no broker login, no MT5 orders)
+        run: python -m unittest discover -s research/phase4/tests -v
+
+  demo-tester:
+    name: Optional MT5 demo-data Strategy Tester — encrypted report only
+    needs: validation
+    if: >-
+      github.event_name == 'push' &&
+      github.repository == 'Mahiruni/Elitetrade' &&
+      github.ref == 'refs/heads/research/cloud-compile-ea-20261015' &&
+      vars.ELITETRADE_PHASE4_ALLOW_RUN == 'yes-demo-only'
+    runs-on: windows-2022
+    timeout-minutes: 23
+    env:
+      GH_TOKEN: ${{ github.token }}
+      MT5_DEMO_LOGIN: ${{ secrets.MT5_DEMO_LOGIN }}
+      MT5_DEMO_PASSWORD: ${{ secrets.MT5_DEMO_PASSWORD }}
+      MT5_DEMO_SERVER: ${{ secrets.MT5_DEMO_SERVER }}
+      MT5_EVIDENCE_PASSPHRASE: ${{ secrets.MT5_EVIDENCE_PASSPHRASE }}
+      PHASE4_MODE: ${{ vars.ELITETRADE_PHASE4_MODE || 'signal' }}
+      PHASE4_SYMBOL: ${{ vars.ELITETRADE_PHASE4_SYMBOL || 'XAUUSD' }}
+      ELITETRADE_SIMULATION_CONFIRMATION: ${{ vars.ELITETRADE_SIMULATION_CONFIRMATION }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install AES-GCM evidence dependency
+        shell: pwsh
+        run: python -m pip install 'cryptography>=43,<48'
+      - name: Execute tester-only research flow
+        shell: pwsh
+        run: |
+          ./research/phase4/scripts/Run-CloudTester.ps1 `
+            -Mode $env:PHASE4_MODE `
+            -Symbol $env:PHASE4_SYMBOL
+      - name: Upload only redacted status and encrypted evidence (NEVER raw report)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: elitetrade-phase4-encrypted-evidence
+          path: |
+            phase4-safe-output/safe-status.json
+            phase4-safe-output/safe-mt5-diagnostics.json
+            phase4-safe-output/evidence.aesgcm
+          if-no-files-found: warn
+          retention-days: 7

@@ -1,0 +1,52 @@
+name: Compile EliteTrade research EA (Windows, no trades)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/cloud-compile-ea-20261015
+    paths:
+      - ".github/workflows/compile-elitetrade-ea.yml"
+      - "MQL5/EliteTrade_SweepResearch_v1.mq5"
+      - "scripts/Compile-EliteTradeEA.ps1"
+
+permissions:
+  contents: read
+
+jobs:
+  compile-mql5:
+    name: Compile MQ5 to EX5
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Compile with MetaQuotes MetaEditor
+        shell: pwsh
+        run: |
+          ./scripts/Compile-EliteTradeEA.ps1 `
+            -Source 'MQL5/EliteTrade_SweepResearch_v1.mq5' `
+            -EvidenceDir 'build-evidence'
+
+      - name: Upload compiler evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: elitetrade-compiler-evidence
+          path: |
+            build-evidence/metaeditor-compilation.log
+            build-evidence/installer-diagnostics.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Publish EX5 only after successful compilation
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: elitetrade-research-ea-ex5-unverified-runtime
+          path: |
+            build-evidence/EliteTrade_SweepResearch_v1.ex5
+            build-evidence/build-manifest.json
+          if-no-files-found: error
+          retention-days: 14

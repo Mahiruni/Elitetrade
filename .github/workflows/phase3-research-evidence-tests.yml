@@ -1,0 +1,29 @@
+name: Validate Phase 3 evidence analyzer (no trading)
+
+on:
+  push:
+    branches:
+      - research/cloud-compile-ea-20261015
+    paths:
+      - 'research/phase3/**'
+      - '.github/workflows/phase3-research-evidence-tests.yml'
+  pull_request:
+    paths:
+      - 'research/phase3/**'
+      - '.github/workflows/phase3-research-evidence-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-python-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check analyzer and synthetic tests only
+        run: python -m unittest discover -s research/phase3/tests -v
