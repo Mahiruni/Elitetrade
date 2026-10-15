@@ -35,7 +35,7 @@ test('M1 does not trade unclosed, bad or gapped bars to increase frequency',()=>
     const candles=bars(side);
     const notYetConfirmed=candles.slice(0,-1);
     notYetConfirmed.push({...candles.at(-1),time:new Date(aligned).toISOString()});
-    assert.equal(evaluateStrategy('scalping-m1',notYetConfirmed,aligned+200).side,null);
+    assert.equal(evaluateStrategy('scalping-m1',notYetConfirmed,aligned).side,null);
     const interrupted=candles.filter((_,i)=>i!==34);
     assert.throws(()=>evaluateStrategy('scalping-m1',interrupted,aligned),/gaps/);
   }
