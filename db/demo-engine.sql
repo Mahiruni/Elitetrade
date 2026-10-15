@@ -59,7 +59,7 @@ begin
   if not exists(select 1 from public.elitetrade_engine_heartbeat where updated_at>now()-interval '90 seconds') then raise exception 'demo worker unavailable';end if;
   if not exists(select 1 from public.elitetrade_profiles where id=auth.uid() and not disabled and (active or role='admin')) then raise exception 'activate subscription first';end if;
   select * into a from public.elitetrade_accounts where id=b.account_id and user_id=auth.uid();
-  if a.status<>'connected' or a.gateway_id is null or a.gateway_id not like 'metaapi:%' then raise exception 'confirm the MT5 connection first';end if;
+  if a.status<>'connected' or a.gateway_id is null or (a.gateway_id not like 'metaapi:%' and a.gateway_id not like 'metaapi-existing:%') then raise exception 'confirm the MT5 connection first';end if;
   if exists(select 1 from public.elitetrade_engine_orders where account_id=b.account_id and status in ('reserved','unknown')) then raise exception 'unconfirmed order requires provider reconciliation';end if;
   if exists(select 1 from public.elitetrade_engine_runs where account_id=b.account_id and enabled and bot_id<>p_bot_id) then raise exception 'another bot already monitors this account';end if;
   if exists(select 1 from public.elitetrade_engine_runs where bot_id=p_bot_id and enabled) then return;end if;
