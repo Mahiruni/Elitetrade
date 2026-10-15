@@ -95,6 +95,10 @@ export function createSupabaseApplication(options = {}) {
   const bridgeDb=options.bridgeDb || (bridgeEnabled && mobileDbKey ?
     createSupabaseData({url:supabaseUrl,key:mobileDbKey}) : null);
   const bridgeCloud=createEliteBridgeCloud({db:bridgeDb});
+  // Opt-in means observable REAL account data only. The order gateway is
+  // untouched and has no REAL execution method or provider fallback.
+  const realObservationEnabled=bridgeEnabled && !!bridgeDb &&
+    env.ELITEBRIDGE_REAL_OBSERVATION_ENABLED==='true';
 
   const gateway = options.gateway === undefined ? createGateway(env) : options.gateway;
   // Phase 2 is a separate read-only broker adapter; the live DEMO worker still
@@ -615,8 +619,12 @@ export function createSupabaseApplication(options = {}) {
       const account=await db.one('elitetrade_accounts',
         'id=eq.'+q(accountId)+'&user_id=eq.'+q(ctx.user.id)+'&select=id',ctx.token);
       if(!account)fail(404,'Owned MT5 account not found.');
+      const accountMode=body.accountMode===undefined?'demo':body.accountMode;
+      if(accountMode==='real'&&!realObservationEnabled)
+        fail(503,'REAL account observation is not configured.');
       const enrolled=await bridgeCloud.enroll({
-        ownerId:ctx.user.id,accountId:account.id,label:body.label,publicKey:body.publicKey
+        ownerId:ctx.user.id,accountId:account.id,label:body.label,
+        publicKey:body.publicKey,accountMode,realAcknowledgement:body.realAcknowledgement
       });
       await audit(ctx,'elitebridge.terminal.enroll',enrolled.terminalId);
       res.setHeader('Cache-Control','no-store');
@@ -637,7 +645,7 @@ export function createSupabaseApplication(options = {}) {
     if(path==='/api/elitebridge/telemetry' && method==='POST'){
       requireBridgeCloud();
       res.setHeader('Cache-Control','no-store');
-      return json(res,await bridgeCloud.receive(body.packet));
+      return json(res,await bridgeCloud.receive(body.packet,{realObservationEnabled}));
     }
 
     if (path === '/api/elitebridge/protocol' && method === 'GET') {
@@ -645,7 +653,7 @@ export function createSupabaseApplication(options = {}) {
       // is NOT enrolled, broker-connected or enabled for trading.
       await needUser(req);
       res.setHeader('Cache-Control','no-store');
-      return json(res,eliteBridgeProtocolStatus({cloudIngestEnabled:bridgeEnabled && !!bridgeDb}));
+      return json(res,eliteBridgeProtocolStatus({cloudIngestEnabled:bridgeEnabled && !!bridgeDb,realObservationEnabled}));
     }
 
     if (path === '/api/elitebridge/status' && method === 'GET') {

@@ -106,15 +106,19 @@ export function createSandboxReplayStore(){
     return true;
   }};
 }
-export function eliteBridgeProtocolStatus({cloudIngestEnabled=false}={}){
-  return {version:BRIDGE_VERSION,phase:cloudIngestEnabled?4:3,
-    state:cloudIngestEnabled?'enrollment-ready':'sandbox-only',
-    cryptography:'Ed25519 signed envelopes',demoOnly:true,
+export function eliteBridgeProtocolStatus({cloudIngestEnabled=false,realObservationEnabled=false}={}){
+  const realObserve=cloudIngestEnabled && realObservationEnabled===true;
+  return {version:BRIDGE_VERSION,phase:realObserve?5:cloudIngestEnabled?4:3,
+    state:realObserve?'observation-ready':cloudIngestEnabled?'enrollment-ready':'sandbox-only',
+    cryptography:'Ed25519 signed envelopes',
+    demoOnly:!realObserve,observationOnly:true,realObservationEnabled:realObserve,
+    realOrdersEnabled:false,supportedAccountModes:realObserve?['demo','real']:['demo'],
     supportedPackets:[...kinds],expiresAfterSeconds:90,
     antiReplay:cloudIngestEnabled?'durable atomic PostgreSQL replay claim':
       'requires durable atomic sequence claim in production',
     pairingEnabled:cloudIngestEnabled,independentMT5Connected:false,
     terminalCompanionConnected:false,brokerVerified:false,ordersEnabled:false,
-    note:cloudIngestEnabled?'Cloud transport accepts approved terminal DEMO telemetry; no terminal or broker has been independently verified, and orders are disabled.':
+    note:realObserve?'DEMO and REAL observations may be enrolled separately. No real broker terminal is independently verified, and all EliteBridge order execution remains disabled.':
+      cloudIngestEnabled?'Cloud transport accepts approved terminal DEMO telemetry; no terminal or broker has been independently verified, and orders are disabled.':
       'The protocol is implemented and locally testable. No MT5 broker connection, production pairing or order transport is implemented.'};
 }

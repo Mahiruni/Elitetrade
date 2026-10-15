@@ -86,11 +86,20 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
         }
         ElevatedCard{
             Column(Modifier.fillMaxWidth().padding(16.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){
-                Text(if(protocol?.optInt("phase")==4) "EliteBridge · Protocol v3 / Cloud Phase 4" else "EliteBridge · Protocol v3",
+                Text(when(protocol?.optInt("phase")){
+                    5 -> "EliteBridge · Dual-mode observation"
+                    4 -> "EliteBridge · Protocol v3 / Cloud Phase 4"
+                    else -> "EliteBridge · Protocol v3"
+                },
                     fontSize=16.sp,fontWeight=FontWeight.Bold,color=gold)
-                Text(if(protocol?.optInt("phase")==4) "Signed DEMO telemetry · Ed25519 · secured cloud storage" else
-                    "Signed DEMO telemetry · Ed25519 · sandbox only",fontSize=12.sp)
-                Text(if(protocol?.optString("state")=="enrollment-ready")
+                Text(when(protocol?.optInt("phase")){
+                    5 -> "DEMO v3 + REAL v4 · signed, read-only telemetry"
+                    4 -> "Signed DEMO telemetry · Ed25519 · secured cloud storage"
+                    else -> "Signed DEMO telemetry · Ed25519 · sandbox only"
+                },fontSize=12.sp)
+                Text(if(protocol?.optString("state")=="observation-ready")
+                    "● REAL observation prepared · MT5 BROKER NOT VERIFIED"
+                    else if(protocol?.optString("state")=="enrollment-ready")
                     "● Secure cloud enrollment available · Independent MT5 NOT CONNECTED"
                     else if(protocol?.optString("state")=="sandbox-only")
                     "● Protocol specification available · Independent MT5 NOT CONNECTED"
@@ -99,6 +108,12 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
                 Text(if(protocol?.optBoolean("pairingEnabled")==true)
                     "Enrollment: administrator approval required · Direct broker orders: disabled"
                     else "Pairing: disabled · Direct broker orders: disabled",fontSize=11.sp,color=muted)
+                if(protocol?.optBoolean("realObservationEnabled")==true){
+                    Text("REAL account data: read-only · REAL orders: DISABLED",
+                        fontSize=12.sp,fontWeight=FontWeight.Bold,color=gold)
+                    Text("Manual enrollment and separate live-trading safeguards required. This page cannot place real orders.",
+                        fontSize=11.sp,color=muted,lineHeight=17.sp)
+                }
                 if(protocolWarning.isNotBlank())Text(protocolWarning,fontSize=11.sp,color=muted)
                 Text("The Termux protocol simulator proves signature and replay handling. It does not access Exness or replace MetaApi.",
                     fontSize=12.sp,color=muted,lineHeight=18.sp)
