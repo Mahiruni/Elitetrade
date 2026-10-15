@@ -93,7 +93,8 @@ export function createEliteBridgeCloud({db}={}){
           await verifyBridgePacket({...identity,role:'terminal'}):
           await verifyLiveObservation(identity);
         return {accepted:true,kind:result.kind,sequence:result.sequence,
-          accountMode:record.account_mode,readOnly:true,brokerVerified:false,ordersEnabled:false,
+          accountMode:record.account_mode,demoOnly:record.account_mode==='demo',
+          readOnly:true,brokerVerified:false,ordersEnabled:false,
           message:'Signed read-only telemetry stored; independent broker verification and trading remain disabled.'};
       }catch(err){
         if(err?.status===503)throw err;
