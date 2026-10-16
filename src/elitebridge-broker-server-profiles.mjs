@@ -8,12 +8,9 @@ export const BROKER_SERVER_PROFILES = Object.freeze({
 });
 export const EXNESS_MT5_SERVER_OPTIONS = Object.freeze(
   ['demo','real'].flatMap(mode=>Array.from({length:20},(_,index)=>{
-    const number=index+1;
-    const server=`Exness-MT5${mode==='demo'?'Trial':'Real'}${number}`;
-    return Object.freeze({
-      value:server,label:`${server} — ${mode==='demo'?'Demo':'Real'}`,
-      server,mode,isDemo:mode==='demo',broker:'exness'
-    });
+    const server=`Exness-MT5${mode==='demo'?'Trial':'Real'}${index+1}`;
+    return Object.freeze({value:server,label:server,server,mode,
+      isDemo:mode==='demo',broker:'exness'});
   }))
 );
 export function listMt5ServerOptions(broker,mode){
