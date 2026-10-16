@@ -27,6 +27,13 @@ scheduler in this milestone. Existing MetaApi/Android execution stays separate.
 No measured broker latency, terminal resource sizing, continuous uptime, or
 current production hosting cost is available for an independent runtime.
 
+| Independence objective | Current evidence |
+|---|---|
+| User's personal Windows PC | Architecture permits an operator host; no commissioned phone-off broker test yet. |
+| Windows on the backend | Not demonstrated; Linux/Wine remains an unverified terminal candidate. |
+| MetaApi | New ledger/controls do not call it; independent broker execution does not exist yet. Legacy MetaApi stays intact. |
+| Hosting provider | No new service created. Current app/database still use Vercel/Supabase; provider independence is not claimed. |
+
 Primary references checked:
 
 - https://get.exness.help/hc/en-us/articles/27866287512476-Exness-API
@@ -161,3 +168,20 @@ availability probe before deployment. The installed database schema is ready but
 the new production HTTP control route is **not deployed**. New Android controls
 must report backend unavailability until deployment is permitted. Signed Android
 publishing is checked independently; a compiled APK does not clear this blocker.
+
+## Verified Android publication
+
+The compatibility correction is commit
+`3059688be50e4f1705fd76bd3066f6a760c289e3`. Its application and debug workflows
+passed (38942011436 and 38942011497). Signed release run 38942011489 completed
+successfully: Gradle BUILD SUCCESSFUL, apksigner APK Signature Scheme v2 verified.
+
+Published release: https://github.com/Mahiruni/Elitetrade/releases/tag/android-v1.0.29
+
+Asset: `elitetrade-release.apk`, 12,198,811 bytes.
+SHA-256: `a455b409ddb6ab45beb79eaa36f2a00e1fb1daedd49b3fc45156ab19a85885bb`.
+
+This verifies build/signature/publication, not installation on a physical phone,
+broker connectivity, live order execution or phone-off continuity. Vercel's quota
+still blocks the new production HTTP controls; the Android screen discloses
+backend unavailability when the older API lacks account-control fields.
