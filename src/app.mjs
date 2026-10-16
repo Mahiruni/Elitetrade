@@ -597,7 +597,7 @@ export function createApplication(options = {}) {
   }
 
   const publicPath = resolve(options.publicPath || new URL('../public/', import.meta.url).pathname);
-  const pages = new Set(['/', '/download', '/ebook', '/login', '/signup', '/forgot-email', '/forgot-password', '/verify-device', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/hosted-mt5', '/elitebridge', '/dashboard', '/claudebot', '/claude-pro-bot', '/gold-smc', '/trade', '/markets', '/activity', '/positions', '/history', '/notifications', '/account', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
+  const pages = new Set(['/', '/download', '/ebook', '/login', '/signup', '/forgot-email', '/forgot-password', '/verify-device', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/hosted-mt5', '/elitebridge', '/eliteenginepro', '/dashboard', '/claudebot', '/claude-pro-bot', '/gold-smc', '/trade', '/markets', '/activity', '/positions', '/history', '/notifications', '/account', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
   const server = createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Referrer-Policy', 'no-referrer'); res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
@@ -654,6 +654,7 @@ export function createApplication(options = {}) {
       files['/elitebridge-enrollment.js'] = ['elitebridge-enrollment.js','text/javascript'];
       files['/elitebridge.js'] = ['elitebridge.js','text/javascript'];
       files['/elitebridge.css'] = ['elitebridge.css','text/css'];
+      files['/eliteenginepro.js'] = ['eliteenginepro.js','text/javascript'];
       files['/hosted-mt5.css'] = ['hosted-mt5.css','text/css'];
       files['/claude-pro-bot.js'] = ['claude-pro-bot.js','text/javascript'];
       files['/claude-pro-bot.css'] = ['claude-pro-bot.css','text/css'];

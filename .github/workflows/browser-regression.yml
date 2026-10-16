@@ -27,6 +27,7 @@ jobs:
         run: |
           node test/claude-pro-browser.mjs
           node test/elitebridge-browser.mjs
+          node test/eliteenginepro-browser.mjs
           node test/browser.mjs
       - name: Upload QA captures on failure
         if: failure()

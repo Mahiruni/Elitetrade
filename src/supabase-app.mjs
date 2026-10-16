@@ -747,6 +747,33 @@ export function createSupabaseApplication(options = {}) {
       return json(res,eliteBridgeStatus({gateway,accounts,workerReady:ready}));
     }
 
+    if (path === '/api/engine/pro/status' && method === 'GET') {
+      const ctx=await needUser(req);
+      res.setHeader('Cache-Control','private, no-store');
+      const accounts=await db.query('elitetrade_accounts',
+        `user_id=eq.${q(ctx.user.id)}&select=id,status&limit=100`,ctx.token);
+      let heartbeat='unknown';
+      if(gateway?.mode==='account-data'){
+        try{
+          const row=await db.one('elitetrade_engine_heartbeat','id=eq.true&select=updated_at',ctx.token);
+          const age=now()-Date.parse(row?.updated_at);
+          heartbeat=Number.isFinite(age)&&age>=-5000&&age<90000?'fresh':'stale-or-missing';
+        }catch{/* A database failure is unknown, not a stopped worker. */}
+      }
+      // This is capability disclosure, not a broker probe or execution pulse.
+      // A configured read-only gateway cannot enable the independent engine.
+      return json(res,{service:'EliteEnginePro',checkedAt:new Date(now()).toISOString(),readOnly:true,
+        independent:{state:'blocked',gatewayConfigured:!!options.cloudObserver ||
+          !!(env.ELITEBRIDGE_GATEWAY_URL && env.ELITEBRIDGE_GATEWAY_TOKEN),
+          brokerVerification:'not-checked',executionEnabled:false,realOrdersEnabled:false,
+          persistenceVerified:false,blocker:'An authenticated MT5 runtime and durable execution adapter still require commissioning.'},
+        legacy:{provider:gateway?.mode==='account-data'?'metaapi':null,heartbeat,
+          mobileEnabled:mobileEngineEnabled && !!engineDb && gateway?.mode==='account-data',
+          phoneProcessRequired:true},
+        accounts:{registered:accounts.length,pending:accounts.filter(a=>a.status==='pending').length},
+        controls:{nativeDemoAdminOnly:true,canManageNativeDemo:ctx.user.role==='admin'}});
+    }
+
     if (path === '/api/engine/mobile/status' && method === 'GET') {
       const ctx=await needAdmin(req);
       const ready=gateway?.mode==='account-data' ? await engineReady(db,ctx.token) : false;
@@ -1225,7 +1252,7 @@ export function createSupabaseApplication(options = {}) {
   }
 
   const publicPath = resolve(options.publicPath || new URL('../public/', import.meta.url).pathname);
-  const pages = new Set(['/', '/download', '/ebook', '/login', '/signup', '/forgot-email', '/forgot-password', '/verify-device', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/hosted-mt5', '/elitebridge', '/dashboard', '/claudebot', '/claude-pro-bot', '/gold-smc', '/trade', '/markets', '/activity', '/positions', '/history', '/notifications', '/account', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
+  const pages = new Set(['/', '/download', '/ebook', '/login', '/signup', '/forgot-email', '/forgot-password', '/verify-device', '/reset-password', '/passkey-setup', '/resend-confirmation', '/logout', '/mt5', '/hosted-mt5', '/elitebridge', '/eliteenginepro', '/dashboard', '/claudebot', '/claude-pro-bot', '/gold-smc', '/trade', '/markets', '/activity', '/positions', '/history', '/notifications', '/account', '/bots', '/subscription', '/subscribe', '/settings', '/pool', '/referrals', '/support', '/terms', '/privacy', '/risk-disclosure', '/refund-policy', '/cookies', '/admin', '/admin/support']);
   const server = createServer(async (req, res) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -1299,6 +1326,7 @@ export function createSupabaseApplication(options = {}) {
       files['/elitebridge-enrollment.js'] = ['elitebridge-enrollment.js','text/javascript'];
       files['/elitebridge.js'] = ['elitebridge.js','text/javascript'];
       files['/elitebridge.css'] = ['elitebridge.css','text/css'];
+      files['/eliteenginepro.js'] = ['eliteenginepro.js','text/javascript'];
       files['/hosted-mt5.css'] = ['hosted-mt5.css','text/css'];
       files['/claude-pro-bot.js'] = ['claude-pro-bot.js','text/javascript'];
       files['/claude-pro-bot.css'] = ['claude-pro-bot.css','text/css'];

@@ -1,6 +1,15 @@
-# EliteEnginePro — Render Linux/Wine compatibility instance
+# Archived Render Linux/Wine compatibility experiment
 
-User-selected runtime name: **EliteEnginePro**. Render's existing
+**Direction corrected:** EliteEnginePro is the integrated EliteTrade product at
+`/eliteenginepro`. Creating this separate Render service was an agent
+misinterpretation, subsequently rejected by the user. Do not create further
+resources from this image or use it as the product's execution host. The observed
+SDK compatibility probe failed after 90 seconds; no broker was authenticated.
+The existing service still requires suspension/removal; the connected tools do
+not expose those operations. Its files remain to avoid deliberately breaking an
+existing auto-deploy configuration.
+
+Render's existing
 `elitetrade-paper-demo` is a static site and remains separate. This image is a
 secret-free compatibility milestone for an operator-controlled Linux host. It
 does not install an MT5 terminal or authenticate a broker. It has no trade API,

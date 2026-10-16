@@ -242,10 +242,37 @@ Hosting check: Render's free web services sleep after idle periods and do not
 support persistent disks. They cannot establish the always-on, durable runtime
 promised here. No paid host or plan upgrade was created. After workspace
 confirmation, inspection found only the existing `elitetrade-paper-demo` static
-site. The user selected **EliteEnginePro** as the new runtime name. Its separate
-no-credentials Linux/Wine compatibility image and deployment scope are documented
-in [EliteEnginePro](../deploy/eliteenginepro/README.md). A free compatibility
-instance does not satisfy the persistent-host or broker-authentication gates.
+site. The agent misinterpreted the requested **EliteEnginePro** product name as
+a request for a separate Render service. The user explicitly corrected this:
+EliteEnginePro belongs inside the EliteTrade app/web experience. The no-credentials
+Linux/Wine image is an abandoned hosting experiment, documented in
+[the compatibility archive](../deploy/eliteenginepro/README.md). Its SDK probe
+failed after the 90-second deadline. It does not satisfy any broker or persistence
+gate. No further Render resource or upgrade is part of the corrected direction.
+
+## Corrected EliteEnginePro integration
+
+`/eliteenginepro` is part of the signed-in EliteTrade web workspace, linked from
+its existing navigation. `/api/engine/pro/status` uses the existing Supabase user
+and device verification and owner-scoped account queries. It discloses saved
+account counts, independent gateway configuration, execution blockers and the
+separate legacy MetaApi/Android heartbeat. It performs no broker calls, execution
+pulses, enrollment, provider migration or order requests. A fresh worker heartbeat
+cannot enable independent trading. Administrator-only native controls retain their
+existing authorization. No database migration or new hosting resource is required.
+
+This integration is an operational status/control entry point, not completion of
+the independent execution runtime. The native APK has not been changed or released
+by this correction. Continuous trading when the phone is off still requires an
+operator-managed running backend; a web page cannot supply that compute. The app
+has no dependency on the separate Render compatibility service.
+
+Cleanup status at implementation: the Render connector exposes no suspend/delete
+operation and no authenticated Render CLI is available. The mistaken free service
+`srv-db95d1s9v7es739jjfj0` has **not** been suspended or removed. Its existing
+auto-deploy setting also remains unchanged. Preserve the original
+`elitetrade-paper-demo` static site. The compatibility files are retained as a
+historical test fixture rather than intentionally breaking that service's build.
 
 Additional primary references:
 
