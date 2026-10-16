@@ -10,10 +10,10 @@ test('lists exactly 20 Exness demo and 20 real options',()=>{
  assert.equal(EXNESS_MT5_SERVER_OPTIONS[20].server,'Exness-MT5Real1');
  assert.equal(EXNESS_MT5_SERVER_OPTIONS[39].server,'Exness-MT5Real20');
 });
-test('labels and demo flags match mode',()=>{
+test('option labels contain only the server name',()=>{
  for(const option of EXNESS_MT5_SERVER_OPTIONS){
+  assert.equal(option.label,option.server);
   assert.equal(option.isDemo,option.mode==='demo');
-  assert.match(option.label,option.isDemo?/Demo$/:/Real$/);
   assert.equal(resolveMt5ServerProfile({broker:'Exness',mode:option.mode,server:option.server}).server,option.server);
  }
 });
