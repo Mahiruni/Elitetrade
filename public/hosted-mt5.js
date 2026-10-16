@@ -20,7 +20,24 @@ export function createHostedMt5Workspace({api,esc,isAdmin=()=>false}) {
   const enrollment=createEliteBridgeEnrollmentConsole({api,esc,isAdmin});
   function pill(label, kind='waiting') { return '<span class="host-chip host-chip--'+kind+'"><i aria-hidden="true"></i>'+esc(label)+'</span>'; }
   function stat(name,value,note,cls='') {return '<div class="host-metric '+cls+'"><span>'+esc(name)+'</span><strong>'+esc(value)+'</strong><small>'+esc(note)+'</small></div>';}
-  function pageMarkup(data) {
+  function preparationMarkup(readiness) {
+    if(!readiness||readiness.schema!=='elitebridge-prewindows-v1')
+      return '<section class="host-panel host-readiness"><span class="host-eyebrow">ELITEBRIDGE / PREPARATION</span><h2>Bridge readiness unavailable</h2><p class="meta">The independent MT5 bridge is not verified. The latest server readiness information could not be retrieved.</p></section>';
+    const items=Array.isArray(readiness.checks)?readiness.checks:[];
+    return `<section class="host-panel host-readiness" aria-label="Independent MT5 commissioning checklist">
+      <div class="host-panel-head"><div><span class="host-eyebrow">ELITEBRIDGE / LIVE PREPARATION</span>
+        <h2>Before Windows connects</h2></div>
+        ${pill(String(readiness.readyCount)+' / '+String(readiness.totalChecks)+' prepared','research')}</div>
+      <p class="meta">Backend readiness verified on ${esc(readiness.checkedAt)}. Prepared does not mean broker connected or trading enabled.</p>
+      <div class="host-preflight-grid">${items.map(item=>`<div class="host-preflight-item">
+        <span class="host-preflight-status host-preflight-status--${item.state==='ready'?'ready':'waiting'}">${item.state==='ready'?'✓':'○'}</span>
+        <div><strong>${esc(item.title||'Check')}</strong><small>${esc(item.note||'Not verified')}</small></div>
+        <span class="host-preflight-pill">${esc(item.state==='ready'?'Prepared':item.state==='unavailable'?'Unknown':'Pending')}</span>
+      </div>`).join('')}</div>
+      <p class="host-readiness-footer">Independent broker verified: <strong>NO</strong> · Bridge orders: <strong>DISABLED</strong> · Existing MetaApi: <strong>UNCHANGED</strong></p>
+    </section>`;
+  }
+  function pageMarkup(data,readiness=null) {
     const valid=data?.schema==='hosted_mt5_readiness_v1';
     const provisioned=valid && data?.host?.state==='verified_running' && !!data.host.lastHeartbeatAt;
     const name=valid ? data.research?.name : 'EliteTrade Sweep Research v1';
@@ -97,13 +114,17 @@ export function createHostedMt5Workspace({api,esc,isAdmin=()=>false}) {
           </section>
         </aside>
       </div>
+      ${preparationMarkup(readiness)}
       <div data-bridge-console></div>
       <div class="host-bottom-note"><span class="host-note-icon">${MONITOR}</span><div><strong>Web console deployed separately from the trading host</strong><p>This page is hosted by EliteTrade; the dedicated Windows machine must still be provisioned and verified. The latest cloud Strategy Tester attempt failed before producing reliable broker-history results.</p></div>${LINK(GUIDE,'Open technical plan','host-note-link')}</div>
     </div>`;
   }
   async function page() {
-    const status = await api('/hosted-mt5/status');
-    return pageMarkup(status);
+    const [status,readiness] = await Promise.all([
+      api('/hosted-mt5/status'),
+      api('/elitebridge/readiness').catch(()=>null)
+    ]);
+    return pageMarkup(status,readiness);
   }
   function mount() {
     enrollment.dispose();
@@ -120,9 +141,12 @@ export function createHostedMt5Workspace({api,esc,isAdmin=()=>false}) {
       if(b.disabled)return;
       b.disabled=true; b.textContent='Checking…';
       try {
-        const result=await api('/hosted-mt5/status');
+        const [result,readiness]=await Promise.all([
+          api('/hosted-mt5/status'),
+          api('/elitebridge/readiness').catch(()=>null)
+        ]);
         if(document.querySelector('.host-ui')===root) {
-          root.outerHTML=pageMarkup(result);
+          root.outerHTML=pageMarkup(result,readiness);
           mount();
         }
       } catch {
