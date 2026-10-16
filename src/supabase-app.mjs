@@ -14,6 +14,7 @@ import { createGateway, createTelegram } from './services.mjs';
 import { createSupabaseData } from './supabase-data.mjs';
 import { engineReady } from './demo-engine.mjs';
 import {eliteBridgeStatus} from './elitebridge.mjs';
+import {eliteBridgeReadiness} from './elitebridge-readiness.mjs';
 import {eliteBridgeProtocolStatus} from './elitebridge-protocol.mjs';
 import {createEliteBridgeCloud} from './elitebridge-cloud.mjs';
 import {createReadOnlyBrokerRouter} from './elitebridge-router.mjs';
@@ -673,6 +674,27 @@ export function createSupabaseApplication(options = {}) {
       requireBridgeCloud();
       res.setHeader('Cache-Control','no-store');
       return json(res,await bridgeCloud.receive(body.packet,{realObservationEnabled}));
+    }
+
+    if(path==='/api/elitebridge/readiness' && method==='GET'){
+      // Read-only owner-scoped commissioning preparation. Device verification
+      // is required; public clients cannot enumerate terminals or identities.
+      const ctx=await needUser(req);
+      rateLimit('elitebridge-readiness:'+ctx.user.id,12,60000);
+      const owned=await db.query('elitetrade_accounts',
+        'user_id=eq.'+q(ctx.user.id)+'&select=id&limit=30',ctx.token);
+      const isAdmin=ctx.user.role==='admin';
+      let inventory=null;
+      const cloudEnabled=bridgeEnabled&&!!bridgeDb;
+      if(isAdmin&&cloudEnabled){
+        try {
+          const response=await bridgeCloud.list({ownerId:ctx.user.id});
+          if(Array.isArray(response?.terminals))inventory=response.terminals;
+        }catch {/* Unknown is not an empty registry. Never leak service errors. */}
+      }
+      res.setHeader('Cache-Control','private, no-store');
+      return json(res,eliteBridgeReadiness({cloudEnabled,cloudInventory:inventory,
+        accounts:owned||[],isAdmin}));
     }
 
     if (path === '/api/elitebridge/protocol' && method === 'GET') {

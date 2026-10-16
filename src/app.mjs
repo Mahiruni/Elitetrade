@@ -1,5 +1,6 @@
 import { createAndroidReleaseService } from './android-release.mjs';
 import { hostedMt5Status } from './hosted-mt5-status.mjs';
+import { eliteBridgeReadiness } from './elitebridge-readiness.mjs';
 import { ORIGINAL_EX5, ORIGINAL_EX5_ID, isOriginalEx5 } from './original-ex5.mjs';
 import {createSupportHandler,sqliteSupport,supportRoute} from './support.mjs';
 import { accountDetails } from './account-view.mjs';
@@ -124,6 +125,13 @@ export function createApplication(options = {}) {
     const ip = env.TRUST_PROXY === 'true' ? String(req.headers['x-forwarded-for'] || req.socket.remoteAddress).split(',')[0].trim() : req.socket.remoteAddress;
     if (method !== 'GET') rateLimit(`write:${ip}`, 90);
     if (supportRoute(path)) {const user=needUser(context);return support(req,res,url,{user},body);}
+    if(path==='/api/elitebridge/readiness' && method==='GET'){
+      const user=needUser(context);
+      res.setHeader('Cache-Control','private, no-store');
+      const accounts=all('SELECT id FROM accounts WHERE user_id=?',user.id);
+      // Local development never impersonates the Supabase cloud bridge.
+      return json(res,eliteBridgeReadiness({cloudEnabled:false,accounts,isAdmin:user.role==='admin'}));
+    }
     if (path === '/api/hosted-mt5/status' && method === 'GET') {
       needUser(context);
       res.setHeader('Cache-Control', 'no-store');

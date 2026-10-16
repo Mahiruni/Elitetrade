@@ -296,6 +296,10 @@ class EliteApi(context: Context) {
     suspend fun eliteBridgeProtocolStatus(): JSONObject = withContext(Dispatchers.IO) {
         server("/api/elitebridge/protocol")
     }
+    /** Owner/device-scoped commissioning checklist; never permits orders. */
+    suspend fun eliteBridgeReadiness(): JSONObject = withContext(Dispatchers.IO) {
+        server("/api/elitebridge/readiness")
+    }
     /** Admin-only, never returns terminal private keys or broker secrets. */
     suspend fun eliteBridgeTerminals(): JSONObject = withContext(Dispatchers.IO) {
         server("/api/elitebridge/terminals")

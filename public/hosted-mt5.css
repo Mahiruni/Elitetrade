@@ -149,3 +149,19 @@ body.light .host-ui .host-primary{color:#15110d}
 @media(max-width:880px){.bridge-pairing-grid{grid-template-columns:1fr}.bridge-status-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:420px){.bridge-console{padding:17px}.bridge-enroll,.bridge-devices{padding:14px}.bridge-status-grid>div{padding:13px}.bridge-status-grid strong{font-size:15px}.bridge-device-head{display:block}.bridge-device-head span{display:block;margin-top:6px}}
 @media(prefers-reduced-motion:reduce){.bridge-console *{transition:none!important}}
+
+/* Signed-terminal commissioning checklist; pending is never presented as connected. */
+.host-readiness{margin-top:18px}
+.host-readiness>.meta{color:var(--hc-muted);font-size:12px;line-height:1.65;margin-bottom:16px}
+.host-preflight-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.host-preflight-item{display:flex;gap:12px;align-items:start;border:1px solid var(--hc-line);border-radius:14px;padding:15px;min-width:0}
+.host-preflight-item>div{min-width:0;flex:1}
+.host-preflight-item strong{display:block;font-size:12px;font-weight:720;line-height:1.4}
+.host-preflight-item small{display:block;color:var(--hc-muted);font-size:11px;line-height:1.55;margin-top:6px}
+.host-preflight-status{display:grid;place-items:center;flex:0 0 21px;height:21px;border-radius:50%;font-size:12px;border:1px solid var(--hc-line);color:var(--hc-muted)}
+.host-preflight-status--ready{border-color:#66b2937b;color:#62c69b}
+.host-preflight-pill{align-self:start;font-size:10px;line-height:1.25;white-space:nowrap;color:var(--hc-muted);margin-left:4px}
+.host-readiness-footer{font-size:11px;color:var(--hc-muted);border-top:1px solid var(--hc-line);margin:18px 0 0;padding-top:14px;line-height:1.8}
+.host-readiness-footer strong{color:var(--hc-ink)}
+@media(max-width:850px){.host-preflight-grid{grid-template-columns:1fr}}
+@media(max-width:430px){.host-preflight-item{gap:8px;padding:13px}.host-preflight-pill{font-size:9px}}

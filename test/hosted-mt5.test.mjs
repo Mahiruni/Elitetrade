@@ -27,7 +27,7 @@ test('hosted workspace renders authenticated read-only guidance and not a fake c
     esc: value => String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
   });
   const markup=await view.page();
-  assert.deepEqual(calls,['/hosted-mt5/status']);
+  assert.deepEqual(calls,['/hosted-mt5/status','/elitebridge/readiness']);
   assert.match(markup,/Hosted MT5/);
   assert.match(markup,/Not provisioned/);
   assert.match(markup,/Unverified/);

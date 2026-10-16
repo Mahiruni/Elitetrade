@@ -29,6 +29,7 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
     var busy by remember {mutableStateOf(false)}
     var report by remember {mutableStateOf<JSONObject?>(null)}
     var protocol by remember {mutableStateOf<JSONObject?>(null)}
+    var readiness by remember {mutableStateOf<JSONObject?>(null)}
     var terminalInventory by remember {mutableStateOf<JSONObject?>(null)}
     var telemetryDiagnostics by remember {mutableStateOf<JSONObject?>(null)}
     var protocolWarning by remember {mutableStateOf("")}
@@ -50,6 +51,8 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
     fun load() {
         scope.launch {
             busy=true;error=""
+            try{readiness=api.eliteBridgeReadiness()}
+            catch(_:Exception){readiness=null}
             try{report=api.eliteBridgeStatus()}
             catch(e:Exception){error=e.message?:"Connection inventory is unavailable."}
             try{
@@ -88,6 +91,48 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
         Text("EliteBridge",fontSize=30.sp,fontWeight=FontWeight.ExtraBold)
         Text("One EliteTrade app, provider-independent connectivity. Your current MetaApi connection stays untouched while we prepare a future independent MT5 bridge.",
             fontSize=13.sp,color=muted,lineHeight=20.sp)
+        ElevatedCard{
+            Column(Modifier.fillMaxWidth().padding(17.dp),
+                verticalArrangement=Arrangement.spacedBy(10.dp)){
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){
+                    Text("Windows connection readiness",fontSize=16.sp,fontWeight=FontWeight.Bold)
+                    Text(if(readiness==null)"Checking" else
+                        readiness!!.optInt("readyCount").toString()+"/"+
+                        readiness!!.optInt("totalChecks").toString()+" prepared",
+                        fontSize=11.sp,fontWeight=FontWeight.SemiBold,color=gold)
+                }
+                Text("Preparation only · no independent Windows broker connection or new trading authority.",
+                    fontSize=11.sp,color=muted,lineHeight=17.sp)
+                val checks=readiness?.optJSONArray("checks")
+                if(checks==null){
+                    Text("Readiness API unavailable. Check server deployment; no MT5 connection is assumed.",
+                        fontSize=12.sp,color=gold)
+                }else for(i in 0 until checks.length()){
+                    val check=checks.optJSONObject(i)?:continue
+                    val state=check.optString("state","pending")
+                    val ready=state=="ready"
+                    val color=if(ready)Color(0xFF34D399) else gold
+                    Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){
+                        Text(if(ready)"●" else "○",fontSize=13.sp,color=color)
+                        Column(verticalArrangement=Arrangement.spacedBy(3.dp)){
+                            Text(check.optString("title"),fontSize=12.sp,
+                                fontWeight=FontWeight.SemiBold)
+                            Text(check.optString("note"),fontSize=11.sp,
+                                color=muted,lineHeight=16.sp)
+                        }
+                    }
+                }
+                val next=readiness?.optJSONObject("nextStep")
+                if(next!=null){
+                    HorizontalDivider(color=MaterialTheme.colorScheme.outline.copy(alpha=.25f))
+                    Text("NEXT: "+next.optString("title"),fontSize=11.sp,
+                        fontWeight=FontWeight.Bold,color=gold)
+                    Text(next.optString("note"),fontSize=11.sp,color=muted)
+                }
+                Text("Broker verified: NO · EliteBridge orders: DISABLED",
+                    fontSize=11.sp,color=gold,fontWeight=FontWeight.Bold)
+            }
+        }
         ElevatedCard{
             Column(Modifier.fillMaxWidth().padding(17.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){
                 Row(horizontalArrangement=Arrangement.spacedBy(9.dp)){
