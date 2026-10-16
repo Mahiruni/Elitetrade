@@ -1,5 +1,7 @@
 # Project Freedom — independent cloud gateway commissioning
 
+Latest backend increment: [EliteEnginePro durable execution evidence](ELITEENGINEPRO_EXECUTION_EVIDENCE.md).
+
 Date: 2026-10-16. Audited production/repository baseline: `9184096c371ad006ad84babe572b9e1b89ba6603`.
 
 ## Result and first blocker

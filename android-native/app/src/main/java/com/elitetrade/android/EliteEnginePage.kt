@@ -23,6 +23,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 @Composable
@@ -48,12 +49,32 @@ fun EliteEnginePage(
     var cycles by remember{mutableIntStateOf(0)}
     var detail by remember{mutableStateOf("Stopped")}
     var internetAvailable by remember{mutableStateOf(false)}
+    val scope=rememberCoroutineScope()
+    var proAccounts by remember{mutableStateOf<List<JSONObject>>(emptyList())}
+    var selectedAccount by remember{mutableStateOf("")}
+    var proControl by remember{mutableStateOf<JSONObject?>(null)}
+    var proError by remember{mutableStateOf("")}
+    var proMessage by remember{mutableStateOf("")}
+    var stopBusy by remember{mutableStateOf(false)}
+    var accountMenu by remember{mutableStateOf(false)}
     val notifyPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     // Read-only authenticated status polling: never pulses the trading
     // worker, starts a bot or submits an MT5 order. One request at a time.
     suspend fun refreshBackend(){
         if(loading)return
+        if(stopBusy)return
         loading=true
+        try{
+            val summary=api.engineProStatus()
+            val items=summary.optJSONObject("accounts")?.optJSONArray("items")
+            proAccounts=if(items==null)emptyList() else (0 until items.length()).mapNotNull{items.optJSONObject(it)}
+            if(proAccounts.none{it.optString("id")==selectedAccount})selectedAccount=proAccounts.firstOrNull()?.optString("id") ?: ""
+            val checkedAccount=selectedAccount
+            val control=if(checkedAccount.isNotBlank())api.engineProAccount(checkedAccount) else null
+            if(selectedAccount==checkedAccount)proControl=control
+            proError=""
+        }catch(e:CancellationException){loading=false;throw e}
+        catch(e:Exception){proControl=null;proError="Independent control state unavailable. Retry before relying on a stop confirmation."}
         try{
             val status=api.mobileEngineStatus()
             enabled=status.optBoolean("enabled")
@@ -106,8 +127,53 @@ fun EliteEnginePage(
     val backendCheckedAge=if(checkedAtMillis>0) ((screenClockMillis-checkedAtMillis)/1000).coerceAtLeast(0L) else null
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp),
         verticalArrangement=Arrangement.spacedBy(16.dp)){
-        Text("NATIVE DEMO ENGINE",color=gold,fontSize=11.sp,fontWeight=FontWeight.Bold,letterSpacing=1.7.sp)
-        Text("Elite Engine",fontSize=30.sp,fontWeight=FontWeight.ExtraBold)
+        Text("ELITETRADE EXECUTION WORKSPACE",color=gold,fontSize=11.sp,fontWeight=FontWeight.Bold,letterSpacing=1.7.sp)
+        Text("EliteEnginePro",fontSize=30.sp,fontWeight=FontWeight.ExtraBold)
+        ElevatedCard{
+            Column(Modifier.fillMaxWidth().padding(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+                Text("INDEPENDENT EXECUTION · LOCKED",color=gold,fontWeight=FontWeight.Bold)
+                Text("Broker authentication and a persistent MT5 runtime still require commissioning. A worker heartbeat does not verify broker connectivity.",color=muted,fontSize=12.sp)
+                if(proAccounts.isNotEmpty()){
+                    val selected=proAccounts.firstOrNull{it.optString("id")==selectedAccount}
+                    Box{
+                        OutlinedButton(onClick={accountMenu=true},enabled=!loading&&!stopBusy){
+                            Text((selected?.optString("broker") ?: "MT5")+" · "+(selected?.optString("server") ?: "Choose account"))
+                        }
+                        DropdownMenu(expanded=accountMenu,onDismissRequest={accountMenu=false}){
+                            proAccounts.forEach{account->
+                                DropdownMenuItem(text={Text(account.optString("broker")+" · "+account.optString("server")+" · "+account.optString("id").take(8))},onClick={
+                                    accountMenu=false;selectedAccount=account.optString("id");proControl=null;proMessage=""
+                                    scope.launch{refreshBackend()}
+                                })
+                            }
+                        }
+                    }
+                    Text(if(proControl==null)"Saved stop state: unknown" else if(proControl!!.optBoolean("killSwitch"))"Independent stop is saved" else "Independent stop is not active",color=gold,fontSize=12.sp)
+                    Text("Unresolved broker outcomes: "+(proControl?.optInt("unresolvedCount")?.toString() ?: "Unknown"),color=muted,fontSize=12.sp)
+                    Button(onClick={
+                        val account=selectedAccount
+                        scope.launch{
+                            stopBusy=true
+                            try{
+                                val result=api.engineProAccount(account,true)
+                                if(selectedAccount==account){
+                                    proControl=result
+                                    proMessage=if(result.optBoolean("killSwitch"))"Stop confirmed and saved. Existing positions remain open." else "Stop was not confirmed. Refresh and retry."
+                                }
+                            }catch(e:CancellationException){throw e}
+                            catch(e:Exception){proControl=null;proMessage="Stop was not confirmed. Refresh and retry."}
+                            finally{stopBusy=false}
+                        }
+                    },enabled=selectedAccount.isNotBlank()&&!stopBusy&&!loading,modifier=Modifier.fillMaxWidth()){
+                        Text(if(stopBusy)"Saving stop…" else "Stop independent engine")
+                    }
+                }else Text("Save an MT5 account to access its persistent stop control.",color=muted,fontSize=12.sp)
+                Text("This stops independent engine work only. Existing positions stay open; the separate legacy Android/MetaApi engine is unaffected.",color=muted,fontSize=12.sp)
+                if(proError.isNotBlank())Text(proError,color=Color(0xFFEF7777),fontSize=12.sp)
+                if(proMessage.isNotBlank())Text(proMessage,color=gold,fontSize=12.sp)
+            }
+        }
+        Text("Existing supervised Android demo engine",fontWeight=FontWeight.Bold)
         Text("Your Android phone runs the foreground monitoring session. Broker verification, risk control and any DEMO orders remain on EliteTrade's private backend.",color=muted,fontSize=13.sp)
         ElevatedCard{
             Column(Modifier.fillMaxWidth().padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){

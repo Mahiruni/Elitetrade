@@ -41,7 +41,7 @@ private val overviewDestinations = listOf(
 )
 private val botDestinations = listOf(
     DrawerDestination("EliteBot","Bot",Icons.Default.SmartToy),
-    DrawerDestination("Elite Engine","Elite Engine",Icons.Default.Memory),
+    DrawerDestination("EliteEnginePro","Elite Engine",Icons.Default.Memory),
     DrawerDestination("EliteBridge","EliteBridge",Icons.Default.Cable),
     DrawerDestination("ClaudeBot","ClaudeBot",Icons.Default.AutoGraph),
     DrawerDestination("Claude Pro Bot","Claude Pro Bot",Icons.Default.Psychology),

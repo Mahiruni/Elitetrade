@@ -736,6 +736,27 @@ export function createSupabaseApplication(options = {}) {
       return json(res,eliteBridgeProtocolStatus({cloudIngestEnabled:bridgeEnabled && !!bridgeDb,realObservationEnabled,pairingProofRequired:true}));
     }
 
+    const engineProAccount=path.match(/^\/api\/engine\/pro\/accounts\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(\/stop)?$/i);
+    if(engineProAccount && (method==='GET'&&!engineProAccount[2] || method==='POST'&&engineProAccount[2])){
+      const ctx=await needUser(req);
+      const stopping=method==='POST';
+      res.setHeader('Cache-Control','private, no-store');
+      if(stopping && Object.keys(body).length)fail(400,'Stop does not accept execution or position commands.');
+      rateLimit('enginepro-'+(stopping?'stop:':'read:')+ctx.user.id,stopping?12:60,60000);
+      const account=await db.one('elitetrade_accounts',
+        `id=eq.${q(engineProAccount[1])}&user_id=eq.${q(ctx.user.id)}&select=id`,ctx.token);
+      if(!account)fail(404,'Your MT5 account was not found.');
+      try{
+        const result=await db.rpc('elitetrade_enginepro_account',{p_account_id:account.id,p_stop:stopping},ctx.token);
+        return json(res,result);
+      }catch(error){
+        if(/ENGINEPRO_(?:ACCOUNT_NOT_FOUND|AUTH_REQUIRED|MFA_REQUIRED)|Verify this browser/.test(error.message||''))
+          fail(403,'Account ownership and device verification are required.');
+        fail(503,stopping?'Stop was not confirmed. Retry and verify the saved control state.':
+          'Independent engine ledger is unavailable. No execution state was changed.');
+      }
+    }
+
     if (path === '/api/elitebridge/status' && method === 'GET') {
       // Read-only status for the signed-in, device-verified owner. No provider
       // credentials, hosted account identifiers or MT5 login numbers leave
@@ -751,7 +772,7 @@ export function createSupabaseApplication(options = {}) {
       const ctx=await needUser(req);
       res.setHeader('Cache-Control','private, no-store');
       const accounts=await db.query('elitetrade_accounts',
-        `user_id=eq.${q(ctx.user.id)}&select=id,status&limit=100`,ctx.token);
+        `user_id=eq.${q(ctx.user.id)}&select=id,status,broker,server&limit=100`,ctx.token);
       let heartbeat='unknown';
       if(gateway?.mode==='account-data'){
         try{
@@ -770,7 +791,8 @@ export function createSupabaseApplication(options = {}) {
         legacy:{provider:gateway?.mode==='account-data'?'metaapi':null,heartbeat,
           mobileEnabled:mobileEngineEnabled && !!engineDb && gateway?.mode==='account-data',
           phoneProcessRequired:true},
-        accounts:{registered:accounts.length,pending:accounts.filter(a=>a.status==='pending').length},
+        accounts:{registered:accounts.length,pending:accounts.filter(a=>a.status==='pending').length,
+          items:accounts.map(a=>({id:a.id,broker:a.broker,server:a.server}))},
         controls:{nativeDemoAdminOnly:true,canManageNativeDemo:ctx.user.role==='admin'}});
     }
 

@@ -1249,7 +1249,7 @@ private fun BotPage(bots:List<JSONObject>,accounts:List<JSONObject>,executions:L
         OutlinedButton(onClick=onEngine,modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.outlinedButtonColors(contentColor=Gold)) {
             Icon(Icons.Default.Memory,contentDescription=null)
             Spacer(Modifier.width(8.dp))
-            Text("Open native Elite Engine")
+            Text("Open EliteEnginePro")
         }
         Spacer(Modifier.height(3.dp))
         if(bots.isEmpty())EliteCard(panel){EmptyLine("Bot unavailable","No bot configuration was reported by the server.")}
@@ -1402,7 +1402,7 @@ private fun AccountPage(user:JSONObject?,panel:Color,textColor:Color,muted:Color
             AccountRow(Icons.Default.AutoGraph,"ClaudeBot","Independent read-only trading signal analysis",onClick={onNavigate("ClaudeBot")})
             AccountRow(Icons.Default.AutoGraph,"Claude Pro Bot","Automatic signal analysis and MT5 demo controls",onClick={onNavigate("Claude Pro Bot")})
             AccountRow(Icons.Default.AutoGraph,"Gold SMC Scalper","Read-only XAUUSD liquidity and structure research",onClick={onNavigate("Gold SMC Scalper")})
-            AccountRow(Icons.Default.Memory,"Elite Engine","Supervised Android demo worker",onClick={onNavigate("Elite Engine")})
+            AccountRow(Icons.Default.Memory,"EliteEnginePro","Independent controls and supervised demo worker",onClick={onNavigate("Elite Engine")})
             AccountRow(Icons.Default.Cable,"EliteBridge","Broker connections and future independent MT5 bridge",onClick={onNavigate("EliteBridge")})
             AccountRow(Icons.Default.History,"Activity","Subscription and recent records",onClick={onNavigate("Activity")})
         }

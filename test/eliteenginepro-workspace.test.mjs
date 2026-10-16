@@ -32,7 +32,7 @@ test('integrated engine status is authenticated, owner scoped and never executes
   const r=await f.get(),s=JSON.parse(r.text);
   assert.equal(r.status,200);assert.equal(r.headers.get('cache-control'),'private, no-store');
   assert.match(f.queries[0].where,/user_id=eq.owner/);assert.equal(f.queries[0].token,'owner-token');
-  assert.deepEqual(s.accounts,{registered:1,pending:1});
+  assert.deepEqual(s.accounts,{registered:1,pending:1,items:[{id:'account'}]});
   assert.equal(s.legacy.heartbeat,'fresh');assert.equal(s.independent.gatewayConfigured,true);
   assert.equal(s.independent.state,'blocked');assert.equal(s.independent.executionEnabled,false);
   assert.equal(s.independent.brokerVerification,'not-checked');assert.equal(s.independent.persistenceVerified,false);
