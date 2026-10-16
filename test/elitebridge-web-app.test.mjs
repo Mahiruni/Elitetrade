@@ -70,3 +70,30 @@ test('both app servers route EliteBridge assets and native Android shows truthfu
  assert.match(native,/No enrolled terminal|No approved EliteBridge terminals/);
  assert.match(native,/Independent trades: DISABLED/);
 });
+
+test('diagnostic outage is unknown rather than an empty healthy registry',async()=>{
+ const api=async url=>{
+  if(url==='/elitebridge/protocol')return {pairingEnabled:true};
+  if(url==='/elitebridge/status')return {activeProvider:'metaapi'};
+  throw Error('Unavailable');
+ };
+ const html=await createEliteBridgeWorkspace({api,esc,state:{user:{role:'admin'}}}).page();
+ assert.match(html,/telemetry freshness is unknown/);
+ assert.match(html,/Terminal registry unavailable; count is unknown/);
+ assert.match(html,/Receipt age measures cloud arrival/);
+ assert.doesNotMatch(html,/No terminals enrolled/);
+ assert.match(html,/Readiness unavailable/);
+});
+
+test('approval requires a displayed valid terminal key fingerprint',async()=>{
+ const terminal={id:'d26d5735-1058-4e91-9ce1-f727191758ee',label:'Trusted Windows',
+  status:'pending',account_mode:'demo',proof_verified_at:'2026-10-16T00:00:00Z'};
+ const api=async url=>url==='/elitebridge/protocol'?{pairingEnabled:true}:
+  url==='/elitebridge/terminals'?{terminals:[terminal]}:{};
+ const ui=createEliteBridgeWorkspace({api,esc,state:{user:{role:'admin'}}});
+ assert.doesNotMatch(await ui.page(),/data-bridge-cmd="approve"/);
+ terminal.fingerprint='a'.repeat(64);
+ const html=await ui.page();
+ assert.match(html,/data-bridge-cmd="approve"/);
+ assert.ok(html.includes(terminal.fingerprint));
+});

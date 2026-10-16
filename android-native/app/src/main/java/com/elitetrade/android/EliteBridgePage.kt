@@ -12,6 +12,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -26,6 +31,7 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
     val gold=Color(0xFFD8B16A)
     val muted=MaterialTheme.colorScheme.onBackground.copy(alpha=.70f)
     val scope=rememberCoroutineScope()
+    val lifecycleOwner=LocalLifecycleOwner.current
     var busy by remember {mutableStateOf(false)}
     var report by remember {mutableStateOf<JSONObject?>(null)}
     var protocol by remember {mutableStateOf<JSONObject?>(null)}
@@ -48,36 +54,44 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
         }
     }
 
-    fun load() {
-        scope.launch {
+    suspend fun refreshBackend() {
+            if(busy)return
             busy=true;error=""
+            try{
             try{readiness=api.eliteBridgeReadiness()}
+            catch(e:CancellationException){throw e}
             catch(_:Exception){readiness=null}
             try{report=api.eliteBridgeStatus()}
-            catch(e:Exception){error=e.message?:"Connection inventory is unavailable."}
+            catch(e:CancellationException){throw e}
+            catch(e:Exception){report=null;error=e.message?:"Connection inventory is unavailable."}
             try{
                 protocol=api.eliteBridgeProtocolStatus()
                 protocolWarning=""
                 if(api.user?.optString("role")=="admin" &&
                    protocol?.optBoolean("pairingEnabled")==true){
                     try{terminalInventory=api.eliteBridgeTerminals()}
+                    catch(e:CancellationException){throw e}
                     catch(_:Exception){terminalInventory=null}
                     try{telemetryDiagnostics=api.eliteBridgeDiagnostics()}
+                    catch(e:CancellationException){throw e}
                     catch(_:Exception){telemetryDiagnostics=null}
-                }
-            }catch(e:Exception){
+                }else{terminalInventory=null;telemetryDiagnostics=null}
+            }catch(e:CancellationException){throw e}
+            catch(e:Exception){
+                protocol=null;terminalInventory=null;telemetryDiagnostics=null
                 protocolWarning="Protocol status awaiting updated backend deployment."
             }
-            finally{busy=false}
-        }
+            }finally{busy=false}
     }
+    fun load() { scope.launch { refreshBackend() } }
     // Refresh only while this Compose screen remains in view. No background
     // polling, order execution, or broker login occurs from the Android UI.
-    LaunchedEffect(Unit){
-        load()
-        while(true){
-            delay(20000L)
-            if(!busy)load()
+    LaunchedEffect(api,lifecycleOwner){
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED){
+            while(isActive){
+                refreshBackend()
+                delay(20000L)
+            }
         }
     }
     val providers=report?.optJSONArray("providers")
@@ -348,7 +362,7 @@ fun EliteBridgePage(api:EliteApi,onNavigate:(String)->Unit) {
             Spacer(Modifier.width(8.dp))
             Text("Open Elite Engine")
         }
-        Text("Phase 3 is protocol-sandbox only, and broker diagnostics remain read-only. Live DEMO verification and XAUUSDm quotes use your existing MetaApi connection when requested. EliteBridge Direct MT5 remains unimplemented and needs a compatible terminal or broker API. No provider switch or broker order is performed here.",
+        Text("EliteBridge supports signed read-only terminal observations after Windows enrollment and approval. Independent cloud positions and order execution remain unavailable. Live DEMO probes use your existing MetaApi connection when requested. No provider switch or broker order is performed here.",
             fontSize=12.sp,color=muted,lineHeight=19.sp)
     }
 }

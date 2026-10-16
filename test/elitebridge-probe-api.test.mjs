@@ -59,6 +59,6 @@ test('Phase 2 Android probe remains read-only and owner-scoped',()=>{
  const page=readFileSync(new URL('../android-native/app/src/main/java/com/elitetrade/android/EliteBridgePage.kt',import.meta.url),'utf8');
  assert.match(api,/suspend fun eliteBridgeProbe/);
  assert.match(page,/Check live DEMO and XAUUSDm quote/);
- assert.match(page,/Phase 3 is protocol-sandbox only/);
+ assert.match(page,/Independent cloud positions and order execution remain unavailable/);
  assert.doesNotMatch(page,/demoOrder\(|OrderSend|METAAPI_TOKEN|SUPABASE_SERVICE_ROLE_KEY/);
 });

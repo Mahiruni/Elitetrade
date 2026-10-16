@@ -23,6 +23,8 @@ jobs:
       - run: npm ci
       - name: Verify Windows readiness evaluator on Windows
         run: node --test test/elitebridge-windows-readiness.test.mjs
+      - name: Verify supervised telemetry without an MT5 session
+        run: node --test test/elitebridge-supervisor.test.mjs
       - name: Run synthetic DEMO/REAL host readiness
         run: npm run bridge:windows:simulate
       - name: Unconfigured Windows runner must fail closed

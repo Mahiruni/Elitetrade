@@ -18,7 +18,7 @@ test('Android EliteBridge interface is reachable and cannot switch providers or 
  assert.match(activity,/"EliteBridge" -> EliteBridgePage/);
  assert.match(activity,/AccountRow\(Icons.Default.Cable,"EliteBridge"/);
  assert.match(api,/server\("\/api\/elitebridge\/status"\)/);
- assert.match(page,/Phase 3 is protocol-sandbox only/);
+ assert.match(page,/Independent cloud positions and order execution remain unavailable/);
  assert.match(page,/Not connected/);
  assert.doesNotMatch(page,/api\.controlBot|demoOrder|METAAPI_TOKEN|sb_secret_/);
 });
