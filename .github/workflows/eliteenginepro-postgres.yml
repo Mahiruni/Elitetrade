@@ -1,0 +1,40 @@
+name: EliteEnginePro durable execution rehearsal
+on:
+  push:
+    paths:
+      - 'supabase/migrations/*eliteenginepro*'
+      - 'test/eliteenginepro-postgres.integration.mjs'
+      - '.github/workflows/eliteenginepro-postgres.yml'
+  pull_request:
+    paths:
+      - 'supabase/migrations/*eliteenginepro*'
+      - 'test/eliteenginepro-postgres.integration.mjs'
+      - '.github/workflows/eliteenginepro-postgres.yml'
+permissions:
+  contents: read
+jobs:
+  ledger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: enginepro_ci
+          POSTGRES_PASSWORD: disposable_ci_only
+          POSTGRES_DB: enginepro_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd 'pg_isready -U enginepro_ci -d enginepro_ci'
+          --health-interval 5s --health-timeout 3s --health-retries 12
+    env:
+      ELITETRADE_ENGINEPRO_CI_POSTGRES_URL: postgresql://enginepro_ci:disposable_ci_only@127.0.0.1:5432/enginepro_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm install --no-save --package-lock=false --ignore-scripts pg@8.16.3
+      - run: node --test test/eliteenginepro-postgres.integration.mjs
