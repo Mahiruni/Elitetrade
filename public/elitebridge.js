@@ -104,6 +104,8 @@ export function createEliteBridgeWorkspace({api,esc,state}) {
         const x=window.scrollX,y=window.scrollY;
         root.outerHTML=html;bind();
         const next=document.querySelector('.bridge-root');
+        // A field inside a collapsed details element cannot receive focus.
+        [...next.querySelectorAll('details')].forEach((el,i)=>{el.open=openDetails[i]===true;});
         for(const form of next.querySelectorAll('[data-bridge-form]')){
           const draft=drafts.find(d=>d.kind===form.dataset.bridgeForm&&d.id===form.dataset.id);
           for(const el of form.querySelectorAll('[name]')){
@@ -116,7 +118,6 @@ export function createEliteBridgeWorkspace({api,esc,state}) {
             }
           }
         }
-        [...next.querySelectorAll('details')].forEach((el,i)=>{el.open=openDetails[i]===true;});
         window.scrollTo(x,y);
       }
     }catch{const el=document.querySelector('.bridge-foot');if(el)el.textContent='Cloud diagnostics temporarily unavailable · auto-retrying';}
