@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createCloudMt5Observer} from '../src/elitebridge-cloud-mt5-observer.mjs';
 const at=Date.parse('2026-10-16T12:00:00.000Z');
-const data={authenticated:true,brokerConnected:true,platform:'mt5',mode:'demo',
- server:'Exness-MT5Trial9',accountId:'local-account',observedAt:new Date(at).toISOString(),
- balance:1000,equity:990};
+const data={authenticated:true,brokerConnected:true,platform:'mt5',broker:'Exness',
+ mode:'demo',server:'Exness-MT5Trial9',accountId:'local-account',
+ observedAt:new Date(at).toISOString(),balance:1000,equity:990};
 const make=(value)=>createCloudMt5Observer({
  endpoint:'https://gateway.example.test/api',token:'private-test-token',clock:()=>at,
  fetchImpl:async()=>({ok:true,json:async()=>value})
@@ -26,4 +26,16 @@ test('rejects unverified gateway identity',async()=>{
 });
 test('rejects wrong account binding',async()=>{
  await assert.rejects(make({...data,accountId:'other-account'}).snapshot(args),/not verified/);
+});
+test('rejects wrong broker identity',async()=>{
+ await assert.rejects(make({...data,broker:'OtherBroker'}).snapshot(args),/not verified/);
+});
+test('rejects non-numeric account equity',async()=>{
+ await assert.rejects(make({...data,equity:'990'}).snapshot(args),/invalid/);
+});
+test('rejects invalid account ID before contacting gateway',async()=>{
+ await assert.rejects(make(data).snapshot({...args,accountId:'../escape'}),/binding/);
+});
+test('rejects future snapshot beyond clock tolerance',async()=>{
+ await assert.rejects(make({...data,observedAt:new Date(at+3000).toISOString()}).snapshot(args),/stale/);
 });
