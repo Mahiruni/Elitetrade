@@ -3,12 +3,15 @@ export function createEliteEngineProWorkspace({api,esc,state}) {
   let timer=null,generation=0,inFlight=false,selectedAccount=null,mutating=false,controlMessage='';
   const value=s=>esc(String(s??''));
   async function page(){
+    const epoch=generation,owner=state.user;
     const status=await api('/engine/pro/status');
+    if(epoch!==generation||owner!==state.user)throw Error('Workspace changed');
     const legacy=status.legacy||{},independent=status.independent||{};
     const accounts=Array.isArray(status.accounts?.items)?status.accounts.items:[];
     if(!accounts.some(a=>a.id===selectedAccount))selectedAccount=accounts[0]?.id||null;
     let control=null;
     if(selectedAccount)try{control=await api('/engine/pro/accounts/'+encodeURIComponent(selectedAccount));}catch{/* Unknown, never assume stopped. */}
+    if(epoch!==generation||owner!==state.user)throw Error('Workspace changed');
     const controlKnown=typeof control?.killSwitch==='boolean';
     const metric=(label,text,note)=>`<div class="bridge-metric"><span>${value(label)}</span><strong>${value(text)}</strong><small>${value(note)}</small></div>`;
     return `<section class="bridge-root enginepro-root">

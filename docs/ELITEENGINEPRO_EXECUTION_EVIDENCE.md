@@ -85,7 +85,9 @@ call a broker, schedule trades or fall back to MetaApi.
 - Stop affects the independent engine only, not legacy MetaApi monitoring or
   broker positions. Both interfaces say this explicitly.
 - Native source includes account selection, saved stop state and stop requests.
-  Compilation/release evidence must be checked separately from website readiness.
+  Debug compilation passed in GitHub Actions run 38941142156 (BUILD SUCCESSFUL).
+  An APK artifact was uploaded; no physical Android device acceptance test was
+  performed. Signed production release is verified separately after main deploy.
 
 ## Verification obtained
 
@@ -95,7 +97,7 @@ call a broker, schedule trades or fall back to MetaApi.
   duplicate signals, configuration conflicts, invalid commands, real-server
   rejection, expired authorization, invalid transitions, crash-after-submission,
   stale worker fencing and reconciliation while stopped.
-- Local suite: 404 tests passed. Responsive browser fixture passed explicit stop,
+- Local suite: 405 tests passed. Responsive browser fixture passed explicit stop,
   unconfirmed stop, refresh failure/recovery, navigation during a pending request,
   four widths (320/390/768/1440) and light/dark themes.
 - Migration applied successfully to existing Supabase project cgpvhayfwnpipktyltho.

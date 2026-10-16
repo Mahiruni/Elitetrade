@@ -58,3 +58,13 @@ test('workspace renders a recent legacy heartbeat without enabling independent t
   assert.doesNotMatch(html,/<private-host>/);assert.doesNotMatch(html,/onrender\.com|Start engine|ENGINE ONLINE/);
   ui.dispose();
 });
+test('a late previous-owner response cannot select or inspect an account',async()=>{
+  let release;const calls=[],state={user:{id:'first-owner'}};
+  const ui=createEliteEngineProWorkspace({state,esc:String,api:async path=>{
+    calls.push(path);return new Promise(resolve=>{release=resolve;});
+  }});
+  const pending=ui.page();state.user={id:'second-owner'};
+  release({accounts:{items:[{id:'previous-owner-account'}]}});
+  await assert.rejects(pending,/Workspace changed/);
+  assert.deepEqual(calls,['/engine/pro/status']);ui.dispose();
+});
