@@ -316,10 +316,12 @@ class EliteApi(context: Context) {
     }
     /** No privileged keys in Android: requests use the verified member session. */
     suspend fun engineProStatus(): JSONObject = withContext(Dispatchers.IO) {
+        ensureMobileEngineSession()
         server("/api/engine/pro/status")
     }
     suspend fun engineProAccount(accountId:String,stop:Boolean=false): JSONObject = withContext(Dispatchers.IO) {
         if(!accountId.matches(Regex("[0-9a-fA-F-]{36}")))throw ApiProblem("Invalid MT5 account selection.")
+        ensureMobileEngineSession()
         val path="/api/engine/pro/accounts/"+accountId
         val result=if(stop)server(path+"/stop","POST",JSONObject()) else server(path)
         if(result.optString("accountId")!=accountId || result.opt("killSwitch") !is Boolean)
