@@ -1,0 +1,32 @@
+[Unit]
+Description=EliteBridge private DEMO broker data gateway
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=elitebridge
+Group=elitebridge
+WorkingDirectory=/opt/elitetrade
+EnvironmentFile=/etc/elitebridge/gateway.env
+StateDirectory=elitebridge
+StateDirectoryMode=0700
+UMask=0077
+ExecStart=/usr/bin/flock --nonblock /var/lib/elitebridge/gateway.lock /usr/bin/node /opt/elitetrade/scripts/elitebridge-cloud-gateway.mjs serve
+Restart=on-failure
+RestartSec=15
+TimeoutStopSec=20
+KillMode=control-group
+NoNewPrivileges=true
+# The reviewed private X display must be reachable by the Wine client.
+# Restrict it with display authentication; do not expose X over the network.
+PrivateTmp=false
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/elitebridge
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+
+[Install]
+WantedBy=multi-user.target

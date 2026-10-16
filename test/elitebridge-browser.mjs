@@ -12,13 +12,17 @@ body{margin:0;padding:18px;background:#000;color:#f4f5f7;font:14px system-ui;--t
 import {createEliteBridgeWorkspace} from '/elitebridge.js';
 history.replaceState({},'', '/elitebridge');
 const terminal={id:'d26d5735-1058-4e91-9ce1-f727191758ee',label:'Test Windows terminal',account_mode:'demo',status:'pending',proof_verified_at:null,fingerprint:'a'.repeat(64)};
-const f=window.bridgeFixture={calls:0,unavailable:false,delay:false,pending:[],state:{user:{id:'fixture-owner',role:'admin'}}};
+const f=window.bridgeFixture={calls:0,unavailable:false,cloudVerified:false,delay:false,pending:[],state:{user:{id:'fixture-owner',role:'admin'}}};
 const esc=s=>String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 const api=async(url,method)=>{
 f.calls++;
 if(f.delay)await new Promise(resolve=>f.pending.push(resolve));
 if(f.unavailable&&url==='/elitebridge/diagnostics')throw Error('Fixture outage');
-if(url==='/elitebridge/status')return {activeProvider:'metaapi'};
+if(url==='/elitebridge/status')return {activeProvider:'metaapi',accounts:[{accountId:'11111111-2222-4333-8444-555555555555',account:'••••456',broker:'Exness'}]};
+if(url.endsWith('/cloud-probe')){
+  if(!f.cloudVerified)throw Error('Synthetic runtime not configured');
+  return {state:'broker-verified-demo',snapshot:{brokerAuthenticated:true,server:'Exness-MT5Trial9',observedAt:new Date().toISOString(),marketState:'fresh',openPositionCount:0}};
+}
 if(url==='/elitebridge/protocol')return {pairingEnabled:true};
 if(url==='/elitebridge/readiness')return {checks:[{id:'cloud',title:'Secure cloud ingestion',state:'ready',note:'Configured in synthetic fixture only.'},{id:'host',title:'Dedicated Windows MT5 terminal',state:'pending',note:'A running Windows terminal still requires verification.'}]};
 if(url==='/elitebridge/terminals'&&method==='POST')return {terminalId:terminal.id};
@@ -76,6 +80,17 @@ try{
   assert.match(await page.locator('#bridge-overview').innerText(),/Receiving telemetry\s+Unknown/);
   await page.evaluate(()=>{window.bridgeFixture.unavailable=false;window.dispatchEvent(new Event('online'));});
   await page.locator('#bridge-diagnostics').getByText('Checked',{exact:true}).waitFor();
+
+  const cloud=page.locator('#bridge-gateway');
+  await cloud.getByLabel('Your saved MT5 account').selectOption('11111111-2222-4333-8444-555555555555');
+  await cloud.getByRole('button',{name:'Verify private DEMO gateway'}).click();
+  await cloud.getByText('Synthetic runtime not configured',{exact:true}).waitFor();
+  assert.equal(await cloud.getByText('Broker not verified',{exact:true}).count(),1);
+  await page.evaluate(()=>{window.bridgeFixture.cloudVerified=true;window.dispatchEvent(new Event('online'));});
+  await cloud.getByText('Broker verified · DEMO',{exact:true}).waitFor();
+  assert.match(await cloud.innerText(),/Execution locked/);
+  await page.evaluate(()=>{window.bridgeFixture.cloudVerified=false;window.dispatchEvent(new Event('online'));});
+  await cloud.getByText('Broker not verified',{exact:true}).waitFor();
 
   for(const width of [320,390,768,1440]){
     await page.setViewportSize({width,height:900});

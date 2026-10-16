@@ -1,7 +1,8 @@
 // EliteBridge Control Center — independent signed MT5 telemetry, never order execution.
 export function createEliteBridgeWorkspace({api,esc,state}) {
   const guide='https://github.com/Mahiruni/Elitetrade/blob/main/docs/ELITEBRIDGE_PHASE9_WINDOWS_READINESS.md';
-  let timer=null,request=null,lastChallenge=null,generation=0,mutating=false;
+  const cloudGuide='https://github.com/Mahiruni/Elitetrade/blob/main/docs/PROJECT_FREEDOM.md';
+  let timer=null,request=null,lastChallenge=null,generation=0,mutating=false,cloudAccountId=null;
   const safe=v=>esc(String(v??''));
   function badge(label,kind='neutral'){return '<span class="bridge-chip bridge-'+kind+'">'+safe(label)+'</span>';}
   function metric(label,value,note){return '<div class="bridge-metric"><span>'+safe(label)+'</span><strong>'+safe(value)+'</strong><small>'+safe(note)+'</small></div>';}
@@ -26,6 +27,13 @@ export function createEliteBridgeWorkspace({api,esc,state}) {
     const [status,protocol,readinessResult]=await Promise.allSettled([api('/elitebridge/status'),api('/elitebridge/protocol'),api('/elitebridge/readiness')]);
     const s=status.status==='fulfilled'?status.value:null,p=protocol.status==='fulfilled'?protocol.value:null;
     const readiness=readinessResult.status==='fulfilled'?readinessResult.value:null;
+    let cloudResult=null,cloudError='';
+    if(cloudAccountId){
+      try{cloudResult=await api('/elitebridge/accounts/'+encodeURIComponent(cloudAccountId)+'/cloud-probe');}
+      catch(error){cloudError=error.message||'Private gateway unavailable. Broker connection unverified.';}
+    }
+    const cloudSnapshot=cloudResult?.snapshot;
+    const cloudVerified=cloudResult?.state==='broker-verified-demo'&&cloudSnapshot?.brokerAuthenticated===true;
     let list=null,checks=null,setupError='',accounts={accounts:[]};
     if(admin&&p?.pairingEnabled){
       const results=await Promise.allSettled([
@@ -58,6 +66,14 @@ export function createEliteBridgeWorkspace({api,esc,state}) {
     metric('Registered terminals',list?String(terminals.length):'Unknown',!admin?'Administrator access required':hasCloud?'Owner-scoped registry':'Enrollment not activated')+
     metric('Receiving telemetry',checks?String(health.filter(h=>h.state==='receiving').length):'Unknown','Signed observations only; not broker authentication')+
     metric('Real-money execution','Disabled','Independent bridge has no live-order authority')+'</div>'+
+    '<section class="bridge-panel" id="bridge-gateway"><div class="bridge-panel-head"><div><span class="bridge-kicker">PROJECT FREEDOM / PRIVATE RUNTIME</span><h2>Cloud broker verification</h2></div>'+badge(cloudVerified?'Broker verified · DEMO':'Broker not verified',cloudVerified?'good':'neutral')+'</div>'+
+    '<p class="bridge-small">Verify your demo account through the private cloud gateway. Runtime commissioning is pending until a genuine broker session is confirmed. Your existing connection and bot settings stay under your control.</p>'+
+    '<form data-bridge-form="cloud-probe"><label>Your saved MT5 account<select name="accountId" required><option value="">Select an Exness demo account</option>'+
+    (s?.accounts||[]).filter(a=>a.accountId).map(a=>'<option value="'+safe(a.accountId)+'"'+(a.accountId===cloudAccountId?' selected':'')+'>'+safe(a.broker)+' · '+safe(a.account)+'</option>').join('')+
+    '</select></label><button type="submit">Verify private DEMO gateway</button></form>'+
+    (cloudError?'<p class="bridge-warning" role="status">'+safe(cloudError)+'</p>':'')+
+    (cloudVerified?'<p class="bridge-small">Server: '+safe(cloudSnapshot.server)+' · Last broker verification: '+safe(cloudSnapshot.observedAt)+' · Market: '+safe(cloudSnapshot.marketState)+' · Positions: '+safe(cloudSnapshot.openPositionCount)+' · Execution locked</p>':'<p class="bridge-small">Account verification, market freshness and engine health are separate checks. No authenticated snapshot has been accepted here.</p>')+
+    '<div class="bridge-links">'+link(cloudGuide,'Cloud runtime and evidence')+'</div></section>'+
     '<div class="bridge-layout"><section class="bridge-panel" id="bridge-terminals"><div class="bridge-panel-head"><div><span class="bridge-kicker">01 / INFRASTRUCTURE</span><h2>Trusted terminals</h2></div>'+badge(hasCloud?'Pairing required':'Awaiting activation')+'</div>'+
     (!admin?'<p class="bridge-small">Only an authenticated administrator can enroll or approve a terminal. Contact your EliteTrade administrator for integration.</p>':
        setupError?'<p class="bridge-warning">'+safe(setupError)+'</p>':
@@ -127,6 +143,10 @@ export function createEliteBridgeWorkspace({api,esc,state}) {
     if(mutating)return;
     mutating=true;const epoch=++generation,owner=state.user;request=null;
     try{
+    if(kind==='cloud-probe'){
+      if(!/^[0-9a-f-]{36}$/i.test(payload.accountId||''))throw Error('Select your saved Exness demo account.');
+      cloudAccountId=payload.accountId;
+    }
     const url='/elitebridge/terminals'+(id?'/'+encodeURIComponent(id):'');
     if(kind==='enroll')await api(url,'POST',payload);
     if(kind==='challenge'){const result=await api(url+'/challenge','POST',{});if(epoch===generation&&state.user===owner)lastChallenge=result;}
@@ -164,7 +184,7 @@ export function createEliteBridgeWorkspace({api,esc,state}) {
   }
   const resume=()=>{if(!document.hidden)void refresh();};
   function mount(){dispose();bind();document.addEventListener('visibilitychange',resume);window.addEventListener('online',resume);timer=setInterval(resume,15000);}
-  function dispose(){generation++;request=null;lastChallenge=null;if(timer!==null){clearInterval(timer);timer=null;}
+  function dispose(){generation++;request=null;lastChallenge=null;cloudAccountId=null;if(timer!==null){clearInterval(timer);timer=null;}
     if(typeof document!=='undefined')document.removeEventListener('visibilitychange',resume);
     if(typeof window!=='undefined')window.removeEventListener('online',resume);}
   return {page,mount,dispose};

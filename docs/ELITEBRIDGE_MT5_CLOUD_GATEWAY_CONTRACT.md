@@ -3,6 +3,15 @@
 This document defines the next broker-facing integration point. It is NOT a claim
 that Exness MT5 has been connected, or that live orders are supported.
 
+The commissioning implementation now lives in `src/elitebridge-gateway-*.mjs`,
+`scripts/elitebridge-cloud-gateway.mjs` and `companion/mt5_cloud_gateway.py`.
+See [Project Freedom](PROJECT_FREEDOM.md) for current scope, secure provisioning,
+Linux/Wine candidate deployment and live acceptance blockers. The strict consumer
+now additionally requires a matching login digest, complete financial/position
+fields, read-only flags and separate source-timestamped quote validation. REAL
+access is locked in this gateway. Earlier minimal snapshot examples below are
+historical and are insufficient for the current validator.
+
 ## Existing code
 
 - `src/elitebridge-broker-server-profiles.mjs`: Exness demo `Exness-MT5Trial9`,

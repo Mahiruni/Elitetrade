@@ -24,7 +24,10 @@
     "bridge:windows:check": "node scripts/elitebridge-windows-doctor.mjs",
     "bridge:windows:simulate": "node scripts/elitebridge-windows-sandbox.mjs",
     "bridge:terminal:snapshot": "python companion/mt5_readonly_probe.py --snapshot",
-    "bridge:termux:monitor": "node scripts/elitebridge-termux-monitor.mjs"
+    "bridge:termux:monitor": "node scripts/elitebridge-termux-monitor.mjs",
+    "bridge:gateway:seal": "node scripts/elitebridge-cloud-gateway.mjs seal",
+    "bridge:gateway:check": "node scripts/elitebridge-cloud-gateway.mjs check",
+    "bridge:gateway:serve": "node scripts/elitebridge-cloud-gateway.mjs serve"
   },
   "dependencies": {
     "lucide-react": "1.57.0",

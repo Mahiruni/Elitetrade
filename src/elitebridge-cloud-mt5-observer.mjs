@@ -1,4 +1,5 @@
 import {resolveMt5ServerProfile} from './elitebridge-broker-server-profiles.mjs';
+import {validateGatewaySnapshot} from './elitebridge-gateway-snapshot.mjs';
 
 // Read-only cloud transport. The remote gateway must authenticate against MT5.
 // This client does not prove the gateway is connected until a valid snapshot arrives.
@@ -11,8 +12,10 @@ export function createCloudMt5Observer({endpoint,token,fetchImpl=fetch,clock=Dat
     throw Error('Private gateway credential required');
   return Object.freeze({
     mode:'read-only',tradingEnabled:false,
-    async snapshot({broker,server,mode,accountId,signal}={}){
+    async snapshot({broker,server,mode,accountId,login,symbol='XAUUSDm',signal}={}){
       const profile=resolveMt5ServerProfile({broker,server,mode});
+      if(mode!=='demo')throw Error('REAL account cloud access is locked');
+      if(typeof login!=='string'||!/^[1-9][0-9]{0,15}$/.test(login))throw Error('Expected MT5 login required');
       if(typeof accountId!=='string'||!/^[a-zA-Z0-9_-]{1,128}$/.test(accountId))
         throw Error('Valid account binding required');
       const url=new URL(base);
@@ -42,11 +45,7 @@ export function createCloudMt5Observer({endpoint,token,fetchImpl=fetch,clock=Dat
         !Number.isFinite(data.balance)||!Number.isFinite(data.equity)||
         data.balance<0||data.equity<0)
         throw Error('Gateway financial snapshot invalid');
-      return Object.freeze({accountId,broker:profile.broker,server:profile.server,
-        mode:profile.mode,observedAt:new Date(observed).toISOString(),
-        balance:data.balance,equity:data.equity,
-        brokerConnected:true,brokerAuthenticated:true,
-        tradingEnabled:false,source:'authenticated-cloud-gateway'});
+      return Object.freeze(validateGatewaySnapshot(data,{broker,server,mode,accountId,login,symbol},clock));
     }
   });
 }

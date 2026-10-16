@@ -19,6 +19,7 @@ import {eliteBridgeReadiness} from './elitebridge-readiness.mjs';
 import {eliteBridgeProtocolStatus} from './elitebridge-protocol.mjs';
 import {createEliteBridgeCloud} from './elitebridge-cloud.mjs';
 import {createReadOnlyBrokerRouter} from './elitebridge-router.mjs';
+import {createCloudMt5Observer} from './elitebridge-cloud-mt5-observer.mjs';
 import { mobileEnginePulse } from './mobile-demo-engine.mjs';
 import { brokerRiskAffordability } from './broker-risk-affordability.mjs';
 import { loadSelectedDemoAccount } from './demo-account-access.mjs';
@@ -596,6 +597,33 @@ export function createSupabaseApplication(options = {}) {
       await db.remove('elitetrade_accounts', `id=eq.${q(account.id)}&user_id=eq.${q(ctx.user.id)}`, ctx.token);
       await audit(ctx, 'account.delete', account.id);
       return json(res, { ok:true });
+    }
+
+    // Explicit independent path. Never mutate a saved binding, call MetaApi,
+    // retrieve its password, or grant execution permission during a read.
+    const cloudProbe=path.match(/^\/api\/elitebridge\/accounts\/([0-9a-fA-F-]{36})\/cloud-probe$/);
+    if(cloudProbe && method==='GET') {
+      const ctx=await needUser(req);
+      rateLimit('elitebridge-cloud-probe:'+ctx.user.id,12,60000);
+      const account=await db.one('elitetrade_accounts',
+        `id=eq.${q(cloudProbe[1])}&user_id=eq.${q(ctx.user.id)}&select=id,broker,login,server`,ctx.token);
+      if(!account)fail(404,'MT5 account not found.');
+      if(account.broker?.trim().toLowerCase()!=='exness'||!/^Exness-MT5Trial[1-9][0-9]*$/.test(account.server||''))
+        fail(409,'The independent cloud gateway currently permits Exness MT5 DEMO accounts only. REAL access is locked.');
+      const symbol=url.searchParams.get('symbol')||'XAUUSDm';
+      if(!/^[A-Za-z0-9._-]{3,30}$/.test(symbol))fail(400,'Invalid broker instrument.');
+      if(!options.cloudObserver&&(!env.ELITEBRIDGE_GATEWAY_URL||!env.ELITEBRIDGE_GATEWAY_TOKEN))
+        fail(503,'Independent MT5 cloud runtime is not configured. A website or engine heartbeat cannot authenticate this broker account.');
+      let snapshot;
+      try{
+        const observer=options.cloudObserver||createCloudMt5Observer({endpoint:env.ELITEBRIDGE_GATEWAY_URL,token:env.ELITEBRIDGE_GATEWAY_TOKEN});
+        snapshot=await observer.snapshot({accountId:account.id,broker:account.broker,server:account.server,
+          login:account.login,mode:'demo',symbol});
+      }catch{fail(503,'Independent MT5 broker verification unavailable. Check the private gateway diagnostics; no connection status was changed.');}
+      await audit(ctx,'elitebridge.cloud.snapshot',account.id);
+      res.setHeader('Cache-Control','private, no-store');
+      return json(res,{provider:'elitebridge',state:'broker-verified-demo',readOnly:true,
+        executedOrder:false,snapshot});
     }
 
     const bridgeProbe=path.match(/^\/api\/elitebridge\/accounts\/([0-9a-fA-F-]{36})\/probe$/);
