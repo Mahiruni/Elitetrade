@@ -123,8 +123,9 @@ that a host has been provisioned. Do not use GitHub Actions as a continuous
 trading host; CI runners are temporary and cannot establish persistent operation.
 
 1. Prepare a dedicated unprivileged `elitebridge` account, Node 24, Wine supported
-   by the current official MT5 Linux instructions, a private display/session,
-   and persistent storage. Review current broker/MetaQuotes terms. Do not pipe
+   by the current official MT5 Linux instructions, `xvfb`, `xauth`, `x11-utils`,
+   and persistent storage. The service now creates its own private display;
+   no personal desktop session is needed. Review current broker/MetaQuotes terms. Do not pipe
    unreviewed remote scripts into a privileged shell. This repo does not download
    or redistribute terminal binaries, Wine or Windows Python.
 2. Install the official MT5 terminal and Windows x64 Python into the **same**
@@ -138,9 +139,16 @@ trading host; CI runners are temporary and cannot establish persistent operation
    discovery/bootstrap before SDK login can succeed. Never guess a network endpoint.
 4. Install reviewed repository source at `/opt/elitetrade`. Give only the service
    user write access to `/var/lib/elitebridge`. Prepare `/etc/elitebridge/gateway.env`
-   from `deploy/elitebridge/gateway.env.example`, reviewing actual binary paths,
-   private display configuration and Wine's filesystem mapping. The example does
-   **not** start Xvfb or configure display authentication; provide the real session.
+   from `deploy/elitebridge/gateway.env.example`, reviewing actual binary paths
+   and Wine's filesystem mapping. Do not set DISPLAY/XAUTHORITY in the environment
+   file: the systemd service uses `xvfb-run --auto-servernum` with Xauthority
+   authentication, private temporary storage and `-nolisten tcp`. The same service
+   owns Node, Wine, MT5 and the display; shutdown kills the process group.
+   On a prepared host, run the secret-free `npm run bridge:gateway:doctor` inside
+   `xvfb-run` using the reviewed launcher environment and the non-secret
+   `ELITEBRIDGE_GATEWAY_TERMINAL_PATH`. This needs no vault, password or service
+   token. It checks Windows x64 Python, importable SDK/callable capabilities and
+   terminal-file presence without calling SDK initialize/login or contacting a broker.
 5. On that host, as the service user, run
    `python3 /opt/elitetrade/scripts/elitebridge-cloud-config.py`. It prompts for a
    saved account UUID, authorized demo login, exact server/symbol/terminal path,
@@ -150,8 +158,9 @@ trading host; CI runners are temporary and cannot establish persistent operation
    tokens into shell commands, screenshots, chat, repository files or public logs.
 6. With the reviewed environment loaded by the service manager, execute
    `npm run bridge:gateway:check`. A passing check is configuration evidence only.
-   Review/install the systemd template and start it. It requires an existing
-   private display/terminal environment; host compatibility is an acceptance gate.
+   Review/install the systemd template and start it. Startup repeats the SDK runtime
+   inspection using the actual decrypted terminal path before opening a listener.
+   Terminal/Wine installation and live broker compatibility remain acceptance gates.
 7. Configure a trusted HTTPS reverse proxy for `/snapshot` and `/healthz` to
    loopback port 8787. Preserve Authorization, disable caching and access-log
    query/body/header capture, limit request sizes/rates, configure certificate
@@ -202,7 +211,7 @@ Release verification results and provider status are recorded in the commit and
 release report. Automated tests use explicit synthetic fixtures and are not
 proof of live MT5, cloud uptime, execution latency or profitability.
 
-Local verification completed for this milestone: application build, JavaScript
+Base gateway verification completed: application build, JavaScript
 syntax/entrypoint checks, TypeScript checks, 385 Node tests (0 failed/skipped),
 Python byte compilation, systemd unit verification, and browser fixtures at
 320/390/768/1440px in both themes. Browser fixtures also exercise unavailable →
@@ -211,3 +220,31 @@ The normal Playwright browser download was unavailable; the browser tests passed
 using an extracted packaged Chromium executable. No live account fixture or
 production broker credentials were used. No Android source was changed and no
 new native APK was built by this milestone.
+
+### Headless startup follow-up
+
+The private-display wrapper and secret-free runtime doctor are now implemented.
+The doctor only imports/checks SDK capabilities and terminal-file presence. It
+does not inspect the terminal's PE signature/version, broker installation files,
+server-discovery state, broker login, prices or permissions; those remain separate
+commissioning checks. A successful doctor **must return brokerAuthenticated=false**.
+Startup errors use allowlisted diagnostic codes; arbitrary SDK stderr is discarded.
+
+`test/elitebridge-runtime-doctor.test.mjs` exercises secret-free process input,
+rejected runtime reports, isolated CLI operation with no vault and zero SDK calls.
+`.github/workflows/elitebridge-linux-display.yml` runs the actual headless display
+check on a temporary Linux runner: authorized X client succeeds, missing authority
+fails, and X TCP access is disabled. A CI runner is test infrastructure, not a
+persistent EliteEngine/MT5 host. No broker secrets are supplied to this workflow.
+CI success is evidence of the display layer only; it is not Wine/MT5 session proof.
+
+Hosting check: Render's free web services sleep after idle periods and do not
+support persistent disks. They cannot establish the always-on, durable runtime
+promised here. No paid host or plan upgrade was created. Existing Render service
+inspection awaits the connector's required workspace confirmation.
+
+Additional primary references:
+
+- https://manpages.debian.org/bookworm/xvfb/xvfb-run.1.en.html
+- https://render.com/docs/free
+- https://render.com/docs/disks

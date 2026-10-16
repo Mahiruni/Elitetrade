@@ -1,0 +1,30 @@
+name: EliteBridge private Linux display
+on:
+  push:
+    paths:
+      - 'deploy/elitebridge/**'
+      - 'test/elitebridge-display-smoke.mjs'
+      - '.github/workflows/elitebridge-linux-display.yml'
+  pull_request:
+    paths:
+      - 'deploy/elitebridge/**'
+      - 'test/elitebridge-display-smoke.mjs'
+      - '.github/workflows/elitebridge-linux-display.yml'
+permissions:
+  contents: read
+jobs:
+  private-display:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install display prerequisites
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --no-install-recommends -y xvfb xauth x11-utils
+      - name: Test actual private headless display without broker credentials
+        run: |
+          umask 077
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x800x24 -nolisten tcp" node test/elitebridge-display-smoke.mjs

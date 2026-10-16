@@ -10,7 +10,9 @@ import contextlib
 import hashlib
 import json
 import math
+import os
 import re
+import struct
 import sys
 import time
 from datetime import datetime, timezone
@@ -91,6 +93,24 @@ def collect(mt5, config, now_ms=None):
             mt5.shutdown()
 
 
+def inspect_runtime(mt5, terminal_path):
+    """No SDK initialize, login, account read or network call is permitted here."""
+    require(sys.platform == "win32", "WINDOWS_PYTHON_REQUIRED_USE_WINE")
+    require(struct.calcsize("P") * 8 == 64, "PYTHON_X64_REQUIRED")
+    require(isinstance(terminal_path, str) and terminal_path.lower().endswith("terminal64.exe")
+            and os.path.isfile(terminal_path), "TERMINAL_BINARY_MISSING")
+    require(all(callable(getattr(mt5, name, None)) for name in (
+        "initialize", "shutdown", "terminal_info", "account_info", "positions_get",
+        "symbol_select", "symbol_info_tick")), "SDK_CAPABILITY_MISSING")
+    version = getattr(mt5, "__version__", None)
+    require(isinstance(version, str) and re.fullmatch(r"\d{1,3}(\.\d{1,8}){1,3}", version),
+            "SDK_PACKAGE_UNAVAILABLE")
+    return {"mode": "runtime-inspection", "platform": "win32", "pointerBits": 64,
+            "pythonVersion": ".".join(str(v) for v in sys.version_info[:3]),
+            "sdkVersion": version, "terminalPresent": True,
+            "brokerAuthenticated": False, "tradingEnabled": False}
+
+
 def main():
     try:
         # An SDK/library diagnostic must not accidentally become public JSON.
@@ -99,10 +119,15 @@ def main():
             import MetaTrader5 as mt5
             raw = sys.stdin.buffer.read(16385)
             require(len(raw) <= 16384, "CONFIG_INVALID")
-            result = collect(mt5, json.loads(raw))
+            request = json.loads(raw)
+            result = (inspect_runtime(mt5, request.get("terminalPath"))
+                      if sys.argv[1:] == ["--doctor"] else collect(mt5, request))
         print(json.dumps(result, allow_nan=False, separators=(",", ":")))
     except ProbeError as exc:
         print(json.dumps({"error": str(exc)}))
+        return 1
+    except ImportError:
+        print(json.dumps({"error": "SDK_PACKAGE_UNAVAILABLE"}))
         return 1
     except Exception:
         print(json.dumps({"error": "SDK_COLLECTION_FAILED"}))

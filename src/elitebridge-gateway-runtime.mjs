@@ -6,7 +6,8 @@ import {resolveMt5ServerProfile} from './elitebridge-broker-server-profiles.mjs'
 const failures=new Set(['REAL_ACCOUNT_LOCKED','LOGIN_INVALID','SERVER_MODE_MISMATCH','BINDING_INVALID',
   'CREDENTIAL_MISSING','SYMBOL_INVALID','TERMINAL_PATH_INVALID','AUTHENTICATION_OR_TERMINAL_UNAVAILABLE',
   'BROKER_DISCONNECTED','ACCOUNT_UNAVAILABLE','ACCOUNT_IDENTITY_MISMATCH','BROKER_SERVER_MISMATCH',
-  'BROKER_IDENTITY_MISMATCH','ACCOUNT_CHANGED_DURING_SNAPSHOT','WINDOWS_PYTHON_REQUIRED_USE_WINE']);
+  'BROKER_IDENTITY_MISMATCH','ACCOUNT_CHANGED_DURING_SNAPSHOT','WINDOWS_PYTHON_REQUIRED_USE_WINE',
+  'SDK_PACKAGE_UNAVAILABLE','SDK_CAPABILITY_MISSING','PYTHON_X64_REQUIRED','TERMINAL_BINARY_MISSING']);
 const fatal=new Set(['REAL_ACCOUNT_LOCKED','ACCOUNT_IDENTITY_MISMATCH','BROKER_SERVER_MISMATCH',
   'BROKER_IDENTITY_MISMATCH','ACCOUNT_CHANGED_DURING_SNAPSHOT','WINDOWS_PYTHON_REQUIRED_USE_WINE']);
 export function validateGatewayConfig(config) {
@@ -26,6 +27,28 @@ export function validateGatewayConfig(config) {
 // shell, passwords in argv/env, remote command endpoint, or execution adapter.
 export function sdkCollector({executable,args=[],config,timeoutMs=15000}) {
   validateGatewayConfig(config);
+  // token is service-to-service only and is NEVER passed to MT5.
+  const {token,...request}=config;
+  return sdkProcess({executable,args,request,timeoutMs});
+}
+
+// Only paths, never credentials, are supplied to a runtime inspection. It
+// imports the SDK and checks installed capabilities without initialize/login.
+export async function inspectGatewayRuntime({executable,args=[],terminalPath,signal}) {
+  if(typeof terminalPath!=='string'||!terminalPath.toLowerCase().endsWith('terminal64.exe'))
+    throw Error('Terminal path required for runtime inspection');
+  const result=await sdkProcess({executable,args:[...args,'--doctor'],request:{terminalPath},timeoutMs:20000})(signal);
+  if(result?.mode!=='runtime-inspection'||result?.platform!=='win32'||result?.pointerBits!==64||
+    result?.terminalPresent!==true||result?.brokerAuthenticated!==false||result?.tradingEnabled!==false||
+    typeof result?.sdkVersion!=='string'||!/^\d{1,3}(\.\d{1,8}){1,3}$/.test(result.sdkVersion)||
+    typeof result?.pythonVersion!=='string'||!/^3\.\d{1,3}\.\d{1,3}$/.test(result.pythonVersion))
+    throw Error('Private runtime inspection rejected');
+  return {mode:'runtime-inspection',platform:'win32',pointerBits:64,terminalPresent:true,
+    sdkVersion:result.sdkVersion,pythonVersion:result.pythonVersion,
+    brokerAuthenticated:false,tradingEnabled:false};
+}
+
+function sdkProcess({executable,args,request,timeoutMs}) {
   return async signal=>new Promise((resolve,reject)=>{
     const child=spawn(executable,args,{shell:false,windowsHide:true,stdio:['pipe','pipe','ignore'],
       env:Object.fromEntries(['PATH','HOME','WINEPREFIX','WINEDEBUG','DISPLAY','XAUTHORITY','LANG','SYSTEMROOT','TEMP']
@@ -51,8 +74,6 @@ export function sdkCollector({executable,args=[],config,timeoutMs=15000}) {
         finish(null,data);
       }catch{finish('SDK_COLLECTION_FAILED');}
     });
-    // token is service-to-service only and is NEVER passed to MT5.
-    const {token,...request}=config;
     if(signal?.aborted)cancel();else child.stdin.end(JSON.stringify(request));
   });
 }

@@ -2,7 +2,7 @@ import {accessSync,constants,writeFileSync} from 'node:fs';
 import {createServer} from 'node:http';
 import {randomBytes} from 'node:crypto';
 import {openGatewayConfig,sealGatewayConfig,privateGatewayFile} from '../src/elitebridge-gateway-vault.mjs';
-import {createGatewaySupervisor,gatewayHttpHandler,sdkCollector,validateGatewayConfig} from '../src/elitebridge-gateway-runtime.mjs';
+import {createGatewaySupervisor,gatewayHttpHandler,sdkCollector,validateGatewayConfig,inspectGatewayRuntime} from '../src/elitebridge-gateway-runtime.mjs';
 
 // The gateway binds ONLY loopback. A trusted HTTPS proxy is required for the
 // Vercel consumer. Never expose this port through a public container mapping.
@@ -18,13 +18,21 @@ async function main(){
     writeFileSync(env.ELITEBRIDGE_GATEWAY_VAULT_FILE,JSON.stringify(sealGatewayConfig(config,key)),{mode:0o600,flag:'wx'});
     console.log('Private DEMO gateway configuration sealed. No broker session tested.');return;
   }
-  if(!['check','serve'].includes(mode))throw Error('Use seal, check, or serve');
-  const config=validateGatewayConfig(openGatewayConfig(JSON.parse(privateGatewayFile(env.ELITEBRIDGE_GATEWAY_VAULT_FILE)),privateGatewayFile(env.ELITEBRIDGE_GATEWAY_KEY_FILE)));
+  if(!['check','doctor','serve'].includes(mode))throw Error('Use seal, check, doctor, or serve');
   const executable=env.ELITEBRIDGE_GATEWAY_EXECUTABLE;
   const args=JSON.parse(env.ELITEBRIDGE_GATEWAY_ARGS||'[]');
   if(typeof executable!=='string'||!executable.startsWith('/')||!Array.isArray(args)||!args.length||!args.every(x=>typeof x==='string'))throw Error('Configure an absolute reviewed SDK launcher and argument array');
   accessSync(executable,constants.X_OK); // launcher existence, not broker availability
+  // This command needs only a non-secret executable path, not a vault/password.
+  if(mode==='doctor'){
+    const report=await inspectGatewayRuntime({executable,args,terminalPath:env.ELITEBRIDGE_GATEWAY_TERMINAL_PATH});
+    console.log(JSON.stringify(report));return;
+  }
+  const config=validateGatewayConfig(openGatewayConfig(JSON.parse(privateGatewayFile(env.ELITEBRIDGE_GATEWAY_VAULT_FILE)),privateGatewayFile(env.ELITEBRIDGE_GATEWAY_KEY_FILE)));
   if(mode==='check'){console.log('Encrypted configuration and launcher path valid. Broker connection UNVERIFIED.');return;}
+  // A service must prove installed SDK/interpreter/terminal prerequisites before
+  // opening its listener. This is NOT broker verification or execution approval.
+  console.log(JSON.stringify(await inspectGatewayRuntime({executable,args,terminalPath:config.terminalPath})));
   const audit=value=>console.log(JSON.stringify({...value,at:new Date().toISOString()}));
   const supervisor=createGatewaySupervisor({config,collect:sdkCollector({executable,args,config}),audit});
   const server=createServer(gatewayHttpHandler({config,supervisor,audit}));
@@ -45,4 +53,12 @@ async function main(){
   });
   server.listen(port,'127.0.0.1',()=>{audit({event:'elitebridge.gateway',state:'listening-read-only'});void cycle();});
 }
-main().catch(()=>{console.error('Gateway startup blocked. Inspect private configuration and permissions. No credentials logged.');process.exitCode=1;});
+main().catch(error=>{
+  const allowed=new Set(['WINDOWS_PYTHON_REQUIRED_USE_WINE','SDK_PACKAGE_UNAVAILABLE',
+    'SDK_CAPABILITY_MISSING','PYTHON_X64_REQUIRED','TERMINAL_BINARY_MISSING',
+    'SDK_TIMEOUT','SDK_RUNTIME_UNAVAILABLE','SDK_COLLECTION_FAILED']);
+  console.error(JSON.stringify({event:'elitebridge.gateway.startup',state:'blocked',
+    code:allowed.has(error?.code)?error.code:'CONFIGURATION_INVALID',
+    brokerAuthenticated:false,tradingEnabled:false}));
+  process.exitCode=1;
+});

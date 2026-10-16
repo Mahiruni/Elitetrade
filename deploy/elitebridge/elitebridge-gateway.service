@@ -14,15 +14,14 @@ EnvironmentFile=/etc/elitebridge/gateway.env
 StateDirectory=elitebridge
 StateDirectoryMode=0700
 UMask=0077
-ExecStart=/usr/bin/flock --nonblock /var/lib/elitebridge/gateway.lock /usr/bin/node /opt/elitetrade/scripts/elitebridge-cloud-gateway.mjs serve
+ExecStart=/usr/bin/flock --nonblock /var/lib/elitebridge/gateway.lock /usr/bin/xvfb-run --auto-servernum "--server-args=-screen 0 1280x800x24 -nolisten tcp" /usr/bin/node /opt/elitetrade/scripts/elitebridge-cloud-gateway.mjs serve
 Restart=on-failure
 RestartSec=15
 TimeoutStopSec=20
 KillMode=control-group
 NoNewPrivileges=true
-# The reviewed private X display must be reachable by the Wine client.
-# Restrict it with display authentication; do not expose X over the network.
-PrivateTmp=false
+# Xvfb, its private Xauthority and Wine share this service's isolated /tmp.
+PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/var/lib/elitebridge
