@@ -67,7 +67,8 @@ fun EliteEnginePage(
         try{
             val summary=api.engineProStatus()
             val items=summary.optJSONObject("accounts")?.optJSONArray("items")
-            proAccounts=if(items==null)emptyList() else (0 until items.length()).mapNotNull{items.optJSONObject(it)}
+                ?: throw ApiProblem("Independent control backend update is not deployed yet.")
+            proAccounts=(0 until items.length()).mapNotNull{items.optJSONObject(it)}
             if(proAccounts.none{it.optString("id")==selectedAccount})selectedAccount=proAccounts.firstOrNull()?.optString("id") ?: ""
             val checkedAccount=selectedAccount
             val control=if(checkedAccount.isNotBlank())api.engineProAccount(checkedAccount) else null
@@ -167,7 +168,7 @@ fun EliteEnginePage(
                     },enabled=selectedAccount.isNotBlank()&&!stopBusy&&!loading,modifier=Modifier.fillMaxWidth()){
                         Text(if(stopBusy)"Saving stop…" else "Stop independent engine")
                     }
-                }else Text("Save an MT5 account to access its persistent stop control.",color=muted,fontSize=12.sp)
+                }else Text(if(proError.isNotBlank())"Independent account controls are unavailable until the backend update is ready." else "Save an MT5 account to access its persistent stop control.",color=muted,fontSize=12.sp)
                 Text("This stops independent engine work only. Existing positions stay open; the separate legacy Android/MetaApi engine is unaffected.",color=muted,fontSize=12.sp)
                 if(proError.isNotBlank())Text(proError,color=Color(0xFFEF7777),fontSize=12.sp)
                 if(proMessage.isNotBlank())Text(proMessage,color=gold,fontSize=12.sp)

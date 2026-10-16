@@ -145,3 +145,19 @@ EliteTrade's independent path. Its suspend/delete operation is unavailable throu
 the connector. Proposed cleanup: suspend this exact service, disable its automatic
 deployments, then remove it when reviewed. Preserve elitetrade-paper-demo. No
 cleanup success, additional service creation, paid upgrade or migration is claimed.
+
+## Release result and provider blocker
+
+Release commit fe810a8d585cd961b937ecbaa2a2770e17b05fa1 reached main through PR #69.
+Main application checks and the PostgreSQL rehearsal passed (runs 38941608034 and
+38941608037). The complete PR browser workflow passed (38941142267), including
+registration, permissions, support, legacy bot settings and independent controls.
+
+Vercel rejected production deployment with HTTP 402,
+`api-deployments-free-per-day` (more than 100 free deployments), retryAfter 86400.
+No CLI workaround, plan change or quota evasion was attempted. Production still
+serves the prior web build; the new owner-stop route returned 404 in an anonymous
+availability probe before deployment. The installed database schema is ready but
+the new production HTTP control route is **not deployed**. New Android controls
+must report backend unavailability until deployment is permitted. Signed Android
+publishing is checked independently; a compiled APK does not clear this blocker.
