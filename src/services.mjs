@@ -1,5 +1,6 @@
 import { createMetaApiGateway } from './metaapi-gateway.mjs';
 import nodemailer from 'nodemailer';
+import { renderTransactionalEmail } from './transactional-email.mjs';
 
 export function createMailer(env) {
   if (!env.SMTP_HOST || !env.MAIL_FROM) return null;
@@ -7,8 +8,14 @@ export function createMailer(env) {
     secure: env.SMTP_SECURE === 'true', requireTLS: env.SMTP_SECURE !== 'true',
     auth: env.SMTP_USER ? { user: env.SMTP_USER, pass: env.SMTP_PASS } : undefined,
     connectionTimeout: 10000, socketTimeout: 15000 });
-  return { sendReset: (email, link) => transport.sendMail({ from: env.MAIL_FROM, to: email,
-    subject: 'Reset your Elite Bot password', text: `Open this link to set a new password:\n${link}\n\nThis link expires in 30 minutes and can only be used once. If you did not request it, ignore this email.` }) };
+  return { sendReset: (email, link) => {
+    const message=renderTransactionalEmail({subject:'Reset your EliteTrade password',
+      preheader:'Choose a new password for your EliteTrade account.',title:'Choose a new password.',
+      paragraphs:['A password reset was requested for your EliteTrade account. This link expires in 30 minutes and can only be used once.'],
+      action:'Reset password',link,siteUrl:new URL(link).origin,
+      notice:'If you did not request this reset, ignore this email. Your password remains unchanged unless you complete the reset.'});
+    return transport.sendMail({from:env.MAIL_FROM,to:email,...message});
+  } };
 }
 
 export function createGateway(env) {

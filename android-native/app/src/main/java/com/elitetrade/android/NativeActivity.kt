@@ -391,7 +391,7 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                                     }
                                 } else {
                                     pendingConfirmationEmail=email.trim()
-                                    message="Registration requested. If confirmation is required, check your inbox or spam folder."
+                                    message="Registration requested. Eligible new accounts receive a confirmation link. Already verified? Sign in or reset your password; no new signup confirmation is sent."
                                 }
                             } catch (e:Exception) {error=e.message ?: "Account creation failed."}
                             finally {busy=false}
@@ -400,7 +400,7 @@ private fun EliteTradeNative(api: EliteApi, updater: EliteUpdateManager) {
                     onRecovery={email->
                         scope.launch {
                             busy=true;error=""
-                            try {api.recoverPassword(email);message="If the address is registered, recovery instructions have been sent."}
+                            try {api.recoverPassword(email);message="Recovery requested. If eligible, check your inbox and spam folder. Open the link in your browser to choose a new password, then return here to sign in."}
                             catch (e:Exception){error=e.message ?: "Recovery request failed."}
                             finally {busy=false}
                         }
@@ -862,6 +862,10 @@ private fun AuthPage(busy:Boolean,error:String,message:String,light:Boolean,
     var email by remember {mutableStateOf("")}
     var password by remember {mutableStateOf("")}
     var showPassword by remember {mutableStateOf(false)}
+    var resendSeconds by remember {mutableStateOf(0)}
+    LaunchedEffect(resendSeconds) {
+        if (resendSeconds > 0) { kotlinx.coroutines.delay(1000); resendSeconds-- }
+    }
     LaunchedEffect(pendingEmail) {
         if (pendingEmail.isNotBlank()) {
             email = pendingEmail
@@ -911,12 +915,13 @@ private fun AuthPage(busy:Boolean,error:String,message:String,light:Boolean,
                         fontSize=12.sp,color=if(light)Color(0xFF617188) else Muted,lineHeight=17.sp)
                 }
             }
-            Button(onClick={onResend(email.trim())},enabled=!busy&&email.contains('@'),
+            Button(onClick={resendSeconds=60;onResend(email.trim())},enabled=!busy&&resendSeconds==0&&email.contains('@'),
                 modifier=Modifier.fillMaxWidth().height(56.dp),shape=RoundedCornerShape(16.dp),
                 colors=ButtonDefaults.buttonColors(containerColor=Blue)) {
                 if(busy) CircularProgressIndicator(color=Color.White,modifier=Modifier.size(22.dp),strokeWidth=2.dp)
-                else Text("Resend confirmation email",fontWeight=FontWeight.SemiBold)
+                else Text(if(resendSeconds>0) "Request again in ${resendSeconds}s" else "Resend confirmation email",fontWeight=FontWeight.SemiBold)
             }
+            TextButton(onClick={mode="Recovery"},enabled=!busy) {Text("Already registered? Reset your password")}
             Text("Supabase may rate-limit repeated emails. Request acceptance does not guarantee inbox delivery.",
                 fontSize=11.sp,color=if(light)Color(0xFF617188) else Muted)
         } else {

@@ -255,7 +255,9 @@ export function createSupabaseApplication(options = {}) {
       return json(res, {
         priceCents,
         ebook:EBOOK,
-        emailConfigured:true,
+        emailConfigured:null,
+        emailProvider:'supabase',
+        emailDeliveryStatus:'unverified',
         gatewayConfigured:!!gateway,
         connectionMode:gateway?.mode || (gateway ? 'execution' : 'unconfigured'),
         tradingEnabled:!!gateway && (gateway.mode === 'account-data' ? await engineReady(db) : gateway.tradingEnabled !== false),

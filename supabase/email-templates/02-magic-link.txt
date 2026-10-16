@@ -1,0 +1,13 @@
+Your secure EliteTrade sign-in link
+
+A sign-in link was requested for your EliteTrade account. Use the button below to continue.
+If your screen asks for a verification code, enter the code below on that screen.
+
+Verification code: {{ .Token }}
+
+Continue to EliteTrade: {{ .ConfirmationURL }}
+
+If you did not request this message, ignore it. Never share this link or code.
+
+EliteTrade · Account services
+https://elitetradee.vercel.app/support

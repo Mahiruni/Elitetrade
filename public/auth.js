@@ -174,6 +174,8 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,onSen
   clearTimeout(cooldownTimer);
   if(!screen?.isConnected || busy)return;
   const remaining=Math.ceil((cooldownUntil-Date.now())/1000);
+  const resend=$('.auth-resend-link');
+  if(resend){resend.disabled=busy || remaining>0;resend.textContent=remaining>0 ? `Request another link in ${remaining}s` : 'Send a fresh link';}
   if(remaining>0){$('.auth-primary').disabled=true;$('.auth-primary').textContent=`Try again in ${remaining}s`;cooldownTimer=setTimeout(setCooldown,1000);}
   else{$('.auth-primary').disabled=false;$('.auth-primary').textContent=$('.auth-primary').dataset.label;}
  }
@@ -182,6 +184,7 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,onSen
   $('.auth-success-title').textContent=title;$('.auth-success-status').textContent='';
   $('.auth-success-copy').innerHTML=copy.replace('{email}',`<strong>${escape(email)}</strong>`);
   $('.auth-resend-link').hidden=!['login','signup','resend'].includes(mode);
+  $('.auth-recovery-link').hidden=!['signup','resend'].includes(mode);
   $('.auth-success-panel').hidden=false;$('form[data-auth-form]').hidden=true;
   $('.auth-success-title').focus({preventScroll:true});announce(`${title} ${copy.replace('{email}',email)}`);
  }
@@ -227,7 +230,7 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,onSen
    if(!(error.status===400 || error.status===422) || !/signup.*disabled|user.*not.*found|otp.*disabled|not.*exist/i.test(error.code+' '+error.message))throw error;
   }
   cooldownUntil=Date.now()+60000;
-  showConfirmation(again ? 'A fresh link is on its way.' : 'Check your inbox.',signup ? 'Open the secure link sent to {email} to finish setting up your account.' : 'If this address has an account, a secure sign-in link is on its way to {email}.');
+  showConfirmation(again ? 'Link requested.' : 'Check your inbox.',signup ? 'If this address is eligible, check {email} for your account link. Already registered? Sign in or reset your password.' : 'If this address has an account, check {email} for your sign-in link.',email);
   lastEmail=email;
  }
  async function submit(event) {
@@ -245,7 +248,7 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,onSen
    }
    if(current==='resend'){
     await request(`resend?redirect_to=${encodeURIComponent(redirect('signin'))}`,'POST',{type:'signup',email});
-    cooldownUntil=Date.now()+60000;showConfirmation('Confirmation requested.','If this address is awaiting confirmation, a fresh link is on its way to {email}.',email);return;
+    cooldownUntil=Date.now()+60000;showConfirmation('Confirmation requested.','If {email} has an unconfirmed registration, check your inbox and spam folder. Verified accounts will not receive another signup confirmation. Sign in or reset your password instead.',email);return;
    }
    if(current==='reset'){if(stillHere())await onReset(password);return;}
    if(current==='device'){if(stillHere())await onVerifyDevice($('#a-code').value);return;}
@@ -261,7 +264,7 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,onSen
    const result=await request(current==='signup' ? `signup?redirect_to=${encodeURIComponent(redirect('signup'))}` : 'token?grant_type=password','POST',{
     email,password,...(current==='signup' ? {data:{full_name:$('#a-name').value.trim(),referral_code:new URLSearchParams(location.search).get('ref') || ''}} : {})
    });
-   if(current==='signup' && !result.access_token){showConfirmation('Verify your email.','If this is a new account, open the confirmation link sent to {email}. Already registered? Sign in or reset your password.',email);return;}
+   if(current==='signup' && !result.access_token){cooldownUntil=Date.now()+60000;showConfirmation('Registration requested.','If {email} is eligible for registration, check your inbox and spam folder for a confirmation link. Already verified? No new signup email is sent: sign in or reset your password.',email);return;}
    if(stillHere())await onSession(result,current==='signup' ? '/subscription' : '/dashboard');
   }catch(error){if(stillHere())message(errorCopy(error));}
   finally{if(stillHere()){setBusy(false);}}
@@ -307,7 +310,7 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,onSen
    if(action==='theme'){onTheme();screen.querySelectorAll('.auth-theme-toggle').forEach(el=>{el.innerHTML=svg(document.body.classList.contains('light') ? 'moon' : 'sun');el.setAttribute('aria-label',`Switch to ${document.body.classList.contains('light') ? 'dark' : 'light'} theme`);});}
    if(action==='show'){const input=$(`#a-${button.dataset.field}`),visible=input.type==='password';input.type=visible ? 'text' : 'password';button.setAttribute('aria-label',`${visible ? 'Hide' : 'Show'} ${button.dataset.field==='confirm' ? 'confirm password' : 'password'}`);button.setAttribute('aria-pressed',String(visible));button.innerHTML=svg(visible ? 'eyeOff' : 'eye');}
    if(action==='fallback')setMethod(method==='password' || method==='sso' ? 'email' : 'password');
-   if(action==='forgot')setMode('forgot',{focusField:true});
+   if(action==='forgot' || action==='recover-account'){cooldownUntil=0;setMode('forgot',{focusField:true});}
    if(action==='forgot-email')setMode('emailhelp');
    if(action==='device-send'){
     setBusy(true,'Requesting verification email');message('');
@@ -315,16 +318,16 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,onSen
     catch(error){message(errorCopy(error));}
     finally{if(screen?.isConnected)setBusy(false);}
    }
-   if(action==='back'){if(mode==='mfa')onCancelMfa?.();if(mode==='device')onCancelDevice?.();setMode('login');$('#auth-title').focus({preventScroll:true});}
+   if(action==='back'){cooldownUntil=0;if(mode==='mfa')onCancelMfa?.();if(mode==='device')onCancelDevice?.();setMode('login');$('#auth-title').focus({preventScroll:true});}
    if(action==='social')await social(button.dataset.provider,button);
    if(action==='close-sheet')$('.auth-sheet').close();
    if(action==='change-email'){confirmed=false;updateUI({focusField:true});}
    if(action==='resend-link'){
     if(Date.now()<cooldownUntil){$('.auth-success-status').textContent=`Request another link in ${Math.ceil((cooldownUntil-Date.now())/1000)}s.`;announce(`Request another link in ${Math.ceil((cooldownUntil-Date.now())/1000)} seconds.`);return;}
     button.disabled=true;
-    try{if(mode==='resend' || mode==='signup' && method==='password'){await request(`resend?redirect_to=${encodeURIComponent(redirect('signup'))}`,'POST',{type:'signup',email:lastEmail});cooldownUntil=Date.now()+60000;announce('A fresh confirmation link has been requested.');button.textContent='Link requested';}else await sendEmail(lastEmail,{again:true});}
+    try{if(mode==='resend' || mode==='signup' && method==='password'){await request(`resend?redirect_to=${encodeURIComponent(redirect('signup'))}`,'POST',{type:'signup',email:lastEmail});cooldownUntil=Date.now()+60000;$('.auth-success-status').textContent='Request accepted. Only accounts awaiting confirmation receive a signup email. Already verified? Sign in or reset your password.';announce('Confirmation requested.');}else await sendEmail(lastEmail,{again:true});}
     catch(error){$('.auth-success-copy').textContent=errorCopy(error);}
-    finally{button.disabled=false;}
+    finally{button.disabled=false;setCooldown();}
    }
    if(action==='skip'){await onSession(null,'/subscription');}
    if(action==='demo'){button.disabled=true;try{await onDemo();}catch(error){message(errorCopy(error));}finally{button.disabled=false;}}
@@ -375,7 +378,7 @@ export function createAuthExperience({root,request,onSession,onMfa,onReset,onSen
        <div class="auth-submit-zone"><button type="submit" class="auth-primary">Continue</button><p class="auth-legal"></p><button type="button" class="auth-text-button auth-back" data-auth-action="back">Back to sign in</button><button type="button" class="auth-text-button auth-skip-enroll" data-auth-action="skip">Continue without a passkey</button></div>
        <div class="auth-secondary-zone"><div class="auth-or">or continue with</div><div class="auth-sso"><button type="button" class="auth-sso-button" data-auth-action="social" data-provider="apple">${apple} Apple</button><button type="button" class="auth-sso-button" data-auth-action="social" data-provider="google">${google} Google</button><button type="button" class="auth-sso-button" data-auth-action="social" data-provider="work">${svg('work')} Work SSO</button></div><p class="auth-privacy-note">For your privacy, we don’t reveal whether an email has an account.</p>${config.demoMode ? '<button type="button" class="auth-text-button" data-auth-action="demo">Continue as Demo</button>' : ''}</div>
       </form>
-      <section class="auth-success-panel" hidden><span class="auth-success-icon">${svg('mail')}</span><h2 class="auth-success-title" tabindex="-1"></h2><p class="auth-success-copy"></p><p class="auth-success-status" role="status"></p><div class="auth-success-actions"><button type="button" class="auth-text-button auth-resend-link" data-auth-action="resend-link">Send a fresh link</button><button type="button" class="auth-text-button" data-auth-action="change-email">Use a different email</button><button type="button" class="auth-text-button" data-auth-action="back">Back to sign in</button></div></section>
+      <section class="auth-success-panel" hidden><span class="auth-success-icon">${svg('mail')}</span><h2 class="auth-success-title" tabindex="-1"></h2><p class="auth-success-copy"></p><p class="auth-success-status" role="status"></p><div class="auth-success-actions"><button type="button" class="auth-text-button auth-resend-link" data-auth-action="resend-link">Send a fresh link</button><button type="button" class="auth-text-button auth-recovery-link" data-auth-action="recover-account" hidden>Reset password</button><button type="button" class="auth-text-button" data-auth-action="change-email">Use a different email</button><button type="button" class="auth-text-button" data-auth-action="back">Back to sign in</button></div></section>
      </div>
      <footer class="auth-column-footer"><span>© ${new Date().getFullYear()} EliteBot</span><a href="/support">Need a hand?</a></footer>
     </section><div class="auth-live auth-sr-only" role="status" aria-live="polite" aria-atomic="true"></div><dialog class="auth-sheet" aria-labelledby="auth-sheet-title"></dialog>

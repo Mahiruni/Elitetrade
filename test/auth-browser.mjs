@@ -23,6 +23,8 @@ await context.route('**/auth/v1/**',async route=>{
  if(path.endsWith('/user') && req.method()==='GET')return route.fulfill({json:{id:'isolated-member',factors:scenario==='mfa' ? [{id:'isolated-factor',factor_type:'totp',status:'verified'}] : []}});
  if(scenario==='mfa' && path.endsWith('/challenge'))return route.fulfill({json:{id:'isolated-mfa-challenge'}});
  if(scenario==='mfa' && path.endsWith('/verify'))return route.fulfill({json:{access_token:'e30.'+Buffer.from(JSON.stringify({aal:'aal2'})).toString('base64url')+'.isolated',refresh_token:'isolated-refresh',expires_in:3600}});
+ if(scenario==='pending-signup' && path.endsWith('/signup'))return route.fulfill({json:{user:{identities:[]}}});
+ if(scenario==='smtp-signup' && path.endsWith('/signup'))return route.fulfill({status:500,json:{msg:'Error sending confirmation email',error_code:'unexpected_failure'}});
  if(path.endsWith('/settings'))return route.fulfill({json:{external:{apple:false,google:false}}});
  if(scenario==='passkey-enroll' && path.endsWith('/registration/options'))return route.fulfill({json:{challenge_id:'isolated-registration-challenge',options:{challenge:randomBytes(32).toString('base64url'),rp:{id:'localhost',name:'EliteBot'},user:{id:randomBytes(16).toString('base64url'),name:'auth-browser@example.test',displayName:'Auth Browser'},pubKeyCredParams:[{type:'public-key',alg:-7}],authenticatorSelection:{residentKey:'required',userVerification:'required'},attestation:'none'}}});
  if(scenario==='passkey-enroll' && path.endsWith('/registration/verify')){
@@ -146,6 +148,20 @@ try{
  assert.equal(requests.at(-1).body.create_user,false);
  await go('/forgot-password');await page.getByLabel('Email address',{exact:true}).fill('unknown@example.test');await page.getByRole('button',{name:'Send recovery link',exact:true}).click();await page.getByRole('heading',{name:'Recovery link requested.',exact:true}).waitFor();
  scenario='';await go('/signup');await emailLink();await page.getByLabel('Full name',{exact:true}).fill('Magic Member');await page.getByLabel('Email address',{exact:true}).fill('magic@example.test');await page.getByRole('button',{name:'Continue',exact:true}).click();await page.getByRole('heading',{name:'Check your inbox.',exact:true}).waitFor();assert.equal(requests.at(-1).body.create_user,true);
+ // Pending and repeated signup have identical recovery actions and enforce the resend countdown.
+ scenario='pending-signup';await go('/signup');await password();
+ await page.getByLabel('Full name',{exact:true}).fill('Pending Member');await page.getByLabel('Email address',{exact:true}).fill('pending@example.test');await page.getByLabel('Password',{exact:true}).fill('Correct horse orbital river 42!');
+ await page.getByRole('button',{name:'Continue',exact:true}).click();await page.getByRole('heading',{name:'Registration requested.',exact:true}).waitFor();
+ assert.match(await page.locator('.auth-success-copy').textContent(),/Already verified/);
+ assert.ok(await page.locator('.auth-resend-link').isDisabled());
+ await page.getByRole('button',{name:'Reset password',exact:true}).click();
+ assert.equal(await page.locator('#a-email').inputValue(),'pending@example.test');
+ assert.equal(new URL(page.url()).pathname,'/forgot-password');
+ scenario='smtp-signup';await go('/signup');await password();
+ await page.getByLabel('Full name',{exact:true}).fill('Pending Member');await page.getByLabel('Email address',{exact:true}).fill('pending@example.test');await page.getByLabel('Password',{exact:true}).fill('Correct horse orbital river 42!');
+ await page.getByRole('button',{name:'Continue',exact:true}).click();await page.getByRole('alert').filter({hasText:'Email delivery is temporarily unavailable'}).waitFor();
+ assert.ok(await page.locator('.auth-success-panel').isHidden());assert.equal(await page.locator('#a-email').inputValue(),'pending@example.test');
+ scenario='';
  // Passkey and provider setup gaps remain recoverable; they never imply authentication succeeded.
  await go('/login');await page.getByRole('button',{name:'Use a passkey',exact:true}).click();assert.ok(await page.getByLabel('Email address',{exact:true}).isHidden());
  await page.getByRole('button',{name:'Continue',exact:true}).click();await page.getByRole('alert').filter({hasText:'Passkey sign-in is unavailable'}).waitFor();await capture('desktop-passkey-dark.png');

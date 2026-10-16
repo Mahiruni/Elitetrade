@@ -1,0 +1,11 @@
+Confirm your new EliteTrade email address
+
+You requested to change the sign-in email for your EliteTrade account to {{ .NewEmail }}.
+Confirm only if you requested this change. Depending on your security settings, approval from both addresses may be required.
+
+Confirm email change: {{ .ConfirmationURL }}
+
+If you did not request this change, do not confirm it. Open EliteTrade directly and contact support.
+
+EliteTrade · Account services
+https://elitetradee.vercel.app/support

@@ -1,0 +1,11 @@
+Confirm your email for EliteTrade
+
+You requested an EliteTrade account using {{ .Email }}. Confirm your email address to finish registration.
+Open the link in your browser. Once confirmed, sign in to EliteTrade on the website or return to the Android app.
+
+Confirm email address: {{ .ConfirmationURL }}
+
+If you did not request this account, ignore this email. Only confirm a registration you started.
+
+EliteTrade · Account services
+https://elitetradee.vercel.app/support

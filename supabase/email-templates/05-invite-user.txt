@@ -1,0 +1,10 @@
+You’re invited to EliteTrade
+
+You have been invited to create an EliteTrade account. Accept the invitation to continue setting up your account.
+
+Accept invitation: {{ .ConfirmationURL }}
+
+If you were not expecting this invitation, you can ignore this email.
+
+EliteTrade · Account services
+https://elitetradee.vercel.app/support

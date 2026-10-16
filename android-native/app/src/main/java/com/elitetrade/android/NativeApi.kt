@@ -247,8 +247,8 @@ class EliteApi(context: Context) {
     }
 
     suspend fun recoverPassword(email: String) = withContext(Dispatchers.IO) {
-        val redirect = java.net.URLEncoder.encode(origin + "/login", "UTF-8")
-        auth("recover", JSONObject().put("email",email.trim()).put("redirect_to",origin + "/login"))
+        val redirect = java.net.URLEncoder.encode(origin + "/reset-password", "UTF-8")
+        auth("recover?redirect_to=" + redirect, JSONObject().put("email",email.trim()))
         Unit
     }
 

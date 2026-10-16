@@ -14,11 +14,11 @@ assert.ok(submitStart >= 0 && submitEnd > submitStart && errorStart >= 0 && erro
 const submitSource = source.slice(submitStart, submitEnd);
 const errorSource = source.slice(errorStart, errorEnd);
 
-function fixture({ mode = 'forgot', providerError } = {}) {
+function fixture({ mode = 'forgot', method='email', providerResult={}, providerError } = {}) {
   const calls = [], confirmations = [], errors = [], busy = [];
   let validations = 0, prevented = 0;
   const env = {
-    mode, method: 'email', busy: false, cooldownUntil: 0, screen: { isConnected: true },
+    URLSearchParams, mode, method, busy: false, cooldownUntil: 0, screen: { isConnected: true },
     location: { origin: 'https://elitebot.example.test' },
     $: selector => ({ value: selector === '#a-email' ? 'member@example.test' : '' }),
     validateAll: () => { validations++; return true; },
@@ -26,8 +26,10 @@ function fixture({ mode = 'forgot', providerError } = {}) {
     request: async (path, method, body) => {
       calls.push({ path, method, body });
       if (providerError) throw providerError;
-      return {};
+      return providerResult;
     },
+    redirect: intent => 'https://elitebot.example.test/login?intent='+intent,
+    onSession: async () => { throw new Error('Unexpected authenticated session'); },
     sendEmail: async email => { calls.push({ path: 'otp', email }); },
     showConfirmation: (...values) => { confirmations.push(values); },
     message: copy => { errors.push(copy); }
@@ -94,4 +96,20 @@ test('recovery timeouts give a retry message without claiming delivery', async (
   const f = fixture({ providerError: failure(504, 'request_timeout', 'Request timed out') }); await f.submit();
   assert.deepEqual(f.confirmations, []);
   assert.match(f.errors[0], /request took too long/);
+});
+
+
+test('repeated or pending signup never claims delivery or reveals account existence', async () => {
+  for (const providerResult of [{user:{id:'pending'}},{user:{identities:[]}}]) {
+    const f=fixture({mode:'signup',method:'password',providerResult});await f.submit();
+    assert.equal(f.confirmations.length,1);
+    assert.equal(f.confirmations[0][0],'Registration requested.');
+    assert.match(f.confirmations[0][1],/Already verified/);
+    assert.deepEqual(f.errors,[]);
+  }
+});
+
+test('signup SMTP failure remains a recoverable error, never a confirmation', async () => {
+  const f=fixture({mode:'signup',method:'password',providerError:failure(500,'unexpected_failure','Error sending confirmation email')});
+  await f.submit();assert.deepEqual(f.confirmations,[]);assert.match(f.errors[0],/Email delivery is temporarily unavailable/);
 });

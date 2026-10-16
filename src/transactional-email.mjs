@@ -1,0 +1,35 @@
+// Shared email layout. All dynamic copy and links are escaped before interpolation.
+const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const safeLink = value => {
+  // These are trusted Supabase Go-template tokens, never user-supplied URLs.
+  if (['{{ .ConfirmationURL }}','{{ .SiteURL }}'].includes(value)) return value;
+  const url = new URL(value);
+  if (url.protocol !== 'https:' && !(['localhost','127.0.0.1'].includes(url.hostname) && url.protocol === 'http:')) throw new Error('Email links must use HTTPS');
+  if (url.username || url.password) throw new Error('Email links cannot contain credentials');
+  return value;
+};
+export function renderTransactionalEmail({subject,preheader,eyebrow='ACCOUNT SERVICES',title,paragraphs=[],action='Open EliteTrade',link,code='',notice,siteUrl='https://elitetradee.vercel.app'}) {
+  safeLink(siteUrl); safeLink(link);
+  const text=[subject,'',...paragraphs,'',...(code ? ['Verification code: '+code,''] : []),action+': '+link,'',notice,'','EliteTrade · Account services',siteUrl+'/support'].join('\n');
+  const html=`<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark"><title>${escape(subject)}</title>
+<style>:root{color-scheme:light dark;supported-color-schemes:light dark}a{word-break:break-word}@media(prefers-color-scheme:dark){.email-bg{background:#090b10!important}.email-card{background:#151921!important;border-color:#343a45!important}.email-title{color:#f4f6fa!important}.email-copy{color:#d0d6df!important}.email-note{color:#adb7c7!important}.email-rule{border-color:#343a45!important}.email-code{background:#222936!important;color:#f4f6fa!important}}</style></head>
+<body class="email-bg" style="margin:0;padding:0;background:#f3f4f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;-webkit-text-size-adjust:100%">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;font-size:1px;line-height:1px;mso-hide:all">${escape(preheader)}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" style="padding:28px 16px">
+<!--[if mso]><table role="presentation" width="600" align="center"><tr><td><![endif]-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="email-card" style="max-width:600px;table-layout:fixed;background:#ffffff;border:1px solid #e0e4eb;border-radius:18px">
+<tr><td bgcolor="#090b10" style="background:#090b10;padding:24px 28px;border-radius:18px 18px 0 0"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="64"><img src="https://elitetradee.vercel.app/logo.jpg" alt="EliteBot" width="56" height="56" style="display:block;border:0;border-radius:8px;color:#ffffff;font-size:12px"></td><td style="padding-left:12px;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-.5px">Elite<span style="color:#e8ba67">Trade</span><br><span style="font-size:11px;font-weight:400;letter-spacing:1px;color:#b8c1cf">ACCOUNT SERVICES</span></td></tr></table></td></tr>
+<tr><td style="padding:32px 28px 28px"><p style="margin:0 0 12px;font-size:11px;line-height:18px;letter-spacing:1.5px;font-weight:700;color:#946b2d">${escape(eyebrow)}</p>
+<h1 class="email-title" style="margin:0 0 20px;color:#142033;font-size:28px;line-height:36px;letter-spacing:-.7px;font-weight:650">${escape(title)}</h1>
+${paragraphs.map(p=>`<p class="email-copy" style="margin:0 0 18px;color:#48546a;font-size:16px;line-height:26px">${escape(p)}</p>`).join('\n')}
+${code ? `<p class="email-note" style="font-size:12px;color:#617087;margin:22px 0 8px">YOUR VERIFICATION CODE</p><p class="email-code" style="background:#f1f3f7;color:#142033;border-radius:10px;padding:18px;text-align:center;font-size:28px;letter-spacing:5px;font-family:Consolas,monospace">${escape(code)}</p>` : ''}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 16px"><tr><td align="center" bgcolor="#e8ba67" style="border-radius:10px;mso-padding-alt:16px 20px"><a href="${escape(link)}" style="display:block;padding:16px 20px;border:1px solid #e8ba67;border-radius:10px;background:#e8ba67;color:#131b28;font-size:16px;line-height:22px;font-weight:700;text-decoration:none">${escape(action)}</a></td></tr></table>
+<p class="email-note" style="margin:0 0 8px;font-size:12px;line-height:20px;color:#617087">If the button does not open, copy this link into your browser:</p>
+<p style="margin:0 0 24px;font-size:12px;line-height:20px;word-break:break-all;overflow-wrap:anywhere"><a href="${escape(link)}" style="color:#946b2d">${escape(link)}</a></p>
+<p class="email-note email-rule" style="border-top:1px solid #e4e7ed;padding-top:20px;margin:0;color:#617087;font-size:13px;line-height:22px">${escape(notice)}</p></td></tr>
+<tr><td class="email-rule" style="border-top:1px solid #e4e7ed;padding:20px 28px"><p class="email-note" style="margin:0;color:#617087;font-size:12px;line-height:20px">EliteTrade · Account services<br>Need help? <a href="${escape(siteUrl)}/support" style="color:#946b2d">Contact support</a><br>This is an account message, not a trading signal.</p></td></tr></table>
+<!--[if mso]></td></tr></table><![endif]-->
+</td></tr></table></body></html>`;
+  return {subject,html,text};
+}

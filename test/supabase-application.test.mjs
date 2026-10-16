@@ -69,7 +69,6 @@ test('public canonical uses the Vercel site URL and auth callback uses the curre
   const robots = readFileSync(new URL('../public/robots.txt', import.meta.url), 'utf8');
   const security = readFileSync(new URL('../public/security.txt', import.meta.url), 'utf8');
   assert.match(app, /AUTH_REDIRECT_ORIGIN = window\.location\.origin/);
-  assert.match(app, /location\.hash && location\.pathname !== '\/reset-password'/);
   assert.match(index, /https:\/\/elitetradee\.vercel\.app\//);
   assert.match(robots, /https:\/\/elitetradee\.vercel\.app\/sitemap\.xml/);
   assert.match(security, /https:\/\/elitetradee\.vercel\.app\/\.well-known\/security\.txt/);

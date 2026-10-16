@@ -1,0 +1,13 @@
+Your EliteTrade verification code
+
+Use this one-time code on the screen where you requested verification.
+The button below returns to EliteTrade. It does not approve the action or verify this code.
+
+Verification code: {{ .Token }}
+
+Return to EliteTrade: {{ .SiteURL }}
+
+If you did not request this code, ignore this email. Never share verification codes with anyone.
+
+EliteTrade · Account services
+https://elitetradee.vercel.app/support
