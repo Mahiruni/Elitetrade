@@ -4,14 +4,15 @@ import {homedir} from 'node:os';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {spawnSync} from 'node:child_process';
+import {retryableProbeFailure} from '../src/elitebridge-supervisor.mjs';
 import {
   initializeTerminalIdentity,reserveTerminalSequences,validateTerminalObservation,
   createTerminalPackets,sendTerminalPackets,signLocalPairingProof
 } from '../src/elitebridge-terminal-uplink.mjs';
 
-function abort(message){
+function abort(message,retryable=false){
   console.error('ELITEBRIDGE: '+message);
-  process.exitCode=1;
+  process.exitCode=retryable?75:1;
 }
 async function main(){
   const op=process.argv[2];
@@ -59,7 +60,8 @@ async function main(){
     windowsHide:true,env:process.env
   });
   if(child.error||child.status!==0)
-    throw Error('Read-only Windows MT5 terminal probe refused this session');
+    throw Object.assign(Error('Read-only Windows MT5 terminal probe refused this session'),
+      {retryable:retryableProbeFailure(child)});
   let observation;
   try{observation=JSON.parse(child.stdout);}
   catch{throw Error('MT5 terminal observation was not valid JSON');}
@@ -78,4 +80,4 @@ async function main(){
   console.log('MODE: '+mode.toUpperCase()+' | BROKER VERIFIED BY CLOUD: NO | ORDERS: DISABLED');
 }
 main().catch(e=>abort(e?.message?.startsWith('EliteBridge terminal uplink:')?
-  e.message:'Terminal uplink unavailable: '+String(e.message||'Unknown error').slice(0,160)));
+  e.message:'Terminal uplink unavailable: '+String(e.message||'Unknown error').slice(0,160),e?.retryable===true));

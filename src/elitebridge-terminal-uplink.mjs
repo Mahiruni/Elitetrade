@@ -221,8 +221,9 @@ export async function sendTerminalPackets({packets,endpoint,fetcher=fetch,expect
         redirect:'error',cache:'no-store',credentials:'omit',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({packet}),signal:AbortSignal.timeout(10000)});
-    }catch{throw err('HTTPS delivery unavailable; do not reuse reserved sequences');}
-    if(!response?.ok)throw err('cloud rejected telemetry; confirm terminal approval, feature flags and availability');
+    }catch{throw Object.assign(err('HTTPS delivery unavailable; do not reuse reserved sequences'),{retryable:true});}
+    if(!response?.ok)throw Object.assign(err('cloud rejected telemetry; confirm terminal approval, feature flags and availability'),
+      {retryable:response?.status===429||(response?.status>=500&&response?.status<=599)});
     let ack;
     try{ack=await response.json();}catch{throw err('invalid cloud acknowledgment');}
     if(ack?.accepted!==true||ack?.kind!==packet.kind||
