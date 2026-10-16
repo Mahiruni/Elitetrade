@@ -240,8 +240,12 @@ CI success is evidence of the display layer only; it is not Wine/MT5 session pro
 
 Hosting check: Render's free web services sleep after idle periods and do not
 support persistent disks. They cannot establish the always-on, durable runtime
-promised here. No paid host or plan upgrade was created. Existing Render service
-inspection awaits the connector's required workspace confirmation.
+promised here. No paid host or plan upgrade was created. After workspace
+confirmation, inspection found only the existing `elitetrade-paper-demo` static
+site. The user selected **EliteEnginePro** as the new runtime name. Its separate
+no-credentials Linux/Wine compatibility image and deployment scope are documented
+in [EliteEnginePro](../deploy/eliteenginepro/README.md). A free compatibility
+instance does not satisfy the persistent-host or broker-authentication gates.
 
 Additional primary references:
 
