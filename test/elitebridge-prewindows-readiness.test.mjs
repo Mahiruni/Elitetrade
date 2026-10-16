@@ -27,7 +27,7 @@ test('pre-Windows checks never assert MT5 broker verification or bridge orders',
     assert.equal(r.readyCount,r.checks.filter(x=>x.state==='ready').length);
     assert.ok(!JSON.stringify(r).includes(accountId));
   }
- });
+ }
 });
 
 test('unknown terminal registry stays unknown, not a fabricated empty enrollment',()=>{
