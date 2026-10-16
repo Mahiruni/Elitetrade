@@ -209,4 +209,20 @@ begin
 end;$$;
 revoke all on function public.elitetrade_enginepro_advance(uuid,uuid,bigint,text,jsonb) from public,anon,authenticated;
 grant execute on function public.elitetrade_enginepro_advance(uuid,uuid,bigint,text,jsonb) to service_role;
+
+create function public.elitetrade_enginepro_load(p_intent_id uuid,p_owner uuid,p_epoch bigint) returns jsonb
+language plpgsql security invoker set search_path='' as $$
+declare i elitetrade_private.enginepro_intents; a elitetrade_private.enginepro_accounts;
+begin
+ if current_user<>'service_role' then raise exception 'ENGINEPRO_WORKER_REQUIRED' using errcode='42501';end if;
+ select * into i from elitetrade_private.enginepro_intents where id=p_intent_id;
+ if not found then raise exception 'ENGINEPRO_INTENT_NOT_FOUND';end if;
+ select * into a from elitetrade_private.enginepro_accounts where account_id=i.account_id;
+ if p_owner is null or p_epoch is null or a.lease_owner is distinct from p_owner or a.epoch<>p_epoch
+  or a.lease_until is null or a.lease_until<=clock_timestamp() then raise exception 'ENGINEPRO_LEASE_LOST';end if;
+ return jsonb_build_object('id',i.id,'accountId',i.account_id,'botId',i.bot_id,'state',i.state,
+  'command',i.command,'strategyVersion',i.strategy_version,'signalKey',i.signal_key,'stopped',a.stopped);
+end;$$;
+revoke all on function public.elitetrade_enginepro_load(uuid,uuid,bigint) from public,anon,authenticated;
+grant execute on function public.elitetrade_enginepro_load(uuid,uuid,bigint) to service_role;
 commit;
