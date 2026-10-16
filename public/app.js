@@ -722,7 +722,42 @@ async function logout() {
   state.stream = null;
   navigate('/login',true);
 }
-function accountModal() { openModal('Add MT5 account',form('account','<ol class="mt5-form-steps"><li>Enter broker details</li><li>Save for administrator review</li><li>Wait for confirmed connection</li></ol>' + field('Broker','broker','','text','required minlength="2" maxlength="100" placeholder="Your broker name"') + field('MT5 account number','login','','text','required inputmode="numeric" pattern="[0-9]+" maxlength="30"') + field('Server','server','','text','required minlength="2" maxlength="100" placeholder="Exact server name from MT5"') + password('MT5 password','password') + '<p class="meta">Use the exact broker server for your demo or real MT5 account. Your encrypted credentials are shared with the connection provider after administrator approval. An investor password is recommended for account data access.</p>', 'Save account')); }
+function accountModal() {
+  const serverOptions = mode => Array.from({length:20},(_,i)=>{
+    const server='Exness-MT5'+(mode==='demo'?'Trial':'Real')+(i+1);
+    return '<option value="'+server+'">'+server+'</option>';
+  }).join('');
+  openModal('Add MT5 account',form('account',
+    '<ol class="mt5-form-steps"><li>Enter broker details</li><li>Save for administrator review</li><li>Wait for confirmed connection</li></ol>'+
+    field('Broker','broker','Exness','text','required minlength="2" maxlength="100" placeholder="Your broker name"')+
+    field('MT5 account number','login','','text','required inputmode="numeric" pattern="[0-9]+" maxlength="30"')+
+    '<label>Account type<select id="mt5-account-mode" aria-label="Account type"><option value="demo">Demo</option><option value="real">Real</option></select></label>'+
+    '<label id="mt5-server-choice">Server<select name="server" id="mt5-server-select" required>'+serverOptions('demo')+'</select></label>'+
+    password('MT5 password','password')+
+    '<p class="meta">Select the exact server assigned by your broker. The Exness list contains server candidates, not verified broker endpoints. Account connection remains pending until broker verification.</p>',
+    'Save account'));
+  const broker=modal.querySelector('[name="broker"]');
+  const mode=modal.querySelector('#mt5-account-mode');
+  const server=modal.querySelector('#mt5-server-select');
+  const label=modal.querySelector('#mt5-server-choice');
+  if(!broker||!mode||!server||!label)return;
+  const renderServer=()=>{
+    const isExness=broker.value.trim().toLowerCase()==='exness';
+    if(isExness){
+      const previous=server.value;
+      label.innerHTML='Server<select name="server" id="mt5-server-select" required>'+serverOptions(mode.value)+'</select>';
+      const next=label.querySelector('select');
+      if([...next.options].some(option=>option.value===previous))next.value=previous;
+      else next.value='Exness-MT5'+(mode.value==='demo'?'Trial':'Real')+'10';
+    }else{
+      const previous=server.value.startsWith('Exness-MT5')?'':server.value;
+      label.innerHTML='Server<input name="server" required minlength="2" maxlength="100" placeholder="Exact server name from MT5">';
+      label.querySelector('input').value=previous;
+    }
+  };
+  mode.addEventListener('change',renderServer);
+  broker.addEventListener('change',renderServer);
+}
 function botModal(id) {
   const b = state.data.bots.find(b => b.id === id);
   openModal('Configure trading bot',form('bot',`<div class="form-grid">${field('Bot name','name',b.name,'text','required minlength="2" maxlength="64"')}${field('Broker symbol','symbol',b.symbol,'text','required maxlength="30"')}${select('MT5 account','accountId',b.account_id || '',[['','Select an account'],...state.data.accounts.map(a => [a.id,`${a.broker} · ${a.login}`])])}${select('Strategy','strategy',b.strategy,[['trend','Trend · M15'],['scalping','Scalping · M5'],['scalping-m1','1-Min Scalper · M1 (experimental)'],['scalping-s15','15-Second Scalper · S15 (experimental DEMO)'],['breakout','Breakout · M15'],['scalpin-ss-ex5','Scalpin SS · Original MT5 EX5 (Windows only)']])}</div><p class="meta"><strong>Original EX5 option:</strong> This selection registers your supplied binary; it does not run inside the EliteTrade web bot. The EA must be installed and tested in Windows MT5. The risk fields below do not control its internal EX5 inputs.</p><details class="advanced-settings"><summary>Risk and execution settings</summary><div class="form-grid">${[['Risk per trade · %','riskPercent',b.risk_percent,.1,5],['Stop distance · % of entry price','stopLoss',b.stop_loss,.1,20],['Target distance · % of entry price','takeProfit',b.take_profit,.1,50],['Maximum drawdown · %','maxDrawdown',b.max_drawdown,1,30],['Daily loss limit · %','dailyLoss',b.daily_loss,.1,10],['Maximum lot size','lotSize',b.lot_size,.01,10]].map(([l,n,v,min,max]) => field(l,n,v,'number',`required min="${min}" max="${max}" step="0.01"`)).join('')}</div></details>`, 'Save configuration',id));
