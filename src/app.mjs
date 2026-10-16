@@ -1,3 +1,4 @@
+import { prepareEliteBridgeAccount } from './elitebridge-account-review.mjs';
 import { createAndroidReleaseService } from './android-release.mjs';
 import { hostedMt5Status } from './hosted-mt5-status.mjs';
 import { eliteBridgeReadiness } from './elitebridge-readiness.mjs';
@@ -558,8 +559,15 @@ export function createApplication(options = {}) {
       const accountReview = path.match(/^\/api\/admin\/accounts\/([^/]+)\/review$/);
       if (accountReview && method === 'POST') {
         const account = get('SELECT * FROM accounts WHERE id=?', accountReview[1]); if (!account) fail(404, 'Account not found.');
-        const decision = choice(body.decision, ['approve','reject'], 'decision'), note = body.note ? string(body.note, 'Note', 1, 500) : '';
+        const decision = choice(body.decision, ['elitebridge','approve','reject'], 'decision'), note = body.note ? string(body.note, 'Note', 1, 500) : '';
         if (decision === 'reject') { if (account.gateway_id) fail(409, 'Disconnect this account before rejecting its details.'); run("UPDATE accounts SET status='rejected',note=? WHERE id=?", note, account.id); }
+        else if (decision === 'elitebridge') {
+          const owner = get('SELECT active,role,disabled FROM users WHERE id=?', account.user_id);
+          const prepared = prepareEliteBridgeAccount(account, owner);
+          run("UPDATE accounts SET status='pending',gateway_id=NULL,note=? WHERE id=?", prepared.note, account.id);
+          audit(admin.id, 'account.elitebridge-prepare', account.id); broadcast(account.user_id);
+          return json(res, prepared);
+        }
         else {
           if (!gateway) fail(503, 'Configure the MT5 gateway before approving connections.');
           const owner = get('SELECT active,role,disabled FROM users WHERE id=?', account.user_id);

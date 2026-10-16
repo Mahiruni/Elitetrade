@@ -232,3 +232,22 @@ test('hosted account review retains pending binding, retries approval and reject
   assert.equal(controls,0);
   assert.equal((await member.call(`/api/accounts/${account.id}`,'DELETE')).status,200);assert.equal(removals,1);
 });
+
+test('EliteBridge review keeps an account pending without contacting the gateway', async t => {
+  let connections=0;
+  const f=await fixture(t,{gateway:{connect:async()=>{connections++;throw Error('Unexpected provider call');}}});
+  const admin=await f.administrator(),member=f.client();
+  const u=await f.signup(member,'bridge-review@example.test');
+  f.db.prepare('UPDATE users SET active=1 WHERE id=?').run(u.id);
+  await member.call('/api/accounts','POST',{broker:'Valetax',login:'12345',server:'ValetaxIntl_Live-2',password:PASSWORD});
+  const account=(await member.call('/api/accounts')).data.accounts[0];
+  const review=`/api/admin/accounts/${account.id}/review`;
+  assert.equal((await member.call(review,'POST',{decision:'elitebridge'})).status,403);
+  const result=await admin.call(review,'POST',{decision:'elitebridge',note:'Connected'});
+  assert.equal(result.status,200);assert.equal(result.data.connected,false);
+  const saved=f.db.prepare('SELECT status,gateway_id,note FROM accounts WHERE id=?').get(account.id);
+  assert.equal(saved.status,'pending');assert.equal(saved.gateway_id,null);
+  assert.match(saved.note,/EliteBridge setup pending/);assert.equal(connections,0);
+  f.db.prepare("UPDATE accounts SET gateway_id='metaapi:pending' WHERE id=?").run(account.id);
+  assert.equal((await admin.call(review,'POST',{decision:'elitebridge'})).status,409);
+});

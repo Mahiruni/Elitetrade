@@ -1,3 +1,4 @@
+import { prepareEliteBridgeAccount } from './elitebridge-account-review.mjs';
 import { createAndroidReleaseService } from './android-release.mjs';
 import { hostedMt5Status } from './hosted-mt5-status.mjs';
 import { ORIGINAL_EX5, ORIGINAL_EX5_ID, isOriginalEx5 } from './original-ex5.mjs';
@@ -1131,12 +1132,19 @@ export function createSupabaseApplication(options = {}) {
       if (accountReview && method === 'POST') {
         const account = await db.one('elitetrade_accounts', `id=eq.${q(accountReview[1])}&select=*`, ctx.token);
         if (!account) fail(404, 'Account not found.');
-        const decision = choice(body.decision, ['approve','reject'], 'decision');
+        const decision = choice(body.decision, ['elitebridge','approve','reject'], 'decision');
         const note = body.note ? string(body.note, 'Note', 1, 500) : '';
         if (decision === 'reject') {
           if (account.gateway_id) fail(409, 'Disconnect this account before rejecting its details.');
           await db.rpc('elitetrade_admin_update_account',
             { p_account_id:account.id,p_status:'rejected',p_gateway_id:null,p_note:note }, ctx.token);
+        } else if (decision === 'elitebridge') {
+          const owner = await db.one('elitetrade_profiles', `id=eq.${q(account.user_id)}&select=active,role,disabled`, ctx.token);
+          const prepared = prepareEliteBridgeAccount(account, owner);
+          await db.rpc('elitetrade_admin_update_account',
+            { p_account_id:account.id,p_status:'pending',p_gateway_id:null,p_note:prepared.note }, ctx.token);
+          await audit(ctx, 'account.elitebridge-prepare', account.id);
+          return json(res, prepared);
         } else {
           if (!gateway) fail(503, 'Configure the MT5 gateway before approving connections.');
           const owner = await db.one('elitetrade_profiles', `id=eq.${q(account.user_id)}&select=active,role,disabled`, ctx.token);
