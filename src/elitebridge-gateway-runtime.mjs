@@ -1,4 +1,4 @@
-import {spawn} from 'node:child_process';
+import {runJsonSubprocess} from './json-subprocess.mjs';
 import {createHash,timingSafeEqual} from 'node:crypto';
 import {validateGatewaySnapshot} from './elitebridge-gateway-snapshot.mjs';
 import {resolveMt5ServerProfile} from './elitebridge-broker-server-profiles.mjs';
@@ -49,33 +49,18 @@ export async function inspectGatewayRuntime({executable,args=[],terminalPath,sig
 }
 
 function sdkProcess({executable,args,request,timeoutMs}) {
-  return async signal=>new Promise((resolve,reject)=>{
-    const child=spawn(executable,args,{shell:false,windowsHide:true,stdio:['pipe','pipe','ignore'],
+  return async signal=>{
+    let data;
+    try{data=await runJsonSubprocess({executable,args,request,timeoutMs,signal,allowErrorResult:true,
       env:Object.fromEntries(['PATH','HOME','WINEPREFIX','WINEDEBUG','DISPLAY','XAUTHORITY','LANG','SYSTEMROOT','TEMP']
-        .filter(k=>process.env[k]!==undefined).map(k=>[k,process.env[k]]))});
-    let output='',settled=false,forcedError=null;
-    const fail=code=>{forcedError=code;child.kill('SIGKILL');};
-    const timer=setTimeout(()=>fail('SDK_TIMEOUT'),timeoutMs);
-    const cancel=()=>fail('STOPPED');
-    const finish=(code,data)=>{
-      if(settled)return;settled=true;clearTimeout(timer);signal?.removeEventListener('abort',cancel);
-      code?reject(Object.assign(Error(code),{code})):resolve(data);
-    };
-    signal?.addEventListener('abort',cancel,{once:true});
-    child.stdout.on('data',chunk=>{output+=chunk.toString('utf8');if(output.length>262144)fail('SDK_OUTPUT_LIMIT');});
-    child.stdin.on('error',()=>{});
-    child.on('error',()=>finish('SDK_RUNTIME_UNAVAILABLE'));
-    child.on('close',exitCode=>{
-      if(forcedError)return finish(forcedError);
-      try{
-        const data=JSON.parse(output);
-        if(data.error)return finish(failures.has(data.error)?data.error:'SDK_COLLECTION_FAILED');
-        if(exitCode!==0)return finish('SDK_COLLECTION_FAILED');
-        finish(null,data);
-      }catch{finish('SDK_COLLECTION_FAILED');}
-    });
-    if(signal?.aborted)cancel();else child.stdin.end(JSON.stringify(request));
-  });
+        .filter(k=>process.env[k]!==undefined).map(k=>[k,process.env[k]]))});}
+    catch(error){
+      const code=['STOPPED','SDK_TIMEOUT','SDK_OUTPUT_LIMIT','SDK_RUNTIME_UNAVAILABLE'].includes(error?.code)?error.code:'SDK_COLLECTION_FAILED';
+      throw Object.assign(Error(code),{code});
+    }
+    if(data.error){const code=failures.has(data.error)?data.error:'SDK_COLLECTION_FAILED';throw Object.assign(Error(code),{code});}
+    return data;
+  };
 }
 
 export function createGatewaySupervisor({config,collect,clock=Date.now,audit=()=>{}}) {

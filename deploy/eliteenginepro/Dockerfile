@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y wine wine64 xvf
 WORKDIR /opt/elitetrade
 COPY --from=windows-python /opt/winpython /opt/winpython
 COPY --chown=node:node src/eliteenginepro-runtime.mjs ./src/
+COPY --chown=node:node src/json-subprocess.mjs ./src/
 COPY --chown=node:node scripts/eliteenginepro-runtime.mjs ./scripts/
 COPY --chown=node:node companion/mt5_sdk_compatibility.py ./companion/
 RUN mkdir -p /var/lib/eliteenginepro && chown node:node /var/lib/eliteenginepro && chmod 700 /var/lib/eliteenginepro

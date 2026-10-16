@@ -40,6 +40,13 @@ Render provides HTTPS; only the HTTP status port is exposed. X TCP listening is
 disabled; no VNC, remote desktop, credential panel or arbitrary command endpoint
 is exposed. Tini forwards termination to the whole child process group.
 
+Commissioning found a subprocess completion defect: Wine descendants can keep
+stdout open after the requested process exits. The shared JSON process runner
+now requires a complete JSON line plus a successful process exit, and settles
+timeouts/cancellation immediately without waiting for inherited pipes to close.
+Only allowlisted SDK error payloads may accompany a nonzero exit. Regression
+tests reproduce both retained-pipe success and timeout with real subprocesses.
+
 Before continuous broker operation: validate actual MT5 installation and broker
 login under Wine, provision persistent compute/storage, review interpreter and
 Wine security updates, connect the existing private demo gateway, and verify

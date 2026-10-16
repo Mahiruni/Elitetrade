@@ -1,5 +1,5 @@
 import {createServer} from 'node:http';
-import {spawn} from 'node:child_process';
+import {runJsonSubprocess} from './json-subprocess.mjs';
 
 const version=value=>typeof value==='string'&&/^\d{1,3}(\.\d{1,8}){1,3}$/.test(value);
 export function validateSdkCompatibility(data){
@@ -14,23 +14,10 @@ export function validateSdkCompatibility(data){
 
 export function probeSdkCompatibility({signal,executable='/usr/bin/wine',
   args=['/opt/winpython/python.exe','Z:\\opt\\elitetrade\\companion\\mt5_sdk_compatibility.py'],timeoutMs=90000}={}){
-  return new Promise((resolve,reject)=>{
-    const child=spawn(executable,args,{shell:false,stdio:['ignore','pipe','ignore'],
-      env:Object.fromEntries(['PATH','HOME','WINEPREFIX','WINEDEBUG','WINEDLLOVERRIDES','DISPLAY','XAUTHORITY','LANG']
-        .filter(k=>process.env[k]!==undefined).map(k=>[k,process.env[k]]))});
-    let output='',forced=false,done=false;
-    const abort=()=>{forced=true;child.kill('SIGKILL');};
-    const timer=setTimeout(abort,timeoutMs);
-    const finish=(error,value)=>{if(done)return;done=true;clearTimeout(timer);signal?.removeEventListener('abort',abort);
-      error?reject(Error('SDK_COMPATIBILITY_FAILED')):resolve(value);};
-    signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();
-    child.stdout.on('data',part=>{output+=part;if(output.length>8192)abort();});
-    child.on('error',()=>finish(true));
-    child.on('close',code=>{
-      if(forced||code!==0)return finish(true);
-      try{finish(false,validateSdkCompatibility(JSON.parse(output)));}catch{finish(true);}
-    });
-  });
+  return runJsonSubprocess({executable,args,timeoutMs,maxBytes:8192,signal,
+    env:Object.fromEntries(['PATH','HOME','WINEPREFIX','WINEDEBUG','WINEDLLOVERRIDES','DISPLAY','XAUTHORITY','LANG']
+      .filter(k=>process.env[k]!==undefined).map(k=>[k,process.env[k]]))})
+    .then(validateSdkCompatibility).catch(()=>{throw Error('SDK_COMPATIBILITY_FAILED');});
 }
 
 export function createEliteEngineProRuntime({probe=probeSdkCompatibility,audit=()=>{}}={}){
