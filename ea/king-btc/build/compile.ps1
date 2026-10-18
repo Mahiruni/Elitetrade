@@ -57,7 +57,7 @@ $report = @"
 - EX5 size: $bytes bytes.
 - EX5 SHA-256: $hash
 - Source commit: $env:GITHUB_SHA
-- Shared sizing-header numeric assertions: separate numeric-tests workflow job.
+- Shared sizing and rolling quote-window assertions: separate numeric-tests workflow job.
 - Broker execution, MT5 runtime behavior, historical profitability and win rate: NOT TESTED.
 - No account credentials were used; no trading account was connected.
 
@@ -66,7 +66,7 @@ Do not interpret compilation or numeric checks as a validated trading strategy.
 Set-Content (Join-Path $package "BUILD_REPORT.md") $report -Encoding utf8
 $delivery = Join-Path $env:RUNNER_TEMP "King_of_Scalper_BTC"
 New-Item -ItemType Directory -Path $delivery -Force | Out-Null
-foreach ($name in @("King_of_Scalper_BTC.mq5","King_BTC_Risk.mqh","King_of_Scalper_BTC.ex5","King_of_Scalper_BTC_Demo.set","King_of_Scalper_BTC.log","README.md","TEST_REPORT.md","BUILD_REPORT.md")) {
+foreach ($name in @("King_of_Scalper_BTC.mq5","King_BTC_Risk.mqh","King_BTC_Ticks.mqh","King_of_Scalper_BTC.ex5","King_of_Scalper_BTC_Demo.set","King_of_Scalper_BTC_Fast_Demo.set","King_of_Scalper_BTC.log","README.md","TEST_REPORT.md","BUILD_REPORT.md")) {
     Copy-Item (Join-Path $package $name) $delivery
 }
 Compress-Archive -Path "$delivery\*" -DestinationPath (Join-Path $package "King_of_Scalper_BTC_Package.zip") -Force

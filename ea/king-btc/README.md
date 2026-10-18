@@ -1,6 +1,6 @@
 # King of Scalper BTC — experimental MT5 EA
 
-Original BTCUSD M1 Expert Advisor, version 1.00. Designed for Strategy Tester and demo evaluation. There is no measured win rate, profitability claim, or historical backtest result in this package.
+Original BTCUSD M1 Expert Advisor, version 1.10. Designed for Strategy Tester and demo evaluation. There is no measured win rate, profitability claim, or historical backtest result in this package.
 
 ## Install
 
@@ -28,13 +28,19 @@ Default mode:
 - Pullback bar is M1 bar[2]. For a buy its low must touch EMA20 + 0.20 ATR and its close must be at/above EMA20. Sells reverse this condition.
 - Confirmation bar[1] must close above the maximum high of bars[2..6] for buys, or below their minimum low for sells, with a directional candle body.
 - Entry is a market order during the first 20 server seconds of the next M1 bar, subject to all risk/cost checks.
-- One submitted attempt per setup bar. A rejected attempt is not retried on that setup.
+- In baseline candle mode: one submitted attempt per setup bar. A rejected attempt is not retried on that setup. Tick mode uses a consumed quote window plus cooldown instead.
 - One symbol position or pending order of ANY owner blocks a new entry.
 
-Alternative tick mode:
-- Enable InpTickFlow to replace the pullback breakout with closed-bar M5 trend/M1 momentum plus 3 consecutive changes in bid in that direction.
-- Equal bid ticks neither add nor reset the count.
-- Same one-position, daily-limit, and risk controls. No independent second strategy.
+Alternative rolling tick mode (v1.10):
+- Enable InpTickFlow to evaluate incoming changed bid/ask quotes continuously; this mode does not wait for the next M1 close or three closed M1 momentum bars.
+- Uses a rolling 3-second window, a minimum 250ms observed span, and directional confirmations.
+- Both bid and ask must move in the same net direction, with sufficient net movement and directional efficiency; spread-only changes are rejected.
+- Minimum movement is the maximum of 2 symbol ticks, 0.04 times completed-M1 ATR, and the configured spread multiplier.
+- M5 EMA trend filtering is optional. The new FAST demo preset disables it to permit either direction.
+- The rolling window is consumed before an order attempt. It warms from new quotes after an attempt or position exit; gaps and out-of-order quotes reset it.
+- A millisecond setup identity replaces the one-attempt-per-M1 restriction in this mode.
+- Same one-position, cost, margin, loss, drawdown and risk controls. No independent second strategy.
+- MT5 may coalesce NewTick events while a handler is busy. This EA evaluates quotes received through OnTick; it cannot guarantee observing or trading every market movement.
 
 No pending-order grid is created. Existing orders with this symbol/magic are blocked from further entries and canceled if stale or protection triggers. This is a deliberate one-entry baseline; there is no averaging, martingale or recovery sizing.
 
@@ -98,7 +104,31 @@ State is terminal-local and keyed by account, server, symbol and magic. It survi
 - Unique default magic: 77101801.
 
 ### 9. Tick flow
-Disabled. If enabled, it replaces the baseline entry mode, requiring 3 consecutive directional bid changes.
+Disabled in the baseline preset. When enabled, it uses the rolling quote window described above. Defaults: 3000ms window, 250ms minimum span, 3 confirmations, 0.04 ATR minimum move, 1.25 spread multiplier, 0.65 efficiency, optional M5 filter enabled, 3-second rearm.
+
+## FAST demo preset: what changed
+
+Load King_of_Scalper_BTC_Fast_Demo.set in the EA Inputs or Strategy Tester. Attaching the new EX5 without loading this preset retains conservative defaults.
+
+- Tick mode ON; 2 directional observations after the initial quote.
+- 3-second rolling window; minimum observed span 250ms.
+- No M5 alignment or completed-M1 entry gate; completed-M1 ATR is still required.
+- Move >= max(0.04 ATR, 1.0 spread, 2 ticks); efficiency >=0.60.
+- Minimum interval between submitted attempts 5 seconds; fresh-window rearm 3 seconds after an observed exit.
+- Daily attempt ceiling 200 (not a target or guaranteed number).
+- Initial SL 1 ATR; target 1.20R.
+- Breakeven 0.80R; trail starts 0.90R at 0.60 ATR; modification interval 1 second.
+- Spread ceiling 0.25 ATR; estimated cost <=25% of gross target.
+- Same 0.25% risk, 0.10 lot ceiling, 20 account-currency daily loss and 5% drawdown limit.
+- Live entries remain disabled by default.
+- Same magic and persistent protection state. Loading this preset never resets a lock or daily count.
+- One symbol position/pending order at a time. New signals wait for that exposure to end.
+
+This preset may submit more trades; it has no validated win rate or positive expectancy. High volatility may make minimum lot risk exceed the budget; the panel displays the dollar calculation instead of forcing an entry.
+
+## Upgrade from v1.00
+
+Remove the old EA from the chart, copy the new EX5, and attach v1.10 on BTCUSD M1. Load the FAST demo preset. Do not run both versions or a manual BTC position simultaneously. Existing owned positions retain original risk records; the update does not reset protection. The first v1.10 initialization migrates persisted attempt timestamps from seconds to milliseconds.
 
 ## Automatic sizing and compounding
 
@@ -124,7 +154,7 @@ Stops and thresholds cannot guarantee a maximum realized loss: gaps, slippage, d
 - Hedging accounts: modify/close by exact ticket.
 - Netting accounts: no entry if the symbol has any exposure; before management or cleanup inspect the position's deal history for foreign magic numbers.
 - Foreign netting activity causes management to stop for that position. Do not manually trade the same symbol in a netting account.
-- Setup timestamp and attempt count are persisted before order submission.
+- Setup identity and attempt count are persisted before submission. Baseline identities use candle-open milliseconds; tick identities use quote milliseconds.
 - No automatic entry retry after an ambiguous result; execution fault latches for review.
 - Partial fills are accepted without topping up; any remaining active order blocks future entries.
 - Original stop and allocated budget are persisted before submission and bound to each position identifier. Delayed/partial fills are rechecked every maintenance pass. Initial R uses the immutable original stop, never the trailed stop.
@@ -156,3 +186,6 @@ Expected skip examples: spread too high, waiting for breakout, minimum lot excee
 - https://www.mql5.com/en/docs/globals
 - https://www.metatrader5.com/en/terminal/help/start_advanced/installation
 - https://www.metatrader5.com/en/metaeditor/help/beginning/integration_ide
+
+- https://www.mql5.com/en/docs/event_handlers/ontick
+- https://www.mql5.com/en/docs/constants/structures/mqltick

@@ -17,6 +17,10 @@ jobs:
         run: |
           g++ -std=c++17 -O2 -Wall -Wextra -Werror ea/king-btc/tests/risk_tests.cpp -o /tmp/king-btc-tests
           /tmp/king-btc-tests
+      - name: Compile and run rolling quote-window checks
+        run: |
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror ea/king-btc/tests/tick_tests.cpp -o /tmp/king-btc-ticks
+          /tmp/king-btc-ticks
       - name: Check preset matches every EA input
         run: python3 ea/king-btc/tests/check_preset.py
   compile:

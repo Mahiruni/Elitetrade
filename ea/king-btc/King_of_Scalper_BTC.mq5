@@ -1,9 +1,10 @@
 #property strict
-#property version "1.00"
+#property version "1.10"
 #property description "King of Scalper BTC: experimental M1 EA with equity-risk sizing."
 #property description "Defaults to demo/testing. No performance guarantee."
 #include <Trade/Trade.mqh>
 #include "King_BTC_Risk.mqh"
+#include "King_BTC_Ticks.mqh"
 
 input group "1. ORDER SETTINGS"
 input bool   InpAutoRisk=true;
@@ -74,14 +75,26 @@ input bool   InpShowPanel=true;
 input group "9. TICK FLOW SCALP"
 input bool   InpTickFlow=false; // Alternative entry mode; replaces pullback breakout.
 input int    InpTickConfirm=3;
+input int    InpTickWindowMs=3000;
+input int    InpTickMinimumSpanMs=250;
+input double InpTickMinMoveATR=0.04;
+input double InpTickMinMoveSpread=1.25;
+input double InpTickMinEfficiency=0.65;
+input bool   InpTickUseM5Trend=true;
+input int    InpTickRearmSeconds=3;
 
 CTrade trade;
 int hATR=INVALID_HANDLE,hFast=INVALID_HANDLE,hSlow=INVALID_HANDLE,hPull=INVALID_HANDLE;
 string ns="",reason="Initializing";
 double tickSize=0.0,pointSize=0.0,atrNow=0.0,lastVolume=0.0,lastRisk=0.0;
-int priceDigits=0,setupDirection=0,tickDirection=0,tickCount=0;
+int priceDigits=0,setupDirection=0,tickTrend=0;
+KTickWindow tickWindow;
+double setupToken=0.0,tickMinimumMove=0.0;
+datetime tickContextTime=0,tickReadyAfter=0,lastNotePrint=0,lastPanelTime=0;
+bool tickHadExposure=false;
+string lastLoggedReason="";
 datetime lastBar=0,setupBar=0,lastMaintenance=0,lastModify=0,lastCleanup=0;
-double previousBid=0.0,leaseValue=0.0;
+double leaseValue=0.0;
 bool historyReady=false,stateReady=false,stateWriteFailed=false;
 string GK(string suffix) { return ns+"."+suffix; }
 double G(string suffix) { return GlobalVariableGet(GK(suffix)); }
@@ -96,8 +109,11 @@ void S(string suffix,double value)
 void Flush() { GlobalVariablesFlush(); }
 void Note(string text)
 {
-   if(reason!=text) Print("KingBTC: ",text);
    reason=text;
+   if(text!=lastLoggedReason && TimeLocal()-lastNotePrint>=5)
+   {
+      Print("KingBTC: ",text); lastLoggedReason=text; lastNotePrint=TimeLocal();
+   }
 }
 uint HashText(string value)
 {
@@ -218,6 +234,9 @@ bool InitializeState()
    for(int i=0;i<ArraySize(required);i++)
       if(!GlobalVariableCheck(GK(required[i]))) return false;
    if(G("version")!=1.0) return false;
+   // v1.00 stored candle seconds; v1.10 uses quote/candle milliseconds.
+   if(G("attempt")>0.0 && G("attempt")<100000000000.0)
+      { S("attempt",G("attempt")*1000.0); Flush(); }
    if((int)G("reset")!=InpProtectionResetToken)
    {
       if(exposure) { Note("Protection reset refused while this EA has exposure."); return false; }
@@ -487,14 +506,67 @@ void BuildSetup()
          setupDirection=-1;
    }
    setupBar=bars[0].time;
+   setupToken=(double)setupBar*1000.0;
    Note(setupDirection==0?"No closed-candle pullback breakout.":"Entry setup detected.");
 }
+// In tick mode the entry clock is incoming quotes, with no completed-M1 setup gate.
+// ATR still uses a completed M1 value; optional trend context uses completed M5.
+void BuildTickSetup(MqlTick &quote)
+{
+   setupDirection=0;
+   if(AnySymbolExposure())
+   {
+      tickWindow.Reset(); tickHadExposure=true;
+      Note("Position/pending order open: waiting for exit before another entry.");
+      return;
+   }
+   if(tickHadExposure)
+   {
+      tickHadExposure=false; tickReadyAfter=TimeCurrent()+InpTickRearmSeconds;
+      tickWindow.Reset();
+   }
+   if(TimeCurrent()<tickReadyAfter) { Note("Rearming fresh tick window."); return; }
+   long timestamp=quote.time_msc>0?quote.time_msc:(long)quote.time*1000;
+   if(!tickWindow.Add(timestamp,quote.bid,quote.ask,InpTickWindowMs)) return;
+   if(tickContextTime!=TimeCurrent() || atrNow<=0.0)
+   {
+      if(!IndicatorValue(hATR,1,atrNow) || atrNow<=0.0)
+         { Note("Waiting for completed-M1 ATR history."); return; }
+      tickTrend=0;
+      if(InpTickUseM5Trend)
+      {
+         double fast=0.0,slow=0.0;
+         if(!IndicatorValue(hFast,1,fast) || !IndicatorValue(hSlow,1,slow))
+            { Note("Waiting for optional M5 trend history."); return; }
+         tickTrend=fast>slow?1:fast<slow?-1:0;
+      }
+      tickContextTime=TimeCurrent();
+   }
+   if((InpMinATRPrice>0.0 && atrNow<InpMinATRPrice) ||
+      (InpMaxATRPrice>0.0 && atrNow>InpMaxATRPrice))
+      { Note("ATR outside configured range."); return; }
+   tickMinimumMove=MathMax(tickSize*2.0,MathMax(InpTickMinMoveATR*atrNow,
+                                             InpTickMinMoveSpread*(quote.ask-quote.bid)));
+   int direction=tickWindow.Signal(tickMinimumMove,InpTickConfirm,
+                                   InpTickMinimumSpanMs,InpTickMinEfficiency);
+   if(direction==0)
+   {
+      Note("Waiting for tick momentum: net "+DoubleToString(tickWindow.Net(),priceDigits)+
+           ", required "+DoubleToString(tickMinimumMove,priceDigits)+
+           ", samples "+IntegerToString(tickWindow.used)+".");
+      return;
+   }
+   if(InpTickUseM5Trend && direction!=tickTrend)
+      { Note("Tick signal conflicts with optional M5 trend."); return; }
+   setupDirection=direction; setupBar=quote.time; setupToken=(double)timestamp;
+}
+
 void TryEntry(MqlTick &quote)
 {
    if(setupDirection==0 || !stateReady || !historyReady) return;
    if(TimeCurrent()-setupBar>InpSetupExpirySeconds)
       { setupDirection=0; Note("Setup expired."); return; }
-   if((datetime)G("attempt")>=setupBar) { setupDirection=0; return; }
+   if(G("attempt")>=setupToken) { setupDirection=0; return; }
    if(Locked()) { Note("Protection lock active."); return; }
    if(!CanSend()) { Note("Connection or Algo Trading permission unavailable."); return; }
    if(!InpAllowLiveTrading && !(bool)MQLInfoInteger(MQL_TESTER) && (ENUM_ACCOUNT_TRADE_MODE)AccountInfoInteger(ACCOUNT_TRADE_MODE)==ACCOUNT_TRADE_MODE_REAL)
@@ -505,13 +577,13 @@ void TryEntry(MqlTick &quote)
       { Note("Entry cooldown."); return; }
    if(InpMaxTradesPerDay>0 && G("trades")>=InpMaxTradesPerDay)
       { Note("Daily submitted-entry limit reached."); return; }
-   if(InpTickFlow && (tickDirection!=setupDirection || tickCount<InpTickConfirm)) return;
    double spread=quote.ask-quote.bid;
    if(quote.bid<=0.0 || quote.ask<=quote.bid || quote.time<=0 ||
       (long)TimeCurrent()-(long)quote.time>InpMaxQuoteAgeSeconds)
       { Note("Invalid or stale quote."); return; }
    if(atrNow<=0.0 || spread>InpMaxSpreadATR*atrNow)
-      { Note("Spread exceeds ATR limit."); return; }
+      { Note("Spread "+DoubleToString(spread,priceDigits)+" > allowed "+
+             DoubleToString(InpMaxSpreadATR*atrNow,priceDigits)+"."); return; }
    bool buy=setupDirection>0;
    ENUM_ORDER_TYPE type=buy?ORDER_TYPE_BUY:ORDER_TYPE_SELL;
    ENUM_SYMBOL_TRADE_MODE mode=(ENUM_SYMBOL_TRADE_MODE)SymbolInfoInteger(_Symbol,SYMBOL_TRADE_MODE);
@@ -556,7 +628,8 @@ void TryEntry(MqlTick &quote)
    }
    volume=NormalizeDouble(volume,8);
    if(volume<minimum-1e-10 || volume<=0.0)
-      { Note("Minimum/fixed lot exceeds risk budget or volume limits."); return; }
+      { Note("Minimum/fixed lot exceeds risk: budget "+DoubleToString(budget,2)+
+             ", minimum-lot risk "+DoubleToString(minimum*(unitLoss+InpCommissionRoundTripPerLot),2)+"."); return; }
    double exactLoss=0.0,margin=0.0;
    if(!OrderCalcProfit(type,_Symbol,volume,adverseEntry,sl,exactLoss) ||
       !OrderCalcMargin(type,_Symbol,volume,adverseEntry,margin))
@@ -574,12 +647,17 @@ void TryEntry(MqlTick &quote)
       AccountInfoDouble(ACCOUNT_MARGIN)+margin>equity*InpMaxMarginPercent/100.0)
       { Note("Margin budget exceeded."); return; }
    // Persist before submission: no restart or timeout can reuse this setup.
-   S("attempt",(double)setupBar); S("entry",(double)TimeCurrent()); S("trades",G("trades")+1.0);
+   S("attempt",setupToken); S("entry",(double)TimeCurrent()); S("trades",G("trades")+1.0);
    S("budget",budget); S("plannedSL",sl); Flush();
    if(stateWriteFailed) { Note("State persistence failed: order submission canceled."); return; }
    setupDirection=0;
-   bool sent=buy?trade.Buy(volume,_Symbol,0.0,sl,tp,"KingBTC v1"):
-                 trade.Sell(volume,_Symbol,0.0,sl,tp,"KingBTC v1");
+   if(InpTickFlow)
+   {
+      tickWindow.Reset();
+      tickReadyAfter=TimeCurrent()+MathMax(InpCooldownSeconds,InpTickRearmSeconds);
+   }
+   bool sent=buy?trade.Buy(volume,_Symbol,0.0,sl,tp,"KingBTC v1.10"):
+                 trade.Sell(volume,_Symbol,0.0,sl,tp,"KingBTC v1.10");
    bool accepted=CheckResult(sent,"entry",true);
    if(accepted)
    {
@@ -590,15 +668,18 @@ void TryEntry(MqlTick &quote)
 }
 void Panel()
 {
-   if(!InpShowPanel) return;
+   if(!InpShowPanel || TimeCurrent()==lastPanelTime) return;
+   lastPanelTime=TimeCurrent();
    MqlTick quote; SymbolInfoTick(_Symbol,quote);
    double equity=AccountInfoDouble(ACCOUNT_EQUITY),peak=G("peak");
    double dd=peak>0.0?MathMax(0.0,(peak-equity)/peak*100.0):0.0;
-   Comment("KING OF SCALPER BTC | EXPERIMENTAL v1.00\n",
-      _Symbol," M1 | ",InpTickFlow?"Tick continuation":"Pullback breakout",
+   Comment("KING OF SCALPER BTC | EXPERIMENTAL v1.10\n",
+      _Symbol," M1 | ",InpTickFlow?"FAST rolling ticks":"Pullback breakout",
       "\nBalance: ",DoubleToString(AccountInfoDouble(ACCOUNT_BALANCE),2),
       "  Equity: ",DoubleToString(equity,2)," ",AccountInfoString(ACCOUNT_CURRENCY),
       "\nSpread: ",DoubleToString(quote.ask-quote.bid,priceDigits),"  ATR: ",DoubleToString(atrNow,priceDigits),
+      "\nTick net / threshold: ",DoubleToString(tickWindow.Net(),priceDigits)," / ",
+      DoubleToString(tickMinimumMove,priceDigits),"  Samples: ",tickWindow.used,
       "\nLast planned lot: ",DoubleToString(lastVolume,8),"  Risk: ",DoubleToString(lastRisk,2),
       "\nDaily equity P/L: ",DoubleToString(equity-G("base"),2),"  DD: ",DoubleToString(dd,2),"%",
       "\nDay/DD/Fault locks: ",(int)G("daylock"),"/",(int)G("ddlock"),"/",(int)G("fault"),
@@ -623,7 +704,12 @@ bool ValidInputs()
       InpDeviationPoints>=0 && InpMaxSpreadATR>0.0 && InpMaxCostToTarget>0.0 &&
       InpMaxMarginPercent>0.0 && InpMaxMarginPercent<=100.0 && InpMaxQuoteAgeSeconds>0 &&
       InpModifyIntervalSeconds>=1 && InpSessionStartMinute>=0 && InpSessionStartMinute<1440 &&
-      InpSessionEndMinute>=0 && InpSessionEndMinute<1440 && InpTickConfirm>=2 && InpTickConfirm<=20;
+      InpSessionEndMinute>=0 && InpSessionEndMinute<1440 && InpTickConfirm>=2 && InpTickConfirm<=20 &&
+      InpTickWindowMs>=250 && InpTickWindowMs<=30000 &&
+      InpTickMinimumSpanMs>=0 && InpTickMinimumSpanMs<=InpTickWindowMs &&
+      InpTickMinMoveATR>0.0 && InpTickMinMoveSpread>0.0 &&
+      InpTickMinEfficiency>0.0 && InpTickMinEfficiency<=1.0 &&
+      InpTickRearmSeconds>=1 && InpTickRearmSeconds<=60;
 }
 int OnInit()
 {
@@ -657,12 +743,13 @@ int OnInit()
    hPull=iMA(_Symbol,PERIOD_M1,InpPullbackEMA,0,MODE_EMA,PRICE_CLOSE);
    if(hATR==INVALID_HANDLE || hFast==INVALID_HANDLE || hSlow==INVALID_HANDLE || hPull==INVALID_HANDLE)
       return INIT_FAILED;
+   tickWindow.Reset();
    lastBar=iTime(_Symbol,PERIOD_M1,0);
    if(!EventSetTimer(1)) return INIT_FAILED;
    Print("KingBTC initialized. Account currency=",AccountInfoString(ACCOUNT_CURRENCY),
       "; commission allowance/lot=",InpCommissionRoundTripPerLot,
       "; initial day baseline is the first observed equity, not reconstructed midnight equity.");
-   Note("Waiting for next completed M1 candle.");
+   Note(InpTickFlow?"Collecting fresh rolling tick momentum.":"Waiting for next completed M1 candle.");
    return INIT_SUCCEEDED;
 }
 void OnDeinit(const int why)
@@ -689,12 +776,6 @@ void OnTick()
    if(!stateReady || !Acquire()) return;
    MqlTick quote;
    if(!SymbolInfoTick(_Symbol,quote)) { Release(); return; }
-   if(quote.bid!=previousBid)
-   {
-      int direction=previousBid<=0.0?0:quote.bid>previousBid?1:-1;
-      tickCount=direction==tickDirection?tickCount+1:1;
-      tickDirection=direction; previousBid=quote.bid;
-   }
    bool ready=true;
    if(TimeCurrent()!=lastMaintenance)
    {
@@ -704,8 +785,12 @@ void OnTick()
    }
    if(ready && !Locked())
    {
-      datetime bar=iTime(_Symbol,PERIOD_M1,0);
-      if(bar>0 && bar!=lastBar) { lastBar=bar; BuildSetup(); }
+      if(InpTickFlow) BuildTickSetup(quote);
+      else
+      {
+         datetime bar=iTime(_Symbol,PERIOD_M1,0);
+         if(bar>0 && bar!=lastBar) { lastBar=bar; BuildSetup(); }
+      }
       TryEntry(quote);
    }
    if(Locked()) { Note("Protection lock active: review panel and Experts log."); Cleanup(true); }
