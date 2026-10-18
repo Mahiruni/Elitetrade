@@ -80,7 +80,7 @@ int hATR=INVALID_HANDLE,hFast=INVALID_HANDLE,hSlow=INVALID_HANDLE,hPull=INVALID_
 string ns="",reason="Initializing";
 double tickSize=0.0,pointSize=0.0,atrNow=0.0,lastVolume=0.0,lastRisk=0.0;
 int digits=0,setupDirection=0,tickDirection=0,tickCount=0;
-datetime lastBar=0,setupBar=0,lastMaintenance=0,lastModify=0;
+datetime lastBar=0,setupBar=0,lastMaintenance=0,lastModify=0,lastCleanup=0;
 double previousBid=0.0,leaseValue=0.0;
 bool historyReady=false,stateReady=false,stateWriteFailed=false;
 string GK(string suffix) { return ns+"."+suffix; }
@@ -318,7 +318,8 @@ void Cleanup(bool protection)
       if(G("exit")!=0.0) { S("exit",0); Flush(); }
       return;
    }
-   if(!CanSend()) return;
+   if(!CanSend() || TimeLocal()-lastCleanup<2) return;
+   lastCleanup=TimeLocal();
    for(int i=OrdersTotal()-1;i>=0;i--)
    {
       ulong ticket=OrderGetTicket(i);
@@ -496,7 +497,7 @@ void TryEntry(MqlTick &quote)
    if((datetime)G("attempt")>=setupBar) { setupDirection=0; return; }
    if(Locked()) { Note("Protection lock active."); return; }
    if(!CanSend()) { Note("Connection or Algo Trading permission unavailable."); return; }
-   if(!InpAllowLiveTrading && (ENUM_ACCOUNT_TRADE_MODE)AccountInfoInteger(ACCOUNT_TRADE_MODE)==ACCOUNT_TRADE_MODE_REAL)
+   if(!InpAllowLiveTrading && !(bool)MQLInfoInteger(MQL_TESTER) && (ENUM_ACCOUNT_TRADE_MODE)AccountInfoInteger(ACCOUNT_TRADE_MODE)==ACCOUNT_TRADE_MODE_REAL)
       { Note("Live trading disabled in Inputs."); return; }
    if(!SessionAllowed()) { Note("Outside configured server-time session."); return; }
    if(AnySymbolExposure()) { Note("Existing symbol position or pending order: entry blocked."); return; }
