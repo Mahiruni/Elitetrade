@@ -82,10 +82,17 @@ double tickSize=0.0,pointSize=0.0,atrNow=0.0,lastVolume=0.0,lastRisk=0.0;
 int digits=0,setupDirection=0,tickDirection=0,tickCount=0;
 datetime lastBar=0,setupBar=0,lastMaintenance=0,lastModify=0;
 double previousBid=0.0,leaseValue=0.0;
-bool historyReady=false,stateReady=false;
+bool historyReady=false,stateReady=false,stateWriteFailed=false;
 string GK(string suffix) { return ns+"."+suffix; }
 double G(string suffix) { return GlobalVariableGet(GK(suffix)); }
-void S(string suffix,double value) { GlobalVariableSet(GK(suffix),value); }
+void S(string suffix,double value)
+{
+   if(GlobalVariableSet(GK(suffix),value)==0)
+   {
+      stateWriteFailed=true;
+      Print("KingBTC: state write failed; entries locked. Error=",GetLastError());
+   }
+}
 void Flush() { GlobalVariablesFlush(); }
 void Note(string text)
 {
@@ -118,6 +125,12 @@ bool OwnOrder()
 {
    return OrderGetString(ORDER_SYMBOL)==_Symbol &&
           (ulong)OrderGetInteger(ORDER_MAGIC)==InpMagic;
+}
+bool HasOwnPosition()
+{
+   for(int i=PositionsTotal()-1;i>=0;i--)
+      if(PositionGetTicket(i)>0 && OwnPosition()) return true;
+   return false;
 }
 bool HasOwnExposure()
 {
@@ -195,12 +208,13 @@ bool InitializeState()
       S("base",AccountInfoDouble(ACCOUNT_EQUITY));
       S("peak",AccountInfoDouble(ACCOUNT_EQUITY));
       S("day",(double)DayStart(TimeCurrent()));
-      S("daylock",0); S("ddlock",0); S("fault",0);
+      S("daylock",0); S("ddlock",0); S("fault",0); S("exit",0);
+      S("budget",0); S("plannedSL",0);
       S("attempt",0); S("entry",0); S("trades",0);
       S("reset",(double)InpProtectionResetToken);
       S("version",1); Flush();
    }
-   string required[]={"anchor","cash","base","peak","day","daylock","ddlock","fault","attempt","entry","trades","reset"};
+   string required[]={"anchor","cash","base","peak","day","daylock","ddlock","fault","attempt","entry","trades","reset","exit","budget","plannedSL"};
    for(int i=0;i<ArraySize(required);i++)
       if(!GlobalVariableCheck(GK(required[i]))) return false;
    if(G("version")!=1.0) return false;
@@ -212,7 +226,7 @@ bool InitializeState()
       if(!ReadFlows(flows,correction)) return false;
       S("cash",flows); S("base",AccountInfoDouble(ACCOUNT_EQUITY));
       S("peak",AccountInfoDouble(ACCOUNT_EQUITY)); S("day",(double)DayStart(TimeCurrent()));
-      S("daylock",0); S("ddlock",0); S("fault",0); S("trades",0);
+      S("daylock",0); S("ddlock",0); S("fault",0); S("exit",0); S("trades",0);
       S("reset",(double)InpProtectionResetToken); Flush();
       Print("KingBTC: explicit protection reset applied.");
    }
@@ -220,7 +234,7 @@ bool InitializeState()
 }
 void SetFault(string text)
 {
-   S("fault",1); Flush(); Note(text);
+   S("fault",1); S("exit",1); Flush(); Note(text);
 }
 bool UpdateProtection()
 {
@@ -236,7 +250,7 @@ bool UpdateProtection()
    }
    if(correction && G("fault")==0.0) SetFault("Broker correction detected: review history and reset while flat.");
    double equity=AccountInfoDouble(ACCOUNT_EQUITY);
-   if(equity<=0.0 || !MathIsValidNumber(equity)) { Note("Invalid account equity."); return false; }
+   if(equity<=0.0 || !MathIsValidNumber(equity)) { SetFault("Invalid/nonpositive equity: protection exit requested."); return false; }
    datetime day=DayStart(TimeCurrent());
    if((datetime)G("day")!=day)
    {
@@ -246,16 +260,16 @@ bool UpdateProtection()
    if(equity>G("peak")) { S("peak",equity); Flush(); }
    double daily=equity-G("base");
    if(InpDailyLossMoney>0.0 && daily<=-InpDailyLossMoney && G("daylock")==0.0)
-      { S("daylock",1); Flush(); Print("KingBTC: daily equity loss lock."); }
+      { S("daylock",1); S("exit",1); Flush(); Print("KingBTC: daily equity loss lock."); }
    if(InpDailyTargetMoney>0.0 && daily>=InpDailyTargetMoney && G("daylock")==0.0)
-      { S("daylock",2); Flush(); Print("KingBTC: daily target lock."); }
+      { S("daylock",2); S("exit",1); Flush(); Print("KingBTC: daily target lock."); }
    double peak=G("peak");
    if(peak<=0.0) { SetFault("Cash-adjusted high-water equity is invalid."); return false; }
    if(InpMaxDrawdownPercent>0.0 && (peak-equity)/peak*100.0>=InpMaxDrawdownPercent && G("ddlock")==0.0)
-      { S("ddlock",1); Flush(); Print("KingBTC: persistent drawdown lock."); }
+      { S("ddlock",1); S("exit",1); Flush(); Print("KingBTC: persistent drawdown lock."); }
    return true;
 }
-bool Locked() { return G("daylock")!=0.0 || G("ddlock")!=0.0 || G("fault")!=0.0; }
+bool Locked() { return stateWriteFailed || G("exit")!=0.0 || G("daylock")!=0.0 || G("ddlock")!=0.0 || G("fault")!=0.0; }
 bool CanSend()
 {
    return (bool)TerminalInfoInteger(TERMINAL_CONNECTED) &&
@@ -275,19 +289,42 @@ bool CheckResult(bool requestOK,string action,bool entry=false)
                              code==TRADE_RETCODE_ERROR || code==0)))
       SetFault("Entry outcome uncertain: reconcile broker history, then reset while flat.");
    // Any asynchronous acceptance consumes the setup; never retry the remaining volume.
-   if(entry && accepted && !HasOwnExposure())
+   if(entry && accepted && !HasOwnExposure() && !ConfirmedClosedDeal(trade.ResultDeal()))
       SetFault("Entry accepted but exposure not yet reconciled: review broker state.");
    return requestOK && accepted;
 }
+bool ConfirmedClosedDeal(ulong deal)
+{
+   if(deal==0 || !HistoryDealSelect(deal)) return false;
+   ulong identifier=(ulong)HistoryDealGetInteger(deal,DEAL_POSITION_ID);
+   if(identifier==0 || !HistorySelectByPosition(identifier)) return false;
+   double net=0.0; bool exitSeen=false;
+   for(int i=0;i<HistoryDealsTotal();i++)
+   {
+      ulong d=HistoryDealGetTicket(i);
+      ENUM_DEAL_TYPE type=(ENUM_DEAL_TYPE)HistoryDealGetInteger(d,DEAL_TYPE);
+      if(type!=DEAL_TYPE_BUY && type!=DEAL_TYPE_SELL) continue;
+      if((ulong)HistoryDealGetInteger(d,DEAL_MAGIC)!=InpMagic) return false;
+      net+=(type==DEAL_TYPE_BUY?1.0:-1.0)*HistoryDealGetDouble(d,DEAL_VOLUME);
+      ENUM_DEAL_ENTRY entry=(ENUM_DEAL_ENTRY)HistoryDealGetInteger(d,DEAL_ENTRY);
+      if(entry==DEAL_ENTRY_OUT || entry==DEAL_ENTRY_OUT_BY) exitSeen=true;
+   }
+   return exitSeen && MathAbs(net)<1e-8;
+}
 void Cleanup(bool protection)
 {
+   if(!HasOwnExposure())
+   {
+      if(G("exit")!=0.0) { S("exit",0); Flush(); }
+      return;
+   }
    if(!CanSend()) return;
    for(int i=OrdersTotal()-1;i>=0;i--)
    {
       ulong ticket=OrderGetTicket(i);
       if(ticket==0 || !OwnOrder()) continue;
       bool stale=TimeCurrent()-(datetime)OrderGetInteger(ORDER_TIME_SETUP)>=InpStalePendingSeconds;
-      if(protection || stale || (InpDeleteOpposite && HasOwnExposure() && PositionsTotal()>0))
+      if(protection || stale || (InpDeleteOpposite && HasOwnPosition()))
          CheckResult(trade.OrderDelete(ticket),"delete pending");
    }
    if(!protection || !InpCloseOnProtection) return;
@@ -313,6 +350,45 @@ double MinimumStopDistance()
    long freeze=SymbolInfoInteger(_Symbol,SYMBOL_TRADE_FREEZE_LEVEL);
    return (double)MathMax(stops,freeze)*pointSize+tickSize;
 }
+// Reconcile delayed and partial fills using the immutable pre-submission stop/budget.
+void ReconcilePositions()
+{
+   for(int i=PositionsTotal()-1;i>=0;i--)
+   {
+      ulong ticket=PositionGetTicket(i);
+      if(ticket==0 || !OwnPosition()) continue;
+      if(!PositionIsExclusivelyOurs(ticket))
+         { SetFault("Mixed netting ownership: manual reconciliation required."); continue; }
+      string id=(string)PositionGetInteger(POSITION_IDENTIFIER);
+      bool buy=(ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE)==POSITION_TYPE_BUY;
+      double fill=PositionGetDouble(POSITION_PRICE_OPEN);
+      double volume=PositionGetDouble(POSITION_VOLUME);
+      double currentSL=PositionGetDouble(POSITION_SL);
+      if(currentSL<=0.0) { SetFault("Position has no protective SL."); continue; }
+      if(!GlobalVariableCheck(GK("I"+id)) || !GlobalVariableCheck(GK("B"+id)))
+      {
+         datetime opened=(datetime)PositionGetInteger(POSITION_TIME);
+         if(G("plannedSL")<=0.0 || G("budget")<=0.0 || (double)opened+5.0<G("entry"))
+            { SetFault("Original entry risk records missing; no trailing-SL reconstruction."); continue; }
+         S("I"+id,G("plannedSL")); S("B"+id,G("budget")); Flush();
+      }
+      double initialSL=G("I"+id);
+      double initialR=buy?fill-initialSL:initialSL-fill;
+      if(initialR<=0.0) { SetFault("Unexpected fill beyond original protective stop."); continue; }
+      S("R"+id,initialR);
+      double loss=0.0;
+      if(!OrderCalcProfit(buy?ORDER_TYPE_BUY:ORDER_TYPE_SELL,_Symbol,volume,fill,initialSL,loss))
+         { SetFault("Unable to verify filled-position risk."); continue; }
+      double risk=MathAbs(loss)+volume*InpCommissionRoundTripPerLot;
+      if(risk>G("B"+id)+1e-8)
+         SetFault("Delayed/partial fill exceeds original budget; protective exit requested.");
+      // Manual widening/removal must not bypass the budget.
+      if((buy && currentSL<initialSL-tickSize*0.1) || (!buy && currentSL>initialSL+tickSize*0.1))
+         SetFault("Protective stop was widened beyond original stop.");
+   }
+   Flush();
+}
+
 void ManagePositions()
 {
    if(!CanSend() || TimeCurrent()-lastModify<InpModifyIntervalSeconds) return;
@@ -329,16 +405,12 @@ void ManagePositions()
       bool buy=(ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE)==POSITION_TYPE_BUY;
       double entry=PositionGetDouble(POSITION_PRICE_OPEN);
       double sl=PositionGetDouble(POSITION_SL),tp=PositionGetDouble(POSITION_TP);
-      string riskKey="R"+(string)PositionGetInteger(POSITION_IDENTIFIER);
-      double initialR=0.0;
-      if(GlobalVariableCheck(GK(riskKey))) initialR=G(riskKey);
-      else if(sl>0.0 && ((buy && sl<entry) || (!buy && sl>entry)))
-      {
-         initialR=MathAbs(entry-sl); S(riskKey,initialR); Flush();
-      }
-      else { Note("Original stop distance missing: protection exit only."); continue; }
-      if(initialR<=0.0) continue;
       if(sl<=0.0) { SetFault("Owned position has no stop: protection exit requested."); continue; }
+      string riskKey="R"+(string)PositionGetInteger(POSITION_IDENTIFIER);
+      if(!GlobalVariableCheck(GK(riskKey)))
+         { SetFault("Original R unavailable: protective exit requested."); continue; }
+      double initialR=G(riskKey);
+      if(initialR<=0.0) { SetFault("Invalid original R."); continue; }
       double market=buy?quote.bid:quote.ask;
       double profitDistance=buy?market-entry:entry-market;
       double candidate=sl;
@@ -501,26 +573,17 @@ void TryEntry(MqlTick &quote)
       AccountInfoDouble(ACCOUNT_MARGIN)+margin>equity*InpMaxMarginPercent/100.0)
       { Note("Margin budget exceeded."); return; }
    // Persist before submission: no restart or timeout can reuse this setup.
-   S("attempt",(double)setupBar); S("entry",(double)TimeCurrent()); S("trades",G("trades")+1.0); Flush();
+   S("attempt",(double)setupBar); S("entry",(double)TimeCurrent()); S("trades",G("trades")+1.0);
+   S("budget",budget); S("plannedSL",sl); Flush();
+   if(stateWriteFailed) { Note("State persistence failed: order submission canceled."); return; }
    setupDirection=0;
    bool sent=buy?trade.Buy(volume,_Symbol,0.0,sl,tp,"KingBTC v1"):
                  trade.Sell(volume,_Symbol,0.0,sl,tp,"KingBTC v1");
    bool accepted=CheckResult(sent,"entry",true);
    if(accepted)
    {
-      for(int i=PositionsTotal()-1;i>=0;i--)
-      {
-         ulong ticket=PositionGetTicket(i);
-         if(ticket==0 || !OwnPosition()) continue;
-         double fill=PositionGetDouble(POSITION_PRICE_OPEN),filledSL=PositionGetDouble(POSITION_SL);
-         if(filledSL<=0.0) { SetFault("Filled entry lacks SL: protection exit requested."); break; }
-         S("R"+(string)PositionGetInteger(POSITION_IDENTIFIER),MathAbs(fill-filledSL)); Flush();
-         double fillLoss=0.0,filledVolume=PositionGetDouble(POSITION_VOLUME);
-         if(!OrderCalcProfit(type,_Symbol,filledVolume,fill,filledSL,fillLoss) ||
-            MathAbs(fillLoss)+filledVolume*InpCommissionRoundTripPerLot>budget+1e-8)
-            SetFault("Fill risk exceeds planned budget: protection exit requested.");
-      }
-      if(!Locked()) Note("Entry accepted; monitoring broker position.");
+      ReconcilePositions();
+      if(!Locked()) Note(HasOwnExposure()?"Entry accepted; monitoring broker position.":"Entry confirmed completed; no open exposure.");
    }
    else if(!Locked()) Note("Entry rejected; setup consumed. See Experts log.");
 }
@@ -582,7 +645,7 @@ int OnInit()
    if(!Acquire()) { Print("Another instance holds the EA lease."); return INIT_FAILED; }
    stateReady=InitializeState();
    Release();
-   if(!stateReady) return INIT_FAILED;
+   if(!stateReady || stateWriteFailed) return INIT_FAILED;
    trade.SetExpertMagicNumber(InpMagic); trade.SetAsyncMode(false);
    trade.SetDeviationInPoints((ulong)InpDeviationPoints);
    trade.SetMarginMode();
@@ -616,7 +679,7 @@ void OnTimer()
    if(!stateReady || !Acquire()) return;
    bool ready=UpdateProtection();
    Cleanup(Locked());
-   if(ready && !Locked()) ManagePositions();
+   if(ready && !Locked()) { ReconcilePositions(); if(!Locked()) ManagePositions(); }
    if(Locked()) Cleanup(true);
    Release(); Panel();
 }
@@ -636,7 +699,7 @@ void OnTick()
    {
       ready=UpdateProtection(); lastMaintenance=TimeCurrent();
       Cleanup(Locked());
-      if(ready && !Locked()) ManagePositions();
+      if(ready && !Locked()) { ReconcilePositions(); if(!Locked()) ManagePositions(); }
    }
    if(ready && !Locked())
    {

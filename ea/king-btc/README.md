@@ -79,7 +79,7 @@ Protection uses ACCOUNT equity, so other trading can trigger closure of this EA'
 
 Daily equity baseline is sampled on first initialization or first observation after the configured reset time. It is not reconstructed historical midnight equity. During terminal downtime there are no samples. Existing SL/TP remain at the broker; automatic EA management is unavailable.
 
-Daily loss/target latches clear at the next observed broker-day boundary. Drawdown and execution-fault latches persist until an explicit token change while flat. Deposits do not clear a latch.
+Daily loss/target latches clear at the next observed broker-day boundary. A separate pending-exit latch survives rollover until owned exposure is confirmed gone. Drawdown and execution-fault latches persist until an explicit token change while flat. Deposits do not clear a latch.
 
 BALANCE/CREDIT/BONUS deal flows shift both day baseline and high-water equity to avoid treating cash transfers as trading profit. Commissions, swap, fees, and ordinary trade P/L remain in equity performance. CORRECTION deals cause a review lock because their meaning is ambiguous.
 
@@ -127,7 +127,7 @@ Stops and thresholds cannot guarantee a maximum realized loss: gaps, slippage, d
 - Setup timestamp and attempt count are persisted before order submission.
 - No automatic entry retry after an ambiguous result; execution fault latches for review.
 - Partial fills are accepted without topping up; any remaining active order blocks future entries.
-- Initial R is persisted by position identifier so trailing does not redefine original risk after restart.
+- Original stop and allocated budget are persisted before submission and bound to each position identifier. Delayed/partial fills are rechecked every maintenance pass. Initial R uses the immutable original stop, never the trailed stop.
 - If an owned position lacks a protective stop, cleanup is requested.
 - Check Experts for request retcode, order/deal IDs, skip reasons, and fault details.
 
