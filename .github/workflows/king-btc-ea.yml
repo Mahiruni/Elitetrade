@@ -1,0 +1,59 @@
+name: King BTC EA build
+on:
+  pull_request:
+    paths:
+      - 'ea/king-btc/**'
+      - '.github/workflows/king-btc-ea.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  numeric-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run shared risk arithmetic checks
+        run: |
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror ea/king-btc/tests/risk_tests.cpp -o /tmp/king-btc-tests
+          /tmp/king-btc-tests
+      - name: Compile and run rolling quote-window checks
+        run: |
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror ea/king-btc/tests/tick_tests.cpp -o /tmp/king-btc-ticks
+          /tmp/king-btc-ticks
+      - name: Check preset matches every EA input
+        run: python3 ea/king-btc/tests/check_preset.py
+  compile:
+    needs: numeric-tests
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install official MetaEditor and compile
+        shell: pwsh
+        run: ./ea/king-btc/build/compile.ps1
+      - name: Upload verified EA delivery package
+        uses: actions/upload-artifact@v4
+        with:
+          name: King_of_Scalper_BTC_Package
+          path: |
+            ea/king-btc/*.mq5
+            ea/king-btc/*.mqh
+            ea/king-btc/*.ex5
+            ea/king-btc/*.set
+            ea/king-btc/*.log
+            ea/king-btc/*.md
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve source and compiler evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: King_BTC_source_and_build_logs
+          path: |
+            ea/king-btc/*.mq5
+            ea/king-btc/*.mqh
+            ea/king-btc/*.set
+            ea/king-btc/*.log
+            ea/king-btc/*.md
+          retention-days: 30
