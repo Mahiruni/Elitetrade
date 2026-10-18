@@ -79,7 +79,7 @@ CTrade trade;
 int hATR=INVALID_HANDLE,hFast=INVALID_HANDLE,hSlow=INVALID_HANDLE,hPull=INVALID_HANDLE;
 string ns="",reason="Initializing";
 double tickSize=0.0,pointSize=0.0,atrNow=0.0,lastVolume=0.0,lastRisk=0.0;
-int digits=0,setupDirection=0,tickDirection=0,tickCount=0;
+int priceDigits=0,setupDirection=0,tickDirection=0,tickCount=0;
 datetime lastBar=0,setupBar=0,lastMaintenance=0,lastModify=0,lastCleanup=0;
 double previousBid=0.0,leaseValue=0.0;
 bool historyReady=false,stateReady=false,stateWriteFailed=false;
@@ -439,7 +439,7 @@ void ManagePositions()
       }
       candidate=buy?KPriceFloor(MathMin(candidate,quote.bid-minDist),tickSize):
                     KPriceCeil(MathMax(candidate,quote.ask+minDist),tickSize);
-      candidate=NormalizeDouble(candidate,digits);
+      candidate=NormalizeDouble(candidate,priceDigits);
       bool improve=buy?candidate>=sl+tickSize*0.99:candidate<=sl-tickSize*0.99;
       if(improve && candidate>0.0)
          CheckResult(trade.PositionModify(ticket,candidate,tp),"tighten stop");
@@ -525,11 +525,11 @@ void TryEntry(MqlTick &quote)
    double rawSL=entry+(buy?-InpStopATR*atrNow:InpStopATR*atrNow);
    double sl=buy?KPriceFloor(MathMin(rawSL,quote.bid-minDist),tickSize):
                  KPriceCeil(MathMax(rawSL,quote.ask+minDist),tickSize);
-   sl=NormalizeDouble(sl,digits);
+   sl=NormalizeDouble(sl,priceDigits);
    double stopDistance=MathAbs(entry-sl);
    double tp=buy?KPriceCeil(entry+InpRewardR*stopDistance,tickSize):
                  KPriceFloor(entry-InpRewardR*stopDistance,tickSize);
-   tp=NormalizeDouble(tp,digits);
+   tp=NormalizeDouble(tp,priceDigits);
    if(sl<=0.0 || tp<=0.0 || stopDistance<=0.0) { Note("Invalid protective prices."); return; }
    double minimum=SymbolInfoDouble(_Symbol,SYMBOL_VOLUME_MIN);
    double maximum=MathMin(SymbolInfoDouble(_Symbol,SYMBOL_VOLUME_MAX),InpMaxLot);
@@ -598,7 +598,7 @@ void Panel()
       _Symbol," M1 | ",InpTickFlow?"Tick continuation":"Pullback breakout",
       "\nBalance: ",DoubleToString(AccountInfoDouble(ACCOUNT_BALANCE),2),
       "  Equity: ",DoubleToString(equity,2)," ",AccountInfoString(ACCOUNT_CURRENCY),
-      "\nSpread: ",DoubleToString(quote.ask-quote.bid,digits),"  ATR: ",DoubleToString(atrNow,digits),
+      "\nSpread: ",DoubleToString(quote.ask-quote.bid,priceDigits),"  ATR: ",DoubleToString(atrNow,priceDigits),
       "\nLast planned lot: ",DoubleToString(lastVolume,8),"  Risk: ",DoubleToString(lastRisk,2),
       "\nDaily equity P/L: ",DoubleToString(equity-G("base"),2),"  DD: ",DoubleToString(dd,2),"%",
       "\nDay/DD/Fault locks: ",(int)G("daylock"),"/",(int)G("ddlock"),"/",(int)G("fault"),
@@ -635,7 +635,7 @@ int OnInit()
    if(!SymbolSelect(_Symbol,true)) return INIT_FAILED;
    tickSize=SymbolInfoDouble(_Symbol,SYMBOL_TRADE_TICK_SIZE);
    pointSize=SymbolInfoDouble(_Symbol,SYMBOL_POINT);
-   digits=(int)SymbolInfoInteger(_Symbol,SYMBOL_DIGITS);
+   priceDigits=(int)SymbolInfoInteger(_Symbol,SYMBOL_DIGITS);
    if(tickSize<=0.0 || pointSize<=0.0) return INIT_FAILED;
    ns="KBT1."+StringFormat("%I64d",AccountInfoInteger(ACCOUNT_LOGIN))+"."+
       IntegerToString((long)HashText(AccountInfoString(ACCOUNT_SERVER)+"|"+_Symbol+"|"+(string)InpMagic));

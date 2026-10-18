@@ -32,7 +32,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: King_of_Scalper_BTC_Package
-          path: ea/king-btc/King_of_Scalper_BTC_Package.zip
+          path: |
+            ea/king-btc/*.mq5
+            ea/king-btc/*.mqh
+            ea/king-btc/*.ex5
+            ea/king-btc/*.set
+            ea/king-btc/*.log
+            ea/king-btc/*.md
           if-no-files-found: error
           retention-days: 30
       - name: Preserve source and compiler evidence
